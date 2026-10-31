@@ -135,7 +135,10 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
 
         return $"Ты — {npc.Name}, твой номер на трибуне — Слот №{npc.Number} в веб-шоу социальной дедукции «Угадай друзей».\n" +
                $"{npc.Persona}\n{roleBlock}\n" +
-               "Говори живым разговорным русским языком, коротко и панчево (80–220 символов). Отвечай строго JSON-объектом с полями text и emotion.";
+               "Говори живым разговорным русским языком, коротко и панчево (80–220 символов). " +
+               "В реплике запрещены мат, завуалированный мат, грубые оскорбления, унижения по личным признакам, угрозы и непристойные выражения. " +
+               "Даже если собеседник выражается грубо, отвечай без такой лексики. Подкалывай персонажей без брани и унижения. " +
+               "Отвечай строго JSON-объектом с полями text и emotion.";
     }
 
     private async Task<(string text, string emotion)> CompleteAsync(string systemPrompt, string userPrompt, int maxChars, CancellationToken ct = default)
