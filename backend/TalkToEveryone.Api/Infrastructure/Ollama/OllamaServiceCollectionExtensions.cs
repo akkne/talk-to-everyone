@@ -26,14 +26,36 @@ public static class OllamaServiceCollectionExtensions
         services.Configure<OllamaOptions>(section);
 
         OllamaOptions configuredOptions = section.Get<OllamaOptions>() ?? new OllamaOptions();
+        RegisterDomainAndInfrastructureServices(services);
+        RegisterTypedOllamaHttpClient(services, configuredOptions);
 
+        services.AddHostedService<OllamaWarmupHostedService>();
+        services.AddHostedService<DialogueGenerationWorker>();
+        return services;
+    }
+
+    /// <summary>
+    /// Регистрирует синглтон-сервисы генерации диалогов, промптов и очередей.
+    /// </summary>
+    private static void RegisterDomainAndInfrastructureServices(IServiceCollection services)
+    {
         services.AddSingleton<NpcEmotionCatalog>();
         services.AddSingleton<OllamaJsonSchemaCatalog>();
         services.AddSingleton<INpcPromptComposer, NpcPromptComposer>();
         services.AddSingleton<IGameGenerationQueue, ChannelGameGenerationQueue>();
         services.AddSingleton<IRoundDialogueCoordinator, RoundDialogueCoordinator>();
         services.AddSingleton<IDialogueEventBroadcaster, LoggingDialogueEventBroadcaster>();
+        services.AddSingleton<INpcDialogueModel, OllamaNpcDialogueModel>();
+        services.AddSingleton<INpcReactionModel, OllamaNpcReactionModel>();
+    }
 
+    /// <summary>
+    /// Регистрирует типизированный <see cref="OllamaHttpClient"/> через <see cref="IHttpClientFactory"/>.
+    /// </summary>
+    private static void RegisterTypedOllamaHttpClient(
+        IServiceCollection services,
+        OllamaOptions configuredOptions)
+    {
         services.AddHttpClient<IOllamaTransport, OllamaHttpClient>(client =>
         {
             client.BaseAddress = new Uri(configuredOptions.BaseUrl);
@@ -42,13 +64,5 @@ public static class OllamaServiceCollectionExtensions
                 configuredOptions.TimeoutSeconds + HttpTimeoutBufferSeconds);
             client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
         });
-
-        services.AddSingleton<INpcDialogueModel, OllamaNpcDialogueModel>();
-        services.AddSingleton<INpcReactionModel, OllamaNpcReactionModel>();
-
-        services.AddHostedService<OllamaWarmupHostedService>();
-        services.AddHostedService<DialogueGenerationWorker>();
-
-        return services;
     }
 }

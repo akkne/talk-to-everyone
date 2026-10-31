@@ -25,7 +25,12 @@ public sealed class OllamaNpcDialogueModel(
     private const int MaxReplyCharacters = 500;
     private readonly OllamaOptions _settings = options.Value;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Асинхронно генерирует ответ выбранного NPC с учётом его роли, секретного лора и истории разговора.
+    /// </summary>
+    /// <param name="prompt">Контекст выступления или допроса NPC.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Текст реплики и нормализованный код эмоции.</returns>
     public async Task<NpcReply> GenerateReplyAsync(
         NpcDialoguePrompt prompt,
         CancellationToken cancellationToken)
@@ -49,6 +54,9 @@ public sealed class OllamaNpcDialogueModel(
         return ParseAndValidateReply(rawJson);
     }
 
+    /// <summary>
+    /// Десериализует JSON-ответ модели, проверяет непустоту реплики и нормализует код эмоции.
+    /// </summary>
     private NpcReply ParseAndValidateReply(string rawJson)
     {
         OllamaSpeakerReplyPayload? payload = JsonSerializer.Deserialize<OllamaSpeakerReplyPayload>(rawJson);
@@ -58,6 +66,9 @@ public sealed class OllamaNpcDialogueModel(
         return new NpcReply(cleanedText, normalizedEmotion);
     }
 
+    /// <summary>
+    /// Очищает и ограничивает длину сгенерированного текста реплики NPC.
+    /// </summary>
     private static string SanitizeReplyText(string? rawText)
     {
         if (string.IsNullOrWhiteSpace(rawText))

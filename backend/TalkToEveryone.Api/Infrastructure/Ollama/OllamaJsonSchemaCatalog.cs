@@ -66,6 +66,9 @@ public sealed class OllamaJsonSchemaCatalog
     /// </summary>
     public JsonElement GetReactionBatchSchema() => _reactionBatchSchema;
 
+    /// <summary>
+    /// Парсит и клонирует корневой <see cref="JsonElement"/> из строкового представления схемы.
+    /// </summary>
     private static JsonElement ParseSchema(string rawJson)
     {
         using JsonDocument document = JsonDocument.Parse(rawJson);

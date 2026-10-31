@@ -27,7 +27,12 @@ public sealed class OllamaNpcReactionModel(
 
     private readonly OllamaOptions _settings = options.Value;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Асинхронно генерирует реакции всех слушающих NPC одним батч-запросом к локальной модели.
+    /// </summary>
+    /// <param name="prompt">Контекст произнесённой реплики и список слушающих NPC.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Коллекция реакций слушающих NPC.</returns>
     public async Task<IReadOnlyList<NpcReactionResult>> GenerateReactionsAsync(
         NpcReactionBatchPrompt prompt,
         CancellationToken cancellationToken)
@@ -55,6 +60,9 @@ public sealed class OllamaNpcReactionModel(
         return MapReactionsToListeners(rawJson, prompt.Listeners);
     }
 
+    /// <summary>
+    /// Сопоставляет массив ответов модели с профилями слушающих участников партии.
+    /// </summary>
     private IReadOnlyList<NpcReactionResult> MapReactionsToListeners(
         string rawJson,
         IReadOnlyList<NpcListenerProfile> listeners)
@@ -75,6 +83,9 @@ public sealed class OllamaNpcReactionModel(
         return results;
     }
 
+    /// <summary>
+    /// Создаёт нормализованный результат реакции для одного слушающего NPC.
+    /// </summary>
     private NpcReactionResult BuildSingleReactionResult(
         NpcListenerProfile listener,
         OllamaReactionItemPayload? item)
@@ -96,6 +107,9 @@ public sealed class OllamaNpcReactionModel(
             HiddenReason: reason);
     }
 
+    /// <summary>
+    /// Обрезает строку до максимально допустимой длины.
+    /// </summary>
     private static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength].TrimEnd();
 }

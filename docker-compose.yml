@@ -59,6 +59,8 @@ services:
       Ollama__TimeoutSeconds: ${OLLAMA__TIMEOUTSECONDS:-30}
       Ollama__MaxContextTokens: ${OLLAMA__MAXCONTEXTTOKENS:-4096}
       Ollama__MaxPredictTokens: ${OLLAMA__MAXPREDICTTOKENS:-120}
+      Ollama__ReactionBatchPredictTokens: ${OLLAMA__REACTIONBATCHPREDICTTOKENS:-480}
+      Ollama__MaxHistoryEntries: ${OLLAMA__MAXHISTORYENTRIES:-12}
       Ollama__Temperature: ${OLLAMA__TEMPERATURE:-0.75}
       Ollama__KeepAlive: ${OLLAMA__KEEPALIVE:--1}
       Ollama__QueueCapacity: ${OLLAMA__QUEUECAPACITY:-64}

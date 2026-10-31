@@ -40,6 +40,9 @@ public sealed class DialogueGenerationWorker(
         }
     }
 
+    /// <summary>
+    /// Обрабатывает одну задачу генерации с контролем таймаута и перехватом ошибок инференса.
+    /// </summary>
     private async Task ProcessSingleTaskSafelyAsync(DialogueTask task, CancellationToken stoppingToken)
     {
         using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
@@ -60,6 +63,9 @@ public sealed class DialogueGenerationWorker(
         }
     }
 
+    /// <summary>
+    /// Выполняет двухшаговый конвейер «1 + 1»: публикация реплики спикера, затем батч реакций слушателей.
+    /// </summary>
     private async Task ExecuteTwoStepPipelineAsync(DialogueTask task, CancellationToken cancellationToken)
     {
         NpcDialoguePrompt prompt = task.DialoguePrompt;
@@ -83,6 +89,9 @@ public sealed class DialogueGenerationWorker(
         }
     }
 
+    /// <summary>
+    /// Запрашивает у модели пакет реакций остальных участников студии и публикует их в сессию.
+    /// </summary>
     private async Task GenerateAndPublishReactionsAsync(
         DialogueTask task,
         string spokenText,
@@ -104,6 +113,9 @@ public sealed class DialogueGenerationWorker(
         await broadcaster.PublishNpcReactionsAsync(speakerPrompt.SessionId, reactions, cancellationToken);
     }
 
+    /// <summary>
+    /// Переводит ошибку генерации в событие <c>QuestionFailed</c> для допроса раунда 4 или логирует сбой авто-реплики.
+    /// </summary>
     private async Task HandleTaskFailureAsync(
         DialogueTask task,
         DialogueFailureCode code,

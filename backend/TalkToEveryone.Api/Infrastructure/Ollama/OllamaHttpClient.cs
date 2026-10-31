@@ -24,7 +24,15 @@ public sealed class OllamaHttpClient(
 
     private readonly OllamaOptions _settings = options.Value;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Выполняет запрос генерации к эндпоинту <c>POST /api/chat</c> со строгой JSON-схемой ответа.
+    /// </summary>
+    /// <param name="systemPrompt">Системная инструкция модели.</param>
+    /// <param name="userPrompt">Пользовательский запрос с контекстом раунда.</param>
+    /// <param name="formatSchema">JSON Schema ожидаемого объекта ответа.</param>
+    /// <param name="maxPredictTokens">Лимит генерируемых токенов (<c>num_predict</c>).</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Сырая JSON-строка, возвращённая моделью в поле <c>message.content</c>.</returns>
     public async Task<string> CompleteChatJsonAsync(
         string systemPrompt,
         string userPrompt,
@@ -46,7 +54,11 @@ public sealed class OllamaHttpClient(
         return content;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Проверяет, загружена ли целевая модель в локальное хранилище Ollama (<c>GET /api/tags</c>).
+    /// </summary>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns><c>true</c>, если модель присутствует в списке доступных тегов; иначе <c>false</c>.</returns>
     public async Task<bool> IsConfiguredModelInstalledAsync(CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await httpClient.GetAsync(TagsEndpoint, cancellationToken);
@@ -61,7 +73,10 @@ public sealed class OllamaHttpClient(
         return tags.Models.Any(item => MatchesModelName(item.Name, _settings.Model));
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Запрашивает скачивание целевой модели через <c>POST /api/pull</c>.
+    /// </summary>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     public async Task PullConfiguredModelAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Requesting Ollama to pull model {ModelName}", _settings.Model);
@@ -71,6 +86,9 @@ public sealed class OllamaHttpClient(
         logger.LogInformation("Model {ModelName} successfully pulled by Ollama", _settings.Model);
     }
 
+    /// <summary>
+    /// Собирает DTO запроса к <c>/api/chat</c> с настройками контекста, лимита токенов и удержания в VRAM.
+    /// </summary>
     private OllamaChatRequestDto BuildChatRequest(
         string systemPrompt,
         string userPrompt,
@@ -97,6 +115,9 @@ public sealed class OllamaHttpClient(
             Options: modelParams);
     }
 
+    /// <summary>
+    /// Сравнивает имя установленной модели в Ollama с именем из конфигурации.
+    /// </summary>
     private static bool MatchesModelName(string installedName, string configuredName) =>
         string.Equals(installedName, configuredName, StringComparison.OrdinalIgnoreCase) ||
         installedName.StartsWith($"{configuredName}:", StringComparison.OrdinalIgnoreCase);

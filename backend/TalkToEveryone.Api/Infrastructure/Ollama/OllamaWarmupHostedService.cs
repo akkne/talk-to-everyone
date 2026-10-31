@@ -45,6 +45,9 @@ public sealed class OllamaWarmupHostedService(
         }
     }
 
+    /// <summary>
+    /// Проверяет наличие модели в локальном томе Ollama и при необходимости инициирует скачивание.
+    /// </summary>
     private async Task EnsureModelInstalledAsync(CancellationToken cancellationToken)
     {
         bool installed = await transport.IsConfiguredModelInstalledAsync(cancellationToken);
@@ -63,6 +66,9 @@ public sealed class OllamaWarmupHostedService(
         await transport.PullConfiguredModelAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Отправляет короткий прогревочный запрос для загрузки модели в VRAM с параметром <c>keep_alive: -1</c>.
+    /// </summary>
     private async Task WarmupModelInVramAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Warming up Ollama model {ModelName} in VRAM", _settings.Model);
