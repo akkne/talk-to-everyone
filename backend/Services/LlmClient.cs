@@ -11,7 +11,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config)
         var endpoint = config["LLM_ENDPOINT"];
         var key = config["LLM_API_KEY"];
         if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(key))
-            return ($"Я {npc.Name}. Помню эту историю по-своему. Что именно вас интересует?", "neutral");
+            throw new InvalidOperationException("Set LLM_ENDPOINT and LLM_API_KEY to generate NPC answers.");
         var model = config["LLM_MODEL"] ?? throw new InvalidOperationException("Set LLM_MODEL.");
         var messages = new List<object>
         {

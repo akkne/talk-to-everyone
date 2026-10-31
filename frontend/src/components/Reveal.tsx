@@ -5,7 +5,7 @@ import { Icon } from './Icon';
 export function Reveal({ onExit }: { onExit: () => void }) {
   const { reveal, teamScore, titles, playerId, board, npcs } = useGameStore();
   const number = (id: string) => String(npcs.find(n => n.id === id)?.number ?? '?').padStart(2, '0');
-  return <main className="reveal-page"><div className="eyebrow">ДЕЛО № 001 / ВСКРЫТИЕ</div><h1>Теперь всё<br /><em>сходится.</em></h1><p className="muted">Убедительная история ещё не делает человека другом.</p>
+  return <main className="reveal-page"><div className="eyebrow">ВСКРЫТИЕ ДЕЛА</div><h1>Теперь всё<br /><em>сходится.</em></h1><p className="muted">Убедительная история ещё не делает человека другом.</p>
     <div className="reveal-score"><b>{teamScore}</b><span>общих очков<br />{titles[playerId] || 'Ожидаем итоговый титул от сервера'}</span></div>
     {!reveal ? <div className="reveal-wait">Ожидаем итог от сервера.</div> : <div className="reveal-grid"><section><h2>Настоящие друзья</h2>{reveal.trueFriends.map(([a, b]) => {
       const correct = board.pairs.some(pair => pair.includes(a) && pair.includes(b));

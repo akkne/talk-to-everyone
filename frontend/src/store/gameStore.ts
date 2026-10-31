@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { S2C } from '../shared/contract';
 import { UI } from '../shared/config';
-import type { Board, ChatMessage, Events, VotingState, LobbyState, NpcMeta, Player, QuestionState, RevealData, Round, RoundSpec, SceneSpec, SeatState } from '../shared/types';
+import type { Board, ChatMessage, Events, VotingState, GameInfo, LobbyState, NpcMeta, Player, QuestionState, RevealData, Round, RoundSpec, SceneSpec, SeatState } from '../shared/types';
 
 export type ConnectionStatus = 'offline' | 'connecting' | 'authenticating' | 'syncing' | 'ready' | 'reconnecting';
 interface GameState {
@@ -12,6 +12,7 @@ interface GameState {
   score: Record<string, number>; titles: Record<string, string>; reveal: RevealData | null;
   chat: ChatMessage[]; questions: QuestionState; boardOpen: boolean;
   error: string | null; rtt: number | null;
+  gameInfo: GameInfo | null; gameInfoError: string | null;
   metrics: { fps: number; calls: number; triangles: number; geometries: number; textures: number };
 }
 function initial(): GameState {
@@ -20,11 +21,14 @@ function initial(): GameState {
     round: null, rounds: [], roundEnded: false, lobby: null, scene: null, players: [], npcs: [], seats: [],
     board: { pairs: [], liars: [], locks: {}, notes: {}, submitted: {} }, score: {}, titles: {}, reveal: null,
     chat: [], questions: { remaining: 0, askedTo: [], pending: false }, boardOpen: false,
-    error: null, rtt: null, metrics: { fps: 0, calls: 0, triangles: 0, geometries: 0, textures: 0 },
+    error: null, rtt: null, gameInfo: null, gameInfoError: null, metrics: { fps: 0, calls: 0, triangles: 0, geometries: 0, textures: 0 },
   };
 }
 export const useGameStore = create<GameState>(() => initial());
-export function resetGame() { useGameStore.setState(initial(), true); }
+export function resetGame() {
+  const { gameInfo, gameInfoError } = useGameStore.getState();
+  useGameStore.setState({ ...initial(), gameInfo, gameInfoError }, true);
+}
 type Handlers = { [K in keyof Events]: (payload: Events[K]) => void };
 const set = useGameStore.setState;
 const scoreFields = (players: { id: string; score: number; title: string }[]) => ({
@@ -54,7 +58,7 @@ const handlers: Handlers = {
   [S2C.STATE_SNAPSHOT]: p => set({
     sessionId: p.sessionId, playerId: p.me.id, role: p.me.role,
     phase: p.phase === 'finished' ? 'reveal' : p.phase,
-    round: p.round, rounds: p.rounds, roundEnded: false, scene: p.scene, players: p.players, npcs: p.npcs, seats: p.seats,
+    round: p.round, rounds: p.rounds, gameInfo: p.gameInfo, gameInfoError: null, roundEnded: false, scene: p.scene, players: p.players, npcs: p.npcs, seats: p.seats,
     voting: p.voting, teamScore: p.teamScore, board: p.board, questions: p.questions, chat: p.chat.slice(-UI.MAX_CHAT), score: p.score,
     titles: p.scoreboard ? scoreFields(p.scoreboard).titles : {}, reveal: p.reveal,
     error: null, boardOpen: false,

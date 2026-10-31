@@ -11,7 +11,7 @@ export GAME_ORIGINS='http://localhost:5173'
 dotnet run --project backend/Backend.csproj
 ```
 
-Сервер применяет миграции при запуске. Проверки: `/health`, `/health/db`. Hub: `/hubs/game`. Для облачной модели задайте `LLM_ENDPOINT` (полный URL OpenAI-compatible chat completions), `LLM_MODEL`, `LLM_API_KEY`; без них NPC дают тестовый ответ. Длительность раунда и окна выбора: `GAME_ROUND_SECONDS`, `GAME_CHOICE_SECONDS`.
+Сервер применяет миграции при запуске. Проверки: `/health`, `/health/db`. Hub: `/hubs/game`. Для облачной модели задайте `LLM_ENDPOINT` (полный URL OpenAI-compatible chat completions), `LLM_MODEL`, `LLM_API_KEY`; без них сервер возвращает `QuestionFailed` при вопросе NPC. Длительность раунда и окна выбора: `GAME_ROUND_SECONDS`, `GAME_CHOICE_SECONDS`.
 
 [Контракт](docs/backend.md) · [Роадмап](docs/roadmap.md)
 

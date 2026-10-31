@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SignalRClient } from './core/signalr';
 import { ClientContext, connectionStatus, receiveEvent } from './core/client';
-import type { GameClient } from './shared/types';
+import type { GameClient, GameInfo } from './shared/types';
 import { resetGame, useGameStore } from './store/gameStore';
 import { resetCache } from './store/cacheStore';
 import { Lobby } from './components/Lobby';
@@ -26,6 +26,14 @@ export default function App() {
     await next.connect(token, name);
   };
   const exit = async () => { await activeClient.current.disconnect(); resetGame(); resetCache(); setQuestions(false); };
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${import.meta.env.VITE_HUB_ORIGIN || ''}/api/game-info`, { signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json() as Promise<GameInfo>; })
+      .then(gameInfo => useGameStore.setState({ gameInfo, gameInfoError: null }))
+      .catch(() => { if (!controller.signal.aborted) useGameStore.setState(state => ({ gameInfoError: state.gameInfo ? null : 'Не удалось загрузить правила игры с сервера.' })); });
+    return () => controller.abort();
+  }, []);
   useEffect(() => () => { void activeClient.current.disconnect(); }, []);
   useEffect(() => { setQuestions(round?.phase === 'interrogation'); }, [round?.phase]);
   useEffect(() => { if ((boardOpen || questions || !!voting) && document.pointerLockElement) document.exitPointerLock(); }, [boardOpen, questions, voting]);

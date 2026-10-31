@@ -11,7 +11,7 @@ function moduleUrl(path) {
 }
 const load = p => import(moduleUrl(resolve('src/scene', p + '.ts')));
 const { walk } = await load('movement');
-const { previewScene } = await load('world');
+const { previewScene } = await import(moduleUrl(resolve('tests/fixtures/previewScene.ts')));
 const { CameraController } = await load('CameraController');
 const empty = () => ({ ...structuredClone(previewScene), room: { width: 20, depth: 24, height: 7, walls: [], obstacles: [], platforms: [], ramps: [] } });
 test('walls and thin furniture stop a long movement without tunneling', () => {

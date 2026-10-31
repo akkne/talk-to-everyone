@@ -4,7 +4,8 @@ export type NpcId = string;
 export interface Vec3 { x: number; y: number; z: number }
 export interface Pose { position: Vec3; yaw: number; pitch: number; mode: 'walking' | 'seated'; seatId: string | null; seq: number }
 export interface Player { id: string; name: string; connected: boolean; pose: Pose }
-export interface NpcMeta { id: NpcId; number: number; color: string; anchorId: string }
+export interface NpcAppearance { style: 'sport' | 'tech' | 'creative' | 'smart' | 'polished' | 'casual'; accessory: 'headphones' | 'glasses' | 'beanie' | 'cap' | 'none'; hair: number; skin: number }
+export interface NpcMeta { id: NpcId; number: number; color: string; anchorId: string; appearance?: NpcAppearance }
 export interface NpcDetails { displayName: string; photoColor: string; voiceHint: string }
 export interface Chunk { id: NpcId; details: NpcDetails; sizeBytes: number }
 export interface SceneSpec { version: string; room: { width: number; depth: number; height: number; platforms: { id: string; center: Vec3; size: Vec3 }[]; ramps: { id: string; from: Vec3; to: Vec3; width: number }[]; obstacles: { id: string; center: Vec3; size: Vec3 }[]; walls: { id: string; center: Vec3; size: Vec3 }[] }; npcStands: { id: string; position: Vec3; yaw: number; level: number }[]; playerSeats: { id: string; position: Vec3; yaw: number; exit: Vec3 }[]; spawnPoints: Vec3[] }
@@ -16,9 +17,10 @@ export interface QuestionState { remaining: number; askedTo: NpcId[]; pending: b
 export interface ChatMessage { id: string; npc: NpcId; text: string; inReplyTo: string | null; emotion: string | null; at: number }
 export interface RevealData { trueFriends: [NpcId, NpcId][]; actors: NpcId[] }
 export interface ScoreEntry { id: string; score: number; title: string }
+export interface GameInfo { npcCount: number; pairCount: number; actorCount: number; rounds: RoundSpec[]; choiceRounds: number[]; questionLimit: number; questionMaxLength: number; noteMaxLength: number; scoring: { correct: { round: number; points: number }[]; mixed: number; twoActors: number } }
 export interface LobbyState { sessionId: string; players: { id: string; name: string; connected: boolean }[]; leaderId: string | null; minPlayers: number; canStart: boolean; started: boolean }
 export interface VotingState { round: number; stage: number; candidates: [NpcId, NpcId][]; eligible: boolean; submitted: boolean; received: number; total: number; endsAt: number }
-export interface Snapshot { voting: VotingState | null; teamScore: number; sessionId: string; me: { id: string; role: string }; phase: 'lobby' | 'playing' | 'finished'; round: Round | null; rounds: RoundSpec[]; scene: SceneSpec; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board; questions: QuestionState; chat: ChatMessage[]; worldSizeBytes: number; score: Record<string, number>; scoreboard: ScoreEntry[] | null; reveal: RevealData | null }
+export interface Snapshot { voting: VotingState | null; teamScore: number; sessionId: string; me: { id: string; role: string }; phase: 'lobby' | 'playing' | 'finished'; round: Round | null; rounds: RoundSpec[]; gameInfo: GameInfo; scene: SceneSpec; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board; questions: QuestionState; chat: ChatMessage[]; worldSizeBytes: number; score: Record<string, number>; scoreboard: ScoreEntry[] | null; reveal: RevealData | null }
 type Request = { requestId: string };
 export interface Commands {
   [C2S.AUTH]: { token: string; name: string };

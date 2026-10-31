@@ -29,7 +29,7 @@ public static class GameLogic
     public static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     public static string PairKey(string a, string b) => string.CompareOrdinal(a, b) < 0 ? $"{a}:{b}" : $"{b}:{a}";
     public static object PlayerView(GamePlayer p) => new { id = p.Id, name = p.Name, connected = p.Connected, pose = JsonData.Read<PoseData>(p.PoseJson) };
-    public static object NpcView(GameNpc n) => new { id = n.Id, number = n.Number, color = n.Color, anchorId = $"anchor-{n.Number}" };
+    public static object NpcView(GameNpc n) => new { id = n.Id, number = n.Number, color = n.Color, anchorId = $"anchor-{n.Number}", appearance = NpcAppearance.From(n) };
     public static object Details(GameNpc n) => new { displayName = n.Name, photoColor = n.Color, voiceHint = "neutral" };
     public static object RoundView(GameSession s) => new { n = s.Round, phase = s.RoundPhase, endsAt = s.EndsAt, choiceEndsAt = s.RoundPhase == "choice" ? s.EndsAt : (long?)null };
     public static object[] RoundSpecs(int durationSec) =>
@@ -64,6 +64,7 @@ public static class GameLogic
         {
             sessionId = session.Id, me = new { id = me.Id, role = me.Role }, phase = session.Phase,
             round = session.Phase == "lobby" ? null : RoundView(session), rounds = RoundSpecs(settings.RoundSeconds), scene = Scene,
+            gameInfo = await GameRules.InfoAsync(db, settings),
             players = players.Select(PlayerView).ToArray(), npcs = npcs.Select(NpcView).ToArray(), seats = Seats(players),
             board = JsonData.Read<BoardData>(me.BoardJson), questions = JsonData.Read<QuestionData>(me.QuestionsJson), chat,
             worldSizeBytes = Encoding.UTF8.GetByteCount(JsonData.Write(Scene))

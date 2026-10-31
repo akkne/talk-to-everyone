@@ -45,3 +45,8 @@
 .voting-panel footer small { opacity: .75; }
 .voting-panel .primary { flex-shrink: 0; }
 @media (max-width: 600px) { .voting-overlay { padding: 10px; } .voting-panel header, .voting-panel footer { padding: 16px; } .voting-table th, .voting-table td { padding-left: 12px; padding-right: 12px; } .voting-panel footer { flex-direction: column; align-items: stretch; gap: 10px; } .voting-status { flex-wrap: wrap; } }
+
+/* The game viewport uses the new daylight studio palette. */
+.game-page{background:#e8f0ed}
+.scene-area:after{background:linear-gradient(180deg,#eaf2ee77,transparent 30%,transparent 72%,#dce9e6a8)}
+.movement-hint{color:#294b50;background:#fffdf2d9;border-color:#9cbeb8}

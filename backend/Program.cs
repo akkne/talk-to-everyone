@@ -30,6 +30,7 @@ app.UseCors();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/health/db", async (GameDb db, CancellationToken ct) =>
     await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok" }) : Results.StatusCode(503));
+app.MapGet("/api/game-info", GameRules.InfoAsync);
 app.MapHub<GameHub>("/hubs/game");
 using (var scope = app.Services.CreateScope())
 {

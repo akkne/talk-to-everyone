@@ -1,6 +1,6 @@
 # Схема интеграции фронтенда и API
 
-Фронтенд React/Three.js подключается к ASP.NET Core через SignalR hub `/hubs/game`. В браузере нет мокового клиента и локального сценария: данные игроков, NPC, сцены, раундов, вопросов, доски, чата и результатов приходят с сервера. REST endpoints `/health` и `/health/db` предназначены для диагностики сервисов.
+Фронтенд React/Three.js подключается к ASP.NET Core через SignalR hub `/hubs/game`. В браузере нет мокового клиента и локального сценария: данные игроков, NPC, сцены, раундов, вопросов, доски, чата и результатов приходят с сервера. Публичный `GET /api/game-info` отдаёт состав, раунды и правила до входа; те же данные приходят в `StateSnapshot.gameInfo` после авторизации. REST endpoints `/health` и `/health/db` предназначены для диагностики сервисов.
 
 ```mermaid
 sequenceDiagram
@@ -23,7 +23,7 @@ sequenceDiagram
 ## Запуск и адреса
 
 1. Запустить PostgreSQL и бэкенд по [инструкции](../backend/README.md). Бэкенд требует `DATABASE_URL`, `GAME_TOKENS` и разрешённый origin в `GAME_ORIGINS`.
-2. В `frontend/.env` задать `BACKEND_URL=http://127.0.0.1:5000` для Vite proxy, затем выполнить `cd frontend && npm ci && npm run dev`.
+2. В `frontend/.env` задать `BACKEND_URL=http://127.0.0.1:5000` для Vite proxy `/hubs` и `/api`, затем выполнить `cd frontend && npm ci && npm run dev`.
 3. Браузер открывает `http://localhost:5173`; Vite проксирует `/hubs/game` на бэкенд. Для отдельного origin можно задать `VITE_HUB_ORIGIN` и разрешить его origin в `GAME_ORIGINS`. Токен вводится в форме и передаётся только в `Auth` по WebSocket, без URL и localStorage.
 
 JSON использует `camelCase`. Все даты и дедлайны — Unix milliseconds UTC; координаты в метрах, Y вверх; углы в радианах; NPC имеют серверные `id` и `number` 1–10. Клиент отправляет команды только после пары `AuthOk` → `StateSnapshot`.
@@ -40,7 +40,7 @@ JSON использует `camelCase`. Все даты и дедлайны — U
 | Вопросы | `StateSnapshot.questions`, `QuestionOk`, `QuestionState`, `QuestionFailed`, `QuestionReject` | остаток, адресаты и ожидание ответа |
 | Чат и финал | `StateSnapshot.chat/scoreboard/reveal`, `NpcSay`, `ScoreUpdate`, `GameEnded` | реплики по серверным ID, очки и раскрытие ролей |
 
-`StateSnapshot` полностью заменяет игровые коллекции после входа или восстановления: `{sessionId,me,phase,round,rounds,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal,teamScore,voting}`. `round=null` в лобби; `scoreboard` и `reveal` доступны только после финала. Секретные роли и истории NPC до финала не передаются.
+`StateSnapshot` полностью заменяет игровые коллекции после входа или восстановления: `{sessionId,me,phase,round,rounds,gameInfo,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal,teamScore,voting}`. `round=null` в лобби; `scoreboard` и `reveal` доступны только после финала. Секретные роли и истории NPC до финала не передаются.
 
 ## Команды фронта
 
@@ -66,6 +66,6 @@ JSON использует `camelCase`. Все даты и дедлайны — U
 
 ## Границы текущего бэкенда
 
-В раундах 1–3 сервер пока не публикует вступительные реплики NPC; лента остаётся пустой до серверных `NpcSay`. Без настроенной LLM бэкенд возвращает собственный тестовый ответ на вопросы. Точные коллизии мебели и проверка реального LLM-провайдера остаются в [роадмапе бэкенда](../backend/docs/roadmap.md).
+В раундах 1–3 сервер пока не публикует вступительные реплики NPC; лента остаётся пустой до серверных `NpcSay`. Без настроенной LLM бэкенд отклоняет вопрос с `QuestionFailed`; вымышленных ответов нет. Точные коллизии мебели и проверка реального LLM-провайдера остаются в [роадмапе бэкенда](../backend/docs/roadmap.md).
 
 Общее голосование, события `VotingState` / `NpcsRemoved`, начисление очков и удаление NPC описаны в [контракте бэкенда](../backend/docs/backend.md#общее-голосование-и-выбывание). `StateSnapshot.voting` восстанавливает тур и факт голосования; `teamScore` используется в интерфейсе общего счёта.

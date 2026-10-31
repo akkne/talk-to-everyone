@@ -6,7 +6,7 @@ import { createId } from '../shared/id';
 import { command, useClient } from '../core/client';
 
 export function Voting() {
-  const { voting, npcs, connection, teamScore } = useGameStore();
+  const { voting, npcs, connection, teamScore, gameInfo } = useGameStore();
   const entries = useCacheStore(s => s.entries); const client = useClient();
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState(false); const [now, setNow] = useState(Date.now());
@@ -37,7 +37,7 @@ export function Voting() {
           <td><input id={`vote-${key}`} type="radio" name="pair-vote" aria-label={`${label(a)} и ${label(b)}`} checked={selected === key} disabled={disabled} onChange={() => setSelected(key)} /></td>
         </tr>; })}
       </tbody></table></div>
-      <footer><p role="status">{voting.submitted ? 'Ваш голос принят. Ждём остальных.' : !voting.eligible ? 'Вы подключились после начала голосования. Дождитесь следующего.' : 'Верная пара: +300 / +200 / +100 по раундам. Друг и актёр: −100; два актёра: −150.'}<br /><small>{voting.stage === 2 ? 'Победит пара с наибольшим числом голосов. При ничьей — случайная из лидеров.' : 'Если голоса разойдутся, пройдёт повторный тур.'} Если голосов нет — случайная пара из таблицы.</small></p>
+      <footer><p role="status">{voting.submitted ? 'Ваш голос принят. Ждём остальных.' : !voting.eligible ? 'Вы подключились после начала голосования. Дождитесь следующего.' : gameInfo ? `Верная пара: ${gameInfo.scoring.correct.map(x => `+${x.points} в раунде ${x.round}`).join(', ')}. Друг и актёр: ${gameInfo.scoring.mixed}; два актёра: ${gameInfo.scoring.twoActors}.` : 'Выберите пару для общего голосования.'}<br /><small>{voting.stage === 2 ? 'Победит пара с наибольшим числом голосов. При ничьей — случайная из лидеров.' : 'Если голоса разойдутся, пройдёт повторный тур.'} Если голосов нет — случайная пара из таблицы.</small></p>
         <button className="primary" disabled={disabled || !chosen} onClick={() => void submit()}>{voting.submitted ? 'Голос принят' : pending ? 'Отправляем…' : 'Проголосовать'}</button></footer>
     </div>
   </section>;
