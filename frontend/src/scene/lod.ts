@@ -25,7 +25,7 @@ export class NpcLod {
     this.frustum.setFromProjectionMatrix(this.matrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
     let nearest: string | null = null; let distance = Infinity;
     for (const [id, npc] of this.npcs) {
-      this.point.copy(npc.group.position); this.point.y = 1.5;
+      this.point.copy(npc.group.position); this.point.y += 1.5;
       if (!this.frustum.containsPoint(this.point)) continue;
       this.point.project(this.camera);
       const next = this.point.x ** 2 + this.point.y ** 2;

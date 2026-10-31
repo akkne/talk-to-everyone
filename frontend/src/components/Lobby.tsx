@@ -4,14 +4,14 @@ import { C2S } from '../shared/contract';
 import { command, useClient } from '../core/client';
 import { Icon } from './Icon';
 
-interface Props { onConnect: (name: string, token: string, preview: boolean) => Promise<void>; onExit: () => void }
+interface Props { onConnect: (name: string, token: string) => Promise<void>; onExit: () => void }
 /** <summary>One-session lobby; credentials are never persisted to browser storage.</summary> */
 export function Lobby({ onConnect, onExit }: Props) {
   const [name, setName] = useState(''); const [token, setToken] = useState(''); const [starting, setStarting] = useState(false);
-  const { connection, lobby, playerId, preview } = useGameStore(); const client = useClient();
+  const { connection, lobby, playerId } = useGameStore(); const client = useClient();
   const connected = connection === 'ready'; const busy = !['offline', 'ready'].includes(connection);
-  const leader = lobby?.players[0]?.id === playerId;
-  const submit = (event: FormEvent) => { event.preventDefault(); void onConnect(name.trim(), token, false); setToken(''); };
+  const leader = lobby?.leaderId === playerId;
+  const submit = (event: FormEvent) => { event.preventDefault(); void onConnect(name.trim(), token); setToken(''); };
   const start = async () => { setStarting(true); await command(client, C2S.START_GAME, undefined); setStarting(false); };
   return <main className="lobby-page">
     <header className="lobby-header"><a className="wordmark" href="/" aria-label="Угадай друзей — главная"><span className="brand-mark">у.</span>угадай друзей<span className="brand-period">®</span></a><span className="eyebrow">БЮРО СОЦИАЛЬНЫХ РАССЛЕДОВАНИЙ</span><span className="edition">ДЕЛО № 001 / 2026</span></header>
@@ -24,13 +24,12 @@ export function Lobby({ onConnect, onExit }: Props) {
         <div className="intro-note"><span>↳</span> Слушайте. Сопоставляйте. Не верьте первому впечатлению.</div>
       </section>
       <section className="entry-area">
-        <div className="dossier-decoration" aria-hidden="true"><div className="mini-photo photo-a"><div className="portrait" style={{ '--person': '#9ca78a' } as React.CSSProperties} /><span>свидетель № 04</span></div><div className="mini-photo photo-b"><div className="portrait" style={{ '--person': '#b98b74' } as React.CSSProperties} /><span>свидетель № 07</span></div><span className="red-thread" /><span className="dossier-stamp">ДОВЕРЯЙ,<br />НО ПРОВЕРЯЙ</span></div>
         <div className="entry-card">
           <div className="flex items-center justify-between"><span className="eyebrow">ВАШЕ МЕСТО ЗА СТОЛОМ</span><Icon name="eye" /></div>
           <h2>{connected ? 'Вы в деле.' : 'Войти в расследование'}</h2>
           {connected ? <div>
-            <p className="muted mb-5">{preview ? 'Осмотр интерфейса · без сервера и AI' : `Сессия ${lobby?.sessionId || 'подключена'}`}</p>
-            <div className="lobby-players">{lobby?.players.map((p, i) => <div key={p.id}><span className={`status-dot ${p.connected ? '' : 'opacity-30'}`} /><span>{p.name}{p.id === playerId ? ' · вы' : ''}</span><small>{i === 0 ? 'ведущий' : 'судья'}</small></div>)}</div>
+            <p className="muted mb-5">Сессия {lobby?.sessionId || 'подключена'}</p>
+            <div className="lobby-players">{lobby?.players.map(p => <div key={p.id}><span className={`status-dot ${p.connected ? '' : 'opacity-30'}`} /><span>{p.name}{p.id === playerId ? ' · вы' : ''}</span><small>{p.id === lobby.leaderId ? 'ведущий' : 'судья'}</small></div>)}</div>
             <button className="primary w-full" onClick={() => void start()} disabled={!lobby?.canStart || !leader || starting}>{starting ? 'Начинаем…' : leader ? 'Начать расследование' : 'Ожидаем ведущего'}<Icon name="arrow" /></button>
             {!lobby?.canStart && <p className="muted text-xs mt-3">Нужно игроков: {lobby?.minPlayers ?? 'уточняется'}</p>}
             <button className="text-button mt-4" onClick={onExit}>Выйти из сессии</button>
@@ -41,7 +40,6 @@ export function Lobby({ onConnect, onExit }: Props) {
             <input id="session-token" type="password" value={token} onChange={e => setToken(e.target.value)} required placeholder="Введите токен" autoComplete="off" disabled={busy} />
             <button className="primary w-full mt-6" disabled={busy || !name.trim() || !token}>{busy ? 'Подключаемся…' : 'Занять место'}<Icon name="arrow" /></button>
             <p className="entry-hint"><Icon name="lock" size={13} /> Токен используется только для входа в сессию</p>
-            {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_PREVIEW === 'true') && <button type="button" className="preview-button" disabled={busy} onClick={() => void onConnect(name.trim() || 'Наблюдатель', '', true)}>Сначала осмотреть интерфейс <span>↗</span></button>}
             {busy && <button type="button" className="text-button mt-3" onClick={onExit}>Отменить подключение</button>}
           </form>}
         </div>

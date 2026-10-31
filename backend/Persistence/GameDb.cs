@@ -1,0 +1,38 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+
+namespace Backend;
+
+public sealed class GameDb(DbContextOptions<GameDb> options) : DbContext(options)
+{
+    public DbSet<GameSession> Sessions => Set<GameSession>();
+    public DbSet<GamePlayer> Players => Set<GamePlayer>();
+    public DbSet<GameNpc> Npcs => Set<GameNpc>();
+    public DbSet<GameMessage> Messages => Set<GameMessage>();
+    public DbSet<PairChoice> Choices => Set<PairChoice>();
+
+    protected override void OnModelCreating(ModelBuilder model)
+    {
+        model.Entity<GameSession>().HasKey(x => x.Id);
+        model.Entity<GamePlayer>().HasKey(x => x.Id);
+        model.Entity<GamePlayer>().HasIndex(x => x.TokenHash).IsUnique();
+        model.Entity<GamePlayer>().HasIndex(x => new { x.SessionId, x.Name }).IsUnique();
+        model.Entity<GameNpc>().HasKey(x => x.Id);
+        model.Entity<GameNpc>().HasIndex(x => new { x.SessionId, x.Number }).IsUnique();
+        model.Entity<GameMessage>().HasKey(x => x.Id);
+        model.Entity<GameMessage>().HasIndex(x => new { x.SessionId, x.At });
+        model.Entity<PairChoice>().HasKey(x => x.Id);
+        model.Entity<PairChoice>().HasIndex(x => new { x.SessionId, x.PlayerId, x.Round }).IsUnique();
+    }
+}
+
+public sealed class GameDbFactory : IDesignTimeDbContextFactory<GameDb>
+{
+    public GameDb CreateDbContext(string[] args)
+    {
+        var options = new DbContextOptionsBuilder<GameDb>()
+            .UseNpgsql(Environment.GetEnvironmentVariable("DATABASE_URL") ?? "Host=localhost;Database=game;Username=game;Password=design")
+            .Options;
+        return new GameDb(options);
+    }
+}

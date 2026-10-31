@@ -21,41 +21,49 @@ export function Scene() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    const scene = new THREE.Scene(); setupRoom(scene);
-    const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 40); camera.position.set(0, 1.65, 2.6);
+    const spec = useGameStore.getState().scene;
+    if (!spec) { renderer.dispose(); setError('Сервер не прислал описание сцены.'); return; }
+    const scene = new THREE.Scene(); setupRoom(scene, spec);
+    const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 40);
     const controller = new CameraController(camera, element, client);
     const npcs = new Map<string, Npc>(); const judges = new Map<string, Npc>();
     const lod = new NpcLod(camera, npcs, client);
-    let lastChat = ''; let lastReaction = -1;
+    let lastChat = ''; let lastMeSeq = -1; let lastSeat: string | null = null;
     const sync = () => {
       const state = useGameStore.getState();
       controller.setEnabled(!state.boardOpen && state.phase === 'playing' && state.connection === 'ready');
       for (const meta of state.npcs) if (!npcs.has(meta.id)) {
-        const npc = new Npc(meta); const angle = THREE.MathUtils.degToRad(-104 + meta.index * 208 / 9);
-        npc.group.position.set(Math.sin(angle) * 5.4, 0, 2 - Math.cos(angle) * 6);
-        npc.group.rotation.y = Math.atan2(-npc.group.position.x, 2.6 - npc.group.position.z);
+        const stand = spec.npcStands.find(x => x.id === meta.anchorId);
+        if (!stand) continue;
+        const npc = new Npc(meta);
+        npc.group.position.set(stand.position.x, stand.position.y, stand.position.z);
+        npc.group.rotation.y = stand.yaw;
         npcs.set(meta.id, npc); scene.add(npc.group);
       }
+      const me = state.players.find(p => p.id === state.playerId);
+      if (me && (lastMeSeq < 0 || me.pose.seatId !== lastSeat || (me.pose.seq > lastMeSeq && controller.differsFrom(me.pose)))) {
+        lastMeSeq = me.pose.seq; lastSeat = me.pose.seatId; controller.syncPose(me.pose);
+      }
+      if (me) lastMeSeq = Math.max(lastMeSeq, me.pose.seq);
       syncPlayers();
       const latest = state.chat.at(-1);
       if (latest && latest.id !== lastChat) { lastChat = latest.id; npcs.get(latest.npc)?.say(latest.text); }
-      const reaction = state.reactions.at(-1);
-      if (reaction && reaction.at !== lastReaction) { lastReaction = reaction.at; npcs.get(reaction.npc)?.react(reaction.at); }
     };
     const syncPlayers = () => {
       const state = useGameStore.getState();
       const others = state.players.filter(p => p.id !== state.playerId);
       for (const [id, judge] of judges) judge.group.visible = others.some(p => p.id === id && p.connected);
-      others.forEach((player, i) => {
+      others.forEach(player => {
         let judge = judges.get(player.id);
         if (!judge) {
-          judge = new Npc({ id: player.id, index: i, color: '#dfbf63' });
-          judge.group.position.set((i % 2 ? 1 : -1) * (1.6 + Math.floor(i / 2) * 0.85), 0, 2.8);
-          judge.setName(state.lobby?.players.find(p => p.id === player.id)?.name || `Судья ${i + 2}`);
+          judge = new Npc({ id: player.id, number: 0, color: '#dfbf63', anchorId: '' });
+          judge.setName(player.name);
           judges.set(player.id, judge); scene.add(judge.group);
         }
         judge.group.visible = player.connected;
-        judge.head.rotation.set(player.pitch, Math.PI - player.yaw, 0, 'YXZ');
+        judge.group.position.set(player.pose.position.x, player.pose.position.y, player.pose.position.z);
+        judge.group.rotation.y = -player.pose.yaw;
+        judge.head.rotation.x = -player.pose.pitch;
       });
     };
     const syncCache = () => { const entries = useCacheStore.getState().entries; npcs.forEach((npc, id) => npc.setName(entries[id]?.details.displayName)); };
@@ -71,7 +79,7 @@ export function Scene() {
     element.addEventListener('webglcontextlost', lost);
     let frame = 0; let frames = 0; let sampleAt = performance.now();
     const animate = (now: number) => {
-      frame = requestAnimationFrame(animate); npcs.forEach(npc => npc.update(now));
+      frame = requestAnimationFrame(animate); controller.update(now); npcs.forEach(npc => npc.update(now));
       lod.update(now, useGameStore.getState().connection === 'ready');
       renderer.render(scene, camera); frames++;
       if (now - sampleAt >= 1000) {

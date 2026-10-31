@@ -1,45 +1,69 @@
-# Интеграция фронта и бэка: контракт v2 и план
+# Схема интеграции фронтенда и API
 
-Статус: **целевая спецификация**, сервер ещё не реализован, фронт сейчас на v1. Источник деталей DTO и правил — [API v2](../backend/docs/backend.md). Этот документ фиксирует стык и порядок миграции; при расхождении с архивными планами действует v2.
+Фронтенд React/Three.js подключается к ASP.NET Core через SignalR hub `/hubs/game`. В браузере нет мокового клиента и локального сценария: данные игроков, NPC, сцены, раундов, вопросов, доски, чата и результатов приходят с сервера. REST endpoints `/health` и `/health/db` предназначены для диагностики сервисов.
 
-## Граница сервисов
+```mermaid
+sequenceDiagram
+    participant UI as React / Three.js
+    participant Hub as SignalR /hubs/game
+    participant DB as PostgreSQL
+    UI->>Hub: WebSocket connect
+    UI->>Hub: Auth {token,name}
+    Hub->>DB: найти или создать игрока
+    Hub-->>UI: AuthOk
+    Hub-->>UI: StateSnapshot
+    Hub-->>UI: LobbyState, PlayersTick, SeatState
+    UI->>Hub: команды с requestId / SendPose с seq
+    Hub->>DB: проверить и сохранить
+    Hub-->>UI: событие с подтверждённым состоянием или Reject
+    Note over UI,Hub: после reconnect клиент повторяет Auth
+    Hub-->>UI: новый StateSnapshot заменяет локальное состояние
+```
 
-| Бэкенд | Фронтенд |
-| --- | --- |
-| ASP.NET Core, PostgreSQL, SignalR `/hubs/game`, авторизация, сессия, таймер, коллизии, кресла, доски, вопросы, LLM, счёт. Отдаёт только публичные данные NPC. | React/three.js: строит сцену из `SceneSpec`, ввод и локальное предсказание движения, UI, ограниченный кэш деталей. Показывает только подтверждённое сервером состояние. |
+## Запуск и адреса
 
-Один SignalR hub, WebSocket, JSON `camelCase`; каждый вызов принимает один DTO, кроме `StartGame`. ID — строки, NPC выбирается по `id`, `number` служит только для показа. Время — UTC Unix ms, углы — радианы, координаты — метры и Y вверх. Секретные роли, связи, lore и промпты не уходят клиенту до `GameEnded`.
+1. Запустить PostgreSQL и бэкенд по [инструкции](../backend/README.md). Бэкенд требует `DATABASE_URL`, `GAME_TOKENS` и разрешённый origin в `GAME_ORIGINS`.
+2. В `frontend/.env` задать `BACKEND_URL=http://127.0.0.1:5000` для Vite proxy, затем выполнить `cd frontend && npm ci && npm run dev`.
+3. Браузер открывает `http://localhost:5173`; Vite проксирует `/hubs/game` на бэкенд. Для отдельного origin можно задать `VITE_HUB_ORIGIN` и разрешить его origin в `GAME_ORIGINS`. Токен вводится в форме и передаётся только в `Auth` по WebSocket, без URL и localStorage.
 
-## Сценарии обмена
+JSON использует `camelCase`. Все даты и дедлайны — Unix milliseconds UTC; координаты в метрах, Y вверх; углы в радианах; NPC имеют серверные `id` и `number` 1–10. Клиент отправляет команды только после пары `AuthOk` → `StateSnapshot`.
 
-| Сценарий | Клиент → сервер | Сервер → клиент / правило |
+## Источники данных по экрану
+
+| Экран/состояние | Данные сервера | Реакция фронта |
 | --- | --- | --- |
-| Вход и восстановление | `Auth {token,name}` первым вызовом при каждом соединении | `AuthOk` → полный `StateSnapshot` → `LobbyState`; до снимка UI блокирует команды. Токен определяет постоянный `playerId` и роль, имя — отображаемое. После reconnect снимок **заменяет** локальное состояние; старые команды автоматически не повторяются. |
-| Старт и раунды | `StartGame` без аргумента от `leader` | `LobbyState.canStart` и `leaderId` определяют доступ; `GameStarted`, `RoundStarted`, `RoundEnded`. Сервер переключает раунды и окна выбора по времени; клиент показывает `endsAt`/`choiceEndsAt`, но сам не переключает фазу. |
-| Сцена и движение | `SendPose {seq,position,yaw,pitch}` до 10 Гц; `SitDown {requestId,seatId}`, `StandUp {requestId}` | `StateSnapshot.scene`, затем `PlayersTick {players,serverTime}` и `SeatState {seats}`. Сервер проверяет перемещение, коллизии, рампы, занятость; принятая `pose.seq` исправляет предсказание клиента. |
-| Детали NPC | `RequestChunk {reqId,ids}`, `ReleaseChunk {ids}` | `ChunkData {reqId,npcs}`; максимум 3 ID в запросе. Фронт игнорирует устаревший `reqId`, хранит максимум 1 NPC и ≤10% `worldSizeBytes`; роли/lore в деталях запрещены. |
-| Доска | `PairNpcs`, `UnpairNpcs`, `MarkLiar`, `UnmarkLiar`, `SaveNote` с `requestId`; в окне выбора `SubmitPair {requestId,round,a,b}` или `{requestId,round,skip:true}` | Личный `BoardSnapshot {board,requestId}` либо `BoardReject`; после `SubmitPair` ещё `PairSubmitted {round,pair}`. Лок возникает только после подтверждения; ранее подтверждённую пару нельзя менять. Восстановление — из персональной `StateSnapshot.board`. |
-| Допрос | `AskQuestion {requestId,targetNpc,text}` в раунде 4 | `QuestionOk {requestId,questions}` → `NpcThinking {npc,questionId}` → `NpcSay` либо `QuestionFailed`. Отказ — `QuestionReject`. Лимит: 2 вопроса двум разным NPC; `QuestionState` хранится на сервере и входит в снимок. |
-| Финал | — | `GameEnded {reveal,scoreboard}` и `ScoreUpdate {players}`. После late join то же содержимое есть в снимке. Счёт и роли вычисляет только сервер. |
+| Лобби | `LobbyState`, `StateSnapshot.me` | список игроков, ведущий по `leaderId`, доступность старта |
+| 3D-студия | `StateSnapshot.scene`, `npcs`, `players`, `seats`; затем `PlayersTick`, `SeatState` | геометрия комнаты, якоря NPC, позиции игроков и свободные кресла |
+| Детали NPC | `RequestChunk` → `ChunkData` | одна видимая запись в ограниченном кэше; `ReleaseChunk` при смене цели |
+| Раунды и таймер | `RoundStarted`, `RoundEnded`, `GameEnded`; при восстановлении `StateSnapshot.round/phase` | показывает серверный `endsAt`, локально раунд не переключает |
+| Доска | `StateSnapshot.board`, `BoardSnapshot`, `BoardReject`, `PairSubmitted` | пара, метки актёров, заметки и выбранная пара только после ответа сервера |
+| Вопросы | `StateSnapshot.questions`, `QuestionOk`, `QuestionState`, `QuestionFailed`, `QuestionReject` | остаток, адресаты и ожидание ответа |
+| Чат и финал | `StateSnapshot.chat/scoreboard/reveal`, `NpcSay`, `ScoreUpdate`, `GameEnded` | реплики по серверным ID, очки и раскрытие ролей |
 
-`requestId` — уникальная строка команды; сервер дедуплицирует повтор в пределах сессии и возвращает ID в подтверждении/отказе. Клиент допускает только одно неподтверждённое изменение доски за раз. `NpcSay` — целая реплика с серверным `id`, `at`, `emotion` и `inReplyTo=questionId|null`; клиент дедуплицирует историю по `id`. `QuestionFailed` возвращает попытку, если раунд ещё открыт. `Ping {t}` → `Pong {t,serverTime}` нужен для поправки часов.
+`StateSnapshot` полностью заменяет игровые коллекции после входа или восстановления: `{sessionId,me,phase,round,rounds,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal}`. `round=null` в лобби; `scoreboard` и `reveal` доступны только после финала. Секретные роли и истории NPC до финала не передаются.
 
-## Что уже не совпадает
+## Команды фронта
 
-| Участок фронта v1 | Требование v2 |
-| --- | --- |
-| `SendCamera`, сидячая камера, круглый стол | `SceneSpec`, ходьба/рампы/коллизии, `SendPose`, `SitDown`/`StandUp`, двухъярусная трибуна |
-| `NpcMeta.index`, `NpcDetails.loreChunks` | `number` 1–10 и `anchorId`; публичные `displayName`, `photoColor`, `voiceHint` без lore |
-| `LockPair`, доска без `submitted` | `SubmitPair` только после раундов 2/3/4; `Board.submitted` и серверный лок |
-| Снимок без `scene`, `seats`, `questions`, `chat`, `reveal` | Полный `StateSnapshot` из API v2 после каждого `Auth` |
-| Локальные ID реплик, сброс лимита вопросов при reconnect | Серверные `ChatLine.id` и персональный `QuestionState` из снимка |
-| Ведущий как первый игрок списка | `me.role`/`LobbyState.leaderId` |
+| Метод | Тело | Подтверждение / отказ |
+| --- | --- | --- |
+| `Auth` | `{token,name}` | `AuthOk`, `StateSnapshot` / `AuthErr` |
+| `StartGame` | без аргумента, только ведущий | `GameStarted`, `RoundStarted` |
+| `SendPose` | `{seq,position:{x,y,z},yaw,pitch}` | `PlayersTick`, `SeatState` / `ActionReject` |
+| `SitDown`, `StandUp` | `{requestId,seatId}` / `{requestId}` | `PlayersTick`, `SeatState` / `ActionReject` |
+| `RequestChunk`, `ReleaseChunk` | `{reqId,ids}` / `{ids}` | `ChunkData` / `ServerError` |
+| `PairNpcs`, `UnpairNpcs` | `{requestId,a,b}` | `BoardSnapshot` / `BoardReject` |
+| `MarkLiar`, `UnmarkLiar` | `{requestId,npc}` | `BoardSnapshot` / `BoardReject` |
+| `SaveNote` | `{requestId,npc,text}` | `BoardSnapshot` / `BoardReject` |
+| `SubmitPair` | `{requestId,round,a,b}` или `{requestId,round,skip:true}` | `BoardSnapshot`, `PairSubmitted` / `BoardReject` |
+| `AskQuestion` | `{requestId,targetNpc,text}` | `QuestionOk` → `NpcThinking` → `QuestionState`, `NpcSay`; либо `QuestionReject` / `QuestionFailed` |
+| `Ping` | `{t}` | `Pong {t,serverTime}` |
 
-## Порядок изменений
+`requestId` связывает ответ с командой и используется сервером для идемпотентности. `SendPose.seq` монотонно растёт, клиент передаёт не чаще 10 раз в секунду. Доска не меняется оптимистично. `SubmitPair` доступен только в фазе `choice` после раундов 2, 3 и 4. Вопросы доступны только в фазе `interrogation` раунда 4; лимит и адресатов проверяет сервер.
 
-1. **Бэк:** поднять hub и выдачу отдельных токенов игрокам, зафиксировать C# DTO/events из v2, полный снимок и публичный `SceneSpec`; все секреты держать на сервере. **Фронт:** заменить `contract.ts`/`types.ts` на v2 и проверить десериализацию снимка.
-2. **Бэк:** реализовать серверные раунды, `SendPose`, коллизии, кресла и `PlayersTick`. **Фронт:** построить сцену из `SceneSpec`, ходьбу и посадку с коррекцией по `seq`.
-3. **Бэк:** хранить персональную доску/вопросы в PostgreSQL, дедуплицировать `requestId`, обрабатывать окна выбора и LLM. **Фронт:** перевести доску на `SubmitPair`, вопросы — на `QuestionState`, чат — на серверные ID; обновить preview-клиент теми же DTO.
-4. **Оба:** прогнать ручной сценарий на двух браузерах: вход → раунды 1–4 → три окна выбора → допрос → финал; затем reconnect, late join, рестарт сервера и конфликт за кресло. Сверить снимок с событиями и отсутствие секретов до финала.
+## Потеря связи и ошибки
 
-**Условие готовности:** фронт подключается к реальному hub без v1-полей и заглушек; после перезагрузки/переподключения доска, вопросы, чат, позы, раунд и финал совпадают с состоянием сервера. До реализации это план, а не утверждение о работающей интеграции.
+При разрыве UI отключает действия и сбрасывает кэш деталей NPC. SignalR пытается переподключиться; после нового `Auth` сервер выдаёт полный снимок, который заменяет локальное состояние, включая историю, вопросы и финал. `AuthErr` и `ServerError` показываются пользователю; `BoardReject`, `QuestionReject`, `QuestionFailed`, `ActionReject` показывают сообщение сервера. Токен хранится только в памяти транспорта до выхода из сессии.
+
+## Границы текущего бэкенда
+
+В раундах 1–3 сервер пока не публикует вступительные реплики NPC; лента остаётся пустой до серверных `NpcSay`. Без настроенной LLM бэкенд возвращает собственный тестовый ответ на вопросы. Точные коллизии мебели и проверка реального LLM-провайдера остаются в [роадмапе бэкенда](../backend/docs/roadmap.md).

@@ -23,12 +23,12 @@ export class Npc {
     }
     const chair = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.18), new THREE.MeshStandardMaterial({ color: '#4a3524' }));
     chair.position.set(0, 0.65, -0.25); this.group.add(chair);
-    this.label = this.text(`№ ${String(meta.index + 1).padStart(2, '0')}`, false);
+    this.label = this.text(`№ ${String(meta.number).padStart(2, '0')}`, false);
     this.label.position.y = 2.08; this.group.add(this.label);
   }
   /** <summary>Eviction replaces the display name with metadata-only numbering.</summary> */
   setName(name?: string) {
-    const next = name || `№ ${String(this.meta.index + 1).padStart(2, '0')}`;
+    const next = name || `№ ${String(this.meta.number).padStart(2, '0')}`;
     if (next === this.name) return;
     this.name = next; this.removeSprite(this.label);
     this.label = this.text(next, false); this.label.position.y = 2.08; this.group.add(this.label);

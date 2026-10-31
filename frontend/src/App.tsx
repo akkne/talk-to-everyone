@@ -18,17 +18,15 @@ export default function App() {
   const [client, setClient] = useState<GameClient>(() => new SignalRClient(receiveEvent, connectionStatus));
   const activeClient = useRef(client); const [questions, setQuestions] = useState(false);
   const { phase, boardOpen, error, connection, round } = useGameStore();
-  const connect = async (name: string, token: string, preview: boolean) => {
+  const connect = async (name: string, token: string) => {
     await activeClient.current.disconnect(); resetGame(); resetCache();
-    const next = preview
-      ? new (await import('./core/PreviewClient')).PreviewClient(receiveEvent, connectionStatus)
-      : new SignalRClient(receiveEvent, connectionStatus);
-    activeClient.current = next; setClient(next); useGameStore.setState({ preview });
+    const next = new SignalRClient(receiveEvent, connectionStatus);
+    activeClient.current = next; setClient(next);
     await next.connect(token, name);
   };
   const exit = async () => { await activeClient.current.disconnect(); resetGame(); resetCache(); setQuestions(false); };
   useEffect(() => () => { void activeClient.current.disconnect(); }, []);
-  useEffect(() => { setQuestions(round.n === 4); }, [round.n]);
+  useEffect(() => { setQuestions(round?.phase === 'interrogation'); }, [round?.phase]);
   useEffect(() => { if ((boardOpen || questions) && document.pointerLockElement) document.exitPointerLock(); }, [boardOpen, questions]);
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -37,14 +35,13 @@ export default function App() {
       if (event.key === 'Escape') { useGameStore.setState({ boardOpen: false }); setQuestions(false); }
       if (editing || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key === 'Tab' && phase === 'playing') { event.preventDefault(); useGameStore.setState(s => ({ boardOpen: !s.boardOpen })); }
-      if (event.code === 'KeyH' && boardOpen && import.meta.env.DEV) useGameStore.setState(s => ({ debug: !s.debug }));
     };
     document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key);
   }, [phase, boardOpen]);
   return <ClientContext.Provider value={client}>
     {phase === 'lobby' ? <Lobby onConnect={connect} onExit={() => void exit()} /> : phase === 'reveal' ? <Reveal onExit={() => void exit()} /> : <div className="game-page">
       <div className="scene-area"><Scene /></div><HUD onExit={() => void exit()} onQuestions={() => setQuestions(true)} /><Chat />
-      {questions && round.n === 4 && !boardOpen && <QuestionMenu onClose={() => setQuestions(false)} />}
+      {questions && round?.phase === 'interrogation' && !boardOpen && <QuestionMenu onClose={() => setQuestions(false)} />}
       {boardOpen && <Board />}
     </div>}
     {phase !== 'lobby' && connection !== 'ready' && <div className="connection-banner" role="status">{connection === 'offline' ? 'Связь потеряна. Войдите снова, чтобы получить сохранённое состояние.' : 'Восстанавливаем соединение. Действия временно недоступны.'}{connection === 'offline' && <button onClick={() => void exit()}>Ко входу →</button>}</div>}

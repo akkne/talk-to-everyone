@@ -1,3 +1,3 @@
 # Фронтенд
 
-Текущий код использует API v1. Целевой [контракт v2](../backend/docs/backend.md), расхождения и [план интеграции](../docs/integration.md). `PLAN.md` — архивный план v1.
+React/Three.js-клиент. Запуск: `npm ci && npm run dev`. Требуется работающий бэкенд и токен из `GAME_TOKENS`; `BACKEND_URL` в `.env` задаёт адрес для Vite proxy. Фронт использует SignalR API v2 без моковых данных. [Схема интеграции](../docs/integration.md).
