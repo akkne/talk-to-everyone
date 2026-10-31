@@ -80,8 +80,7 @@ export class SignalRClient implements GameClient {
   }
   setPose(position: Vec3, yaw: number, pitch: number) {
     if (![position.x, position.y, position.z, yaw, pitch].every(Number.isFinite)) return;
-    const clamp = (v: number) => Math.max(-UI.CAMERA_LIMIT, Math.min(UI.CAMERA_LIMIT, v));
-    this.pose = { position, yaw: clamp(yaw), pitch: Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch)) };
+    this.pose = { position, yaw, pitch: Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch)) };
   }
   syncPose(pose: Pose) { this.pose = { position: pose.position, yaw: pose.yaw, pitch: pose.pitch }; this.seq = Math.max(this.seq, pose.seq); this.sentPose = ''; }
   private startTimers() {

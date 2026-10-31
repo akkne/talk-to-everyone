@@ -86,11 +86,12 @@ export class Npc {
       add(this.head, new THREE.CylinderGeometry(0.23, 0.24, 0.13, 14), this.bodyMaterial, 0, 0.22, 0);
       add(this.head, new THREE.BoxGeometry(0.36, 0.035, 0.2), this.bodyMaterial, 0, 0.18, 0.21);
     }
-    this.label = this.text(meta.number > 0 ? `№ ${String(meta.number).padStart(2, '0')}` : '', false);
+    this.name = meta.name;
+    this.label = this.text(this.name, false);
     this.label.position.y = 2.31; this.group.add(this.label);
   }
-  setName(name?: string) {
-    const next = name || (this.meta.number > 0 ? `№ ${String(this.meta.number).padStart(2, '0')}` : 'Судья');
+  setName(name: string) {
+    const next = name;
     if (next === this.name) return;
     this.name = next; this.removeSprite(this.label);
     this.label = this.text(next, false); this.label.position.y = 2.31; this.group.add(this.label);

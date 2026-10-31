@@ -4,7 +4,7 @@
 
 ## Снимок
 
-`StateSnapshot = {sessionId,me:{id,role},phase,round,rounds,gameInfo,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal,teamScore,voting}`. В лобби `round=null`; до финала `scoreboard` и `reveal` равны `null`. `round={n,phase,endsAt,choiceEndsAt}`; `rounds` содержит серверные названия и длительности этапов. `npcs` содержит `{id,number,color,anchorId,appearance}`; `appearance={style,accessory,hair,skin}` — публичный визуальный профиль из описания персонажа, без роли и связей. `board={pairs,liars,locks,notes,submitted}` и `questions={remaining,askedTo,pending}` персональные. `chat` содержит серверные `{id,npc,text,inReplyTo,emotion,at}`. Роли, связи и легенды не выдаются до финала.
+`StateSnapshot = {sessionId,me:{id,role},phase,round,rounds,gameInfo,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal,teamScore,voting}`. В лобби `round=null`; до финала `scoreboard` и `reveal` равны `null`. `round={n,phase,endsAt,choiceEndsAt}`; `rounds` содержит серверные названия и длительности этапов. `npcs` содержит `{id,number,name,color,anchorId,appearance}`; имя и `appearance={style,accessory,hair,skin}` — публичные данные персонажа, без роли и связей. `board={pairs,liars,locks,notes,submitted}` и `questions={remaining,askedTo,pending}` персональные. `chat` содержит серверные `{id,npc,text,inReplyTo,emotion,at}`. Роли, связи и легенды не выдаются до финала.
 
 `scene={version,room,npcStands,playerSeats,spawnPoints}`. `players` содержит `{id,name,connected,pose}`; `pose={position,yaw,pitch,mode,seatId,seq}`. `seats={id,occupiedBy}[]`. Клиент строит сцену по `scene` и отображает только подтверждённые сервером изменения.
 

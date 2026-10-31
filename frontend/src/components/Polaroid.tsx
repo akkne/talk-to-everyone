@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { NpcMeta } from '../shared/types';
-import { useCacheStore } from '../store/cacheStore';
 import { useGameStore } from '../store/gameStore';
 import { Icon } from './Icon';
 
@@ -8,17 +7,16 @@ interface Props {
   npc: NpcMeta; selected: boolean; assigned: boolean; liar: boolean; locked: boolean;
   note: string; disabled: boolean; onSelect: () => void; onLiar: () => void; onNote: (text: string) => void;
 }
-/** <summary>A metadata-only portrait survives cache eviction; notes are always plain text.</summary> */
+/** <summary>A portrait and its public name survive cache eviction; notes are always plain text.</summary> */
 export function Polaroid({ npc, selected, assigned, liar, locked, note, disabled, onSelect, onLiar, onNote }: Props) {
-  const details = useCacheStore(s => s.entries[npc.id]?.details);
   const maxNoteLength = useGameStore(s => s.gameInfo?.noteMaxLength);
   const [editing, setEditing] = useState(false); const editor = useRef<HTMLDivElement>(null);
   useEffect(() => { if (editing && editor.current) { editor.current.textContent = note; editor.current.focus(); } }, [editing]); // Preserve in-progress typing on unrelated snapshots.
   return <article data-npc={npc.id} className={`polaroid ${selected ? 'selected' : ''} ${liar ? 'liar' : ''} ${assigned ? 'assigned' : ''}`} style={{ '--tilt': `${(npc.number % 3 - 1) * 2}deg`, '--person': npc.color } as CSSProperties} onContextMenu={event => { event.preventDefault(); if (!disabled) setEditing(true); }}>
     <span className="pin" aria-hidden="true" />
-    <button className="photo-select" onClick={onSelect} disabled={disabled || assigned} aria-pressed={selected} aria-label={`Выбрать ${details?.displayName || `NPC ${npc.number}`}`}>
+    <button className="photo-select" onClick={onSelect} disabled={disabled || assigned} aria-pressed={selected} aria-label={`Выбрать ${npc.name}`}>
       <div className="portrait"><span className="photo-number">{String(npc.number).padStart(2, '0')}</span>{locked && <span className="photo-lock"><Icon name="lock" size={16} /></span>}{liar && <span className="actor-stamp">АКТЁР</span>}</div>
-      <strong>{details?.displayName || `Незнакомец ${String(npc.number).padStart(2, '0')}`}</strong>
+      <strong>{npc.name}</strong>
     </button>
     <div className="photo-actions"><button onClick={() => setEditing(!editing)} disabled={disabled} title="Заметка — также по правому клику">{note ? '✎ заметка' : '+ заметка'}</button><button onClick={onLiar} disabled={disabled || (assigned && !liar)}>{liar ? 'Снять метку' : 'Актёр?'}</button></div>
     {editing ? <div className="note-editor"><div ref={editor} role="textbox" aria-label={`Заметка о NPC ${npc.number}`} contentEditable={!disabled} suppressContentEditableWarning

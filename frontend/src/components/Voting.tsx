@@ -1,13 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { useCacheStore } from '../store/cacheStore';
 import { C2S } from '../shared/contract';
 import { createId } from '../shared/id';
 import { command, useClient } from '../core/client';
 
 export function Voting() {
   const { voting, npcs, connection, teamScore, gameInfo, role } = useGameStore();
-  const entries = useCacheStore(s => s.entries); const client = useClient();
+  const client = useClient();
   const [selected, setSelected] = useState<string | null>(null);
   const [first, setFirst] = useState<string | null>(null);
   const [pending, setPending] = useState(false); const [now, setNow] = useState(Date.now());
@@ -16,7 +15,7 @@ export function Voting() {
   if (!voting) return null;
   const label = (id: string) => {
     const npc = npcs.find(n => n.id === id);
-    return `№ ${String(npc?.number ?? '?').padStart(2, '0')}${entries[id] ? ` · ${entries[id].details.displayName}` : ''}`;
+    return `№ ${String(npc?.number ?? '?').padStart(2, '0')}${npc ? ` · ${npc.name}` : ''}`;
   };
   const disabled = pending || voting.submitted || !voting.eligible || connection !== 'ready' || now >= voting.endsAt;
   const chosen = voting.candidates.find(pair => pair.join(':') === selected);
@@ -52,7 +51,7 @@ export function Voting() {
         {voting.stage === 1 ? <div className="voting-people">{people.map(npc => {
           const active = first === npc.id || !!chosen?.includes(npc.id);
           return <button key={npc.id} type="button" className={`voting-person ${active ? 'selected' : ''}`} onClick={() => pick(npc.id)} disabled={disabled} aria-pressed={active} aria-label={label(npc.id)} style={{ '--person': npc.color } as CSSProperties}>
-            <span className="pin" aria-hidden="true" /><span className="portrait"><span className="photo-number">{String(npc.number).padStart(2, '0')}</span></span><strong>{entries[npc.id]?.details.displayName || `Незнакомец ${String(npc.number).padStart(2, '0')}`}</strong><small>{active ? '✓ выбрано' : 'выбрать'}</small>
+            <span className="pin" aria-hidden="true" /><span className="portrait"><span className="photo-number">{String(npc.number).padStart(2, '0')}</span></span><strong>{npc.name}</strong><small>{active ? '✓ выбрано' : 'выбрать'}</small>
           </button>;
         })}</div> : <div className="voting-pairs">{voting.candidates.map(([a, b]) => {
           const key = [a, b].join(':'); return <button key={key} type="button" className={`voting-pair ${selected === key ? 'selected' : ''}`} onClick={() => setSelected(key)} disabled={disabled} aria-pressed={selected === key}>

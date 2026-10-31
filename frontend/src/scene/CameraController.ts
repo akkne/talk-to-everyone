@@ -76,9 +76,9 @@ export class CameraController {
     const side = Number(this.keys.has('KeyD')) - Number(this.keys.has('KeyA'));
     if (!forward && !side) return;
     const scale = WALK_SPEED * dt / Math.hypot(forward, side);
-    // Movement follows the room axes; looking around never changes WASD direction.
-    const x = this.position.x + side * scale;
-    const z = this.position.z - forward * scale;
+    // Keep walking horizontal; yaw turns forward and strafe with the camera.
+    const x = this.position.x + (forward * Math.sin(this.yaw) + side * Math.cos(this.yaw)) * scale;
+    const z = this.position.z + (-forward * Math.cos(this.yaw) + side * Math.sin(this.yaw)) * scale;
     this.position = walk(this.position, x - this.position.x, z - this.position.z, this.scene);
     this.apply();
   }

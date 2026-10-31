@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useClient } from '../core/client';
 import { useGameStore } from '../store/gameStore';
-import { useCacheStore } from '../store/cacheStore';
 import { setupRoom, disposeScene } from './setup';
 import { CameraController } from './CameraController';
 import { Npc } from './Npc';
@@ -45,6 +44,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         npc.group.rotation.y = stand.yaw;
         npcs.set(meta.id, npc); scene.add(npc.group);
       }
+      for (const meta of state.npcs) npcs.get(meta.id)?.setName(meta.name);
       if (state.thinkingNpc && state.thinkingAt > lastThinkingAt) {
         lastThinkingAt = state.thinkingAt;
         npcs.get(state.thinkingNpc)?.react(performance.now());
@@ -65,7 +65,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       others.forEach(player => {
         let judge = judges.get(player.id);
         if (!judge) {
-          judge = new Npc({ id: player.id, number: 0, color: '#dfbf63', anchorId: '' });
+          judge = new Npc({ id: player.id, number: 0, name: player.name, color: '#dfbf63', anchorId: '' });
           judges.set(player.id, judge); scene.add(judge.group);
         }
         judge.setName(player.name);
@@ -80,9 +80,8 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         );
       });
     };
-    const syncCache = () => { const entries = useCacheStore.getState().entries; npcs.forEach((npc, id) => npc.setName(entries[id]?.details.displayName)); };
-    sync(); syncCache();
-    const unsubscribe = useGameStore.subscribe(sync); const unsubscribeCache = useCacheStore.subscribe(syncCache);
+    sync();
+    const unsubscribe = useGameStore.subscribe(sync);
     const resize = () => {
       const { width, height } = element.getBoundingClientRect();
       renderer.setSize(Math.max(1, width), Math.max(1, height), false);
@@ -107,7 +106,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     };
     frame = requestAnimationFrame(animate);
     return () => {
-      cancelAnimationFrame(frame); observer.disconnect(); unsubscribe(); unsubscribeCache();
+      cancelAnimationFrame(frame); observer.disconnect(); unsubscribe();
       element.removeEventListener('webglcontextlost', lost); controller.dispose(); lod.dispose(); disposeScene(scene); renderer.dispose();
     };
   }, [client]);

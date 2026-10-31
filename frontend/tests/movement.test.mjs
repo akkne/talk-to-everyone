@@ -51,15 +51,27 @@ test('WASD moves camera, normalizes diagonals, and freezes for UI/blur/Escape', 
   h.controller.setEnabled(true); h.key('KeyW'); window.dispatchEvent(new Event('blur')); h.controller.update(400); assert.deepEqual(h.camera.position, before);
   h.key('KeyW'); h.key('Escape'); h.controller.update(500); assert.deepEqual(h.camera.position, before); h.controller.dispose();
 });
-test('walking keeps room directions when the camera turns', () => {
+test('walking follows camera yaw for forward, strafe, backward, and keeps pitch horizontal', () => {
   const h = harness();
-  h.controller.syncPose({ position: { x: 0, y: 0, z: 9 }, yaw: Math.PI / 2, pitch: 0, seatId: null, seq: 0, mode: 'walking' });
+  h.controller.syncPose({ position: { x: 0, y: 0, z: 9 }, yaw: Math.PI / 2, pitch: Math.PI / 4, seatId: null, seq: 0, mode: 'walking' });
   h.key('KeyW'); h.controller.update(100); h.controller.update(200);
-  assert.ok(Math.abs(h.camera.position.x) < .001);
-  assert.ok(Math.abs(h.camera.position.z - 8.875) < .01);
+  assert.ok(Math.abs(h.camera.position.x - .125) < .01);
+  assert.ok(Math.abs(h.camera.position.z - 9) < .001);
   h.key('KeyW', 'keyup'); h.key('KeyD'); h.controller.update(300);
   assert.ok(Math.abs(h.camera.position.x - .125) < .01);
-  assert.ok(Math.abs(h.camera.position.z - 8.875) < .01);
+  assert.ok(Math.abs(h.camera.position.z - 9.125) < .01);
+  h.key('KeyD', 'keyup'); h.key('KeyS'); h.controller.update(400);
+  assert.ok(Math.abs(h.camera.position.x) < .01);
+  assert.ok(Math.abs(h.camera.position.z - 9.125) < .01);
+  h.controller.dispose();
+});
+test('walking continues in the viewed direction beyond the seated turn limit', () => {
+  const h = harness();
+  h.controller.syncPose({ position: { x: 0, y: 0, z: 9 }, yaw: Math.PI * 3 / 4, pitch: 0, seatId: null, seq: 0, mode: 'walking' });
+  h.key('KeyW'); h.controller.update(100); h.controller.update(200);
+  assert.ok(h.camera.position.x > .08);
+  assert.ok(h.camera.position.z > 9.08);
+  assert.ok(Math.abs(h.poses.at(-1)[1] - Math.PI * 3 / 4) < .001);
   h.controller.dispose();
 });
 test('E requests a free nearby seat and waits for server confirmation', async () => {

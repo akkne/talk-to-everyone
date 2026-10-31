@@ -5,7 +5,7 @@ export interface Vec3 { x: number; y: number; z: number }
 export interface Pose { position: Vec3; yaw: number; pitch: number; mode: 'walking' | 'seated'; seatId: string | null; seq: number }
 export interface Player { id: string; name: string; connected: boolean; pose: Pose }
 export interface NpcAppearance { style: 'sport' | 'tech' | 'creative' | 'smart' | 'polished' | 'casual'; accessory: 'headphones' | 'glasses' | 'beanie' | 'cap' | 'none'; hair: number; skin: number }
-export interface NpcMeta { id: NpcId; number: number; color: string; anchorId: string; appearance?: NpcAppearance }
+export interface NpcMeta { id: NpcId; number: number; name: string; color: string; anchorId: string; appearance?: NpcAppearance }
 export interface NpcDetails { displayName: string; photoColor: string; voiceHint: string }
 export interface Chunk { id: NpcId; details: NpcDetails; sizeBytes: number }
 export interface SceneSpec { version: string; room: { width: number; depth: number; height: number; platforms: { id: string; center: Vec3; size: Vec3 }[]; ramps: { id: string; from: Vec3; to: Vec3; width: number }[]; obstacles: { id: string; center: Vec3; size: Vec3 }[]; walls: { id: string; center: Vec3; size: Vec3 }[] }; npcStands: { id: string; position: Vec3; yaw: number; level: number }[]; playerSeats: { id: string; position: Vec3; yaw: number; exit: Vec3 }[]; spawnPoints: Vec3[] }
