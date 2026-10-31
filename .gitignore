@@ -1,5 +1,8 @@
 node_modules/
 dist/
+bin/
+obj/
+.vs/
 .env
 .env.*
 !.env.example

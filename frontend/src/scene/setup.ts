@@ -34,11 +34,8 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
     chair.position.set(seat.position.x, seat.position.y + 0.65, seat.position.z + 0.25);
     chair.rotation.y = seat.yaw; scene.add(chair);
   }
-  const lamp = new THREE.Mesh(new THREE.ConeGeometry(0.9, 0.5, 24, 1, true), new THREE.MeshStandardMaterial({ color: '#b6a076', side: THREE.DoubleSide }));
-  lamp.position.set(0, 4.8, -0.3); scene.add(lamp);
-  for (let i = 0; i < 6; i++) {
-    const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.48), new THREE.MeshStandardMaterial({ color: '#d6cbb0' }));
-    paper.rotation.set(-Math.PI / 2, 0, i * 0.7); paper.position.set(Math.sin(i * 2) * 2, 0.875, Math.cos(i * 2) * 1.4 - 0.3); scene.add(paper);
+  for (const z of [-7, -3, 5]) {
+    const light = new THREE.PointLight('#eef4ff', 160, 16, 2); light.position.set(0, 5.5, z); scene.add(light);
   }
 }
 /** <summary>Release all GPU resources created by the scene, including text sprites.</summary> */

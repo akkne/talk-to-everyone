@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: talk-to-everyone-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-talk_to_everyone}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-talk_to_everyone}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: talk-to-everyone-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: talk-to-everyone-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    ports:
+      - "${BACKEND_PORT:-5000}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: ${CONNECTIONSTRINGS__DEFAULTCONNECTION}
+      Ollama__BaseUrl: ${OLLAMA__BASEURL:-http://ollama:11434}
+      Ollama__Model: ${OLLAMA__MODEL:-qwen2.5:7b-instruct}
+      Ollama__TimeoutSeconds: ${OLLAMA__TIMEOUTSECONDS:-30}
+      Ollama__MaxContextTokens: ${OLLAMA__MAXCONTEXTTOKENS:-4096}
+      Ollama__MaxPredictTokens: ${OLLAMA__MAXPREDICTTOKENS:-120}
+      Ollama__ReactionBatchPredictTokens: ${OLLAMA__REACTIONBATCHPREDICTTOKENS:-480}
+      Ollama__MaxHistoryEntries: ${OLLAMA__MAXHISTORYENTRIES:-12}
+      Ollama__Temperature: ${OLLAMA__TEMPERATURE:-0.75}
+      Ollama__KeepAlive: ${OLLAMA__KEEPALIVE:--1}
+      Ollama__QueueCapacity: ${OLLAMA__QUEUECAPACITY:-64}
+      Ollama__AutoPullModel: ${OLLAMA__AUTOPULLMODEL:-true}
+
+volumes:
+  postgres_data:
+  ollama_data:

@@ -12,7 +12,7 @@ public static class GameLogic
         version = "1", room = new
         {
             width = 18, depth = 14, height = 6,
-            platforms = new[] { new { id = "upper", center = new Vec3(0, 1.5, -4.5), size = new Vec3(14, 0.3, 2.5) } },
+            platforms = new[] { new { id = "upper", center = new Vec3(0, 1.35, -4.5), size = new Vec3(14, 0.3, 2.5) } },
             ramps = new[] { new { id = "left-ramp", from = new Vec3(-6.5, 0, 0), to = new Vec3(-6.5, 1.5, -4), width = 1.3 },
                 new { id = "right-ramp", from = new Vec3(6.5, 0, 0), to = new Vec3(6.5, 1.5, -4), width = 1.3 } },
             obstacles = Array.Empty<object>(), walls = new[] {

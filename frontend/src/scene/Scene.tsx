@@ -9,10 +9,12 @@ import { Npc } from './Npc';
 import { NpcLod } from './lod';
 
 /** <summary>One visible canvas; subscription callbacks bridge Zustand to the imperative three.js scene.</summary> */
-export function Scene() {
+export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }) {
+  const blocked = useRef(controlsBlocked); blocked.current = controlsBlocked;
   const canvas = useRef<HTMLCanvasElement>(null);
   const client = useClient();
   const [error, setError] = useState('');
+  const [hint, setHint] = useState('');
   useEffect(() => {
     const element = canvas.current!;
     let renderer: THREE.WebGLRenderer;
@@ -25,13 +27,13 @@ export function Scene() {
     if (!spec) { renderer.dispose(); setError('Сервер не прислал описание сцены.'); return; }
     const scene = new THREE.Scene(); setupRoom(scene, spec);
     const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 40);
-    const controller = new CameraController(camera, element, client);
+    const controller = new CameraController(camera, element, client, spec, setHint, message => useGameStore.setState({ error: message }));
     const npcs = new Map<string, Npc>(); const judges = new Map<string, Npc>();
     const lod = new NpcLod(camera, npcs, client);
     let lastChat = ''; let lastMeSeq = -1; let lastSeat: string | null = null;
     const sync = () => {
       const state = useGameStore.getState();
-      controller.setEnabled(!state.boardOpen && state.phase === 'playing' && state.connection === 'ready');
+      controller.setOccupied(state.seats.filter(seat => seat.occupiedBy && seat.occupiedBy !== state.playerId).map(seat => seat.id));
       for (const meta of state.npcs) if (!npcs.has(meta.id)) {
         const stand = spec.npcStands.find(x => x.id === meta.anchorId);
         if (!stand) continue;
@@ -79,6 +81,7 @@ export function Scene() {
     element.addEventListener('webglcontextlost', lost);
     let frame = 0; let frames = 0; let sampleAt = performance.now();
     const animate = (now: number) => {
+      controller.setEnabled(!blocked.current && !useGameStore.getState().boardOpen && useGameStore.getState().connection === 'ready');
       frame = requestAnimationFrame(animate); controller.update(now); npcs.forEach(npc => npc.update(now));
       lod.update(now, useGameStore.getState().connection === 'ready');
       renderer.render(scene, camera); frames++;
@@ -94,8 +97,8 @@ export function Scene() {
       element.removeEventListener('webglcontextlost', lost); controller.dispose(); lod.dispose(); disposeScene(scene); renderer.dispose();
     };
   }, [client]);
-  return <div className="absolute inset-0"><canvas ref={canvas} className="h-full w-full outline-none" tabIndex={0} aria-label="Комната расследования. Нажмите для управления мышью или используйте стрелки." />
+  return <div className="absolute inset-0"><canvas ref={canvas} className="h-full w-full outline-none" tabIndex={0} aria-label="Комната расследования. WASD — ходьба, мышь — обзор, E — сесть или встать." />
     {error && <div className="scene-error" role="alert">{error}</div>}
-    <div className="crosshair" aria-hidden="true">+</div>
+    <div className="movement-hint" role="status">{hint}</div>
   </div>;
 }

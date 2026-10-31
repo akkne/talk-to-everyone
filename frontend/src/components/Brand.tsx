@@ -1,0 +1,2 @@
+export function Brand({ onClick }: { onClick?: () => void }) { return <a className="brand" href="#home" onClick={onClick}><svg className="brand-icon" viewBox="0 0 36 36" fill="none" aria-hidden="true"><path d="M14 7a11 11 0 1 0 8 18M22 29A11 11 0 1 0 14 11" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"/><circle cx="18" cy="18" r="2.1" fill="currentColor"/></svg>Угадай друзей</a>; }
+export const initials = (name: string) => name.split(/\s+/).slice(0,2).map(s=>Array.from(s)[0]).join('').toUpperCase();

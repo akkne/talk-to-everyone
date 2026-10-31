@@ -40,7 +40,7 @@ export default function App() {
   }, [phase, boardOpen]);
   return <ClientContext.Provider value={client}>
     {phase === 'lobby' ? <Lobby onConnect={connect} onExit={() => void exit()} /> : phase === 'reveal' ? <Reveal onExit={() => void exit()} /> : <div className="game-page">
-      <div className="scene-area"><Scene /></div><HUD onExit={() => void exit()} onQuestions={() => setQuestions(true)} /><Chat />
+      <div className="scene-area"><Scene controlsBlocked={questions} /></div><HUD onExit={() => void exit()} onQuestions={() => setQuestions(true)} /><Chat />
       {questions && round?.phase === 'interrogation' && !boardOpen && <QuestionMenu onClose={() => setQuestions(false)} />}
       {boardOpen && <Board />}
     </div>}

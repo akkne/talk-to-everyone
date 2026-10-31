@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { GAME, C2S } from '../shared/contract';
+import { GAME,C2S } from '../shared/contract';
 import { lockedRound } from '../shared/config';
 import { createId } from '../shared/id';
 import { command, useClient } from '../core/client';

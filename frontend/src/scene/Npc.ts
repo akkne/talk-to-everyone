@@ -15,12 +15,8 @@ export class Npc {
     this.bodyMaterial = new THREE.MeshStandardMaterial({ color: meta.color, roughness: 0.9 });
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.45, 4, 8), this.bodyMaterial);
     body.position.y = 0.85; this.group.add(body);
-    const face = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), new THREE.MeshStandardMaterial({ color: '#d2b796', roughness: 1 }));
+    const face = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), this.bodyMaterial);
     this.head.position.y = 1.48; this.head.add(face); this.group.add(this.head);
-    for (const x of [-0.08, 0.08]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.023, 6, 6), new THREE.MeshBasicMaterial({ color: '#2b251f' }));
-      eye.position.set(x, 0.02, 0.225); this.head.add(eye);
-    }
     const chair = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.18), new THREE.MeshStandardMaterial({ color: '#4a3524' }));
     chair.position.set(0, 0.65, -0.25); this.group.add(chair);
     this.label = this.text(`№ ${String(meta.number).padStart(2, '0')}`, false);

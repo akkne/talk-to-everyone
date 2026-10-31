@@ -1,6 +1,6 @@
 # Бэкенд
 
-Один ASP.NET Core-проект без модулей по фичам. Папки по назначению: `Domain/` — модели, `Persistence/` — EF Core, `Realtime/` — SignalR, `Services/` — игровые правила и LLM, `Migrations/` — схема БД.
+Игровой API находится в `Backend.csproj`. Папки по назначению: `Domain/` — модели, `Persistence/` — EF Core, `Realtime/` — SignalR, `Services/` — игровые правила и LLM, `Migrations/` — схема БД. Отдельный проект `TalkToEveryone.Api/` содержит прототип интеграции Ollama; он пока не подключён к игровому SignalR API.
 
 Нужны .NET 10 и PostgreSQL. Пример запуска:
 
