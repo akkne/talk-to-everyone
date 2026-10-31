@@ -7,12 +7,12 @@ public sealed partial class GameHub
 {
     public async Task AskQuestion(QuestionRequest r)
     {
-        GamePlayer? me; GameNpc? npc; stringaskerName = "";
+        GamePlayer? me; GameNpc? npc; string askerName = "";
         await gate.Lock.WaitAsync();
         try
         {
             me = await Authorized(); if (me == null) return;
-            stringaskerName = me.Name;
+            askerName = me.Name;
             if (r == null || !ValidRequestId(r.RequestId))
             { await Clients.Caller.SendAsync("QuestionReject", new { requestId = r?.RequestId, code = "EMPTY", message = "Неверный ID вопроса." }); return; }
             if (Seen(me, "AskQuestion", r.RequestId))
@@ -87,7 +87,7 @@ public sealed partial class GameHub
                 await Clients.Caller.SendAsync("QuestionState", new { questions });
                 return;
             }
-            var formattedText = $"[{stringaskerName}: «{r.Text.Trim()}»] {answer}";
+            var formattedText = $"[{askerName}: «{r.Text.Trim()}»] {answer}";
             if (formattedText.Length > 500) formattedText = formattedText[..500];
             var line = new GameMessage { PlayerId = me.Id, NpcId = npc!.Id, Text = formattedText, Emotion = emotion, InReplyTo = r.RequestId, At = JsonData.Now };
             db.Messages.Add(line); await db.SaveChangesAsync();
