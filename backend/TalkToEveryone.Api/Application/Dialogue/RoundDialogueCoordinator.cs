@@ -4,7 +4,7 @@ namespace TalkToEveryone.Api.Application.Dialogue;
 
 /// <summary>
 /// Реализация <see cref="IRoundDialogueCoordinator"/>, формирующая задачи <see cref="DialogueTask"/>
-/// и матрицу слушателей для пакетной генерации реакций остальных 9 NPC.
+/// для раундов R1–R5 и список скрытых связей трибуны (<c>{{COMPACT_ROSTER_RELATIONS}}</c>).
 /// </summary>
 /// <param name="generationQueue">Очередь задач генерации к локальной модели Ollama.</param>
 /// <param name="logger">Структурированный логгер.</param>
@@ -12,53 +12,62 @@ public sealed class RoundDialogueCoordinator(
     IGameGenerationQueue generationQueue,
     ILogger<RoundDialogueCoordinator> logger) : IRoundDialogueCoordinator
 {
+    private const int GossipRoundNumber = 2;
     private const int InterrogationRoundNumber = 4;
-    private const string TrueFriendRelation = "настоящий лучший друг говорящего, знает всю правду и общие косяки";
-    private const string ActorTargetingSpeakerRelation = "актёр-самозванец, который притворяется лучшим другом говорящего и подыгрывает ему";
-    private const string SpeakerTargetingListenerRelation = "говорящий самозванец пытается примазаться к этому участнику, хотя тот его не знает";
-    private const string UnrelatedObserverRelation = "сторонний участник шоу, наблюдает со стороны и ищет несостыковки";
+    private const int CrossfireRoundNumber = 5;
 
     /// <summary>
-    /// Ставит в очередь генерации выступления всех 10 NPC для автоматических раундов (1 — визитки, 2 — истории, 3 — факты).
+    /// Ставит в очередь генерации выступления всех 10 слотов для линейных раундов (R1, R2, R3).
     /// </summary>
-    /// <param name="sessionId">Идентификатор игровой сессии.</param>
-    /// <param name="roundNumber">Номер раунда (1, 2 или 3).</param>
-    /// <param name="phase">Фаза раунда.</param>
-    /// <param name="roster">Полный состав из 10 NPC текущей партии.</param>
-    /// <param name="recentHistory">Последние реплики в студии.</param>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
     public async Task EnqueueRoundSpeechesAsync(
         string sessionId,
         int roundNumber,
         RoundPhase phase,
         IReadOnlyList<NpcPersona> roster,
         IReadOnlyList<ChatHistoryEntry> recentHistory,
+        IReadOnlyDictionary<int, string>? round1SpeechesBySlot,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Enqueueing {NpcCount} speeches for session {SessionId}, round {RoundNumber}",
-            roster.Count,
-            sessionId,
-            roundNumber);
-
-        foreach (NpcPersona speaker in roster.OrderBy(npc => npc.Number))
+        logger.LogInformation("Enqueueing {NpcCount} slot turns for session {SessionId}, round {RoundNumber}", roster.Count, sessionId, roundNumber);
+        foreach (NpcPersona speaker in roster.OrderBy(npc => npc.SlotId))
         {
-            DialogueTask task = CreateRoundSpeechTask(sessionId, roundNumber, phase, speaker, roster, recentHistory);
+            string? targetR1Speech = ResolveTargetRound1Speech(speaker, round1SpeechesBySlot);
+            DialogueTask task = CreateStandardRoundTask(sessionId, roundNumber, phase, speaker, roster, recentHistory, targetR1Speech);
             await generationQueue.EnqueueAsync(task, cancellationToken);
         }
     }
 
     /// <summary>
-    /// Ставит в очередь генерации ответ выбранного NPC на прямой вопрос судьи в раунде 4.
+    /// Ставит в очередь встречный вброс соседа с места в Раунде 2 (<see cref="RoundPhase.GossipCounterThrow"/>).
     /// </summary>
-    /// <param name="sessionId">Идентификатор игровой сессии.</param>
-    /// <param name="askingPlayerId">Идентификатор игрока, задавшего вопрос.</param>
-    /// <param name="questionId">Уникальный идентификатор запроса (<c>requestId</c>).</param>
-    /// <param name="questionText">Текст вопроса от судьи.</param>
-    /// <param name="targetSpeaker">Профиль выбранного NPC.</param>
-    /// <param name="roster">Полный состав из 10 NPC.</param>
-    /// <param name="recentHistory">Последние реплики в студии.</param>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task EnqueueRound2CounterThrowAsync(
+        string sessionId,
+        NpcPersona counterSpeaker,
+        int activeSlotId,
+        string activeName,
+        string activeRound2Speech,
+        IReadOnlyList<NpcPersona> roster,
+        IReadOnlyList<ChatHistoryEntry> recentHistory,
+        CancellationToken cancellationToken)
+    {
+        string taskId = $"{sessionId}:r2:counter:from{counterSpeaker.SlotId}:to{activeSlotId}";
+        NpcDialoguePrompt prompt = new(
+            SessionId: sessionId,
+            RoundNumber: GossipRoundNumber,
+            Phase: RoundPhase.GossipCounterThrow,
+            Speaker: counterSpeaker,
+            RecentHistory: recentHistory,
+            ActiveSlotId: activeSlotId,
+            ActiveName: activeName,
+            ActiveRound2Speech: activeRound2Speech);
+
+        DialogueTask task = new(taskId, prompt, BuildListenersForSpeaker(counterSpeaker, roster), GenerateEnsembleReactions: false);
+        await generationQueue.EnqueueAsync(task, cancellationToken);
+    }
+
+    /// <summary>
+    /// Ставит в очередь ответ допрашиваемого слота в Раунде 4 (<see cref="RoundPhase.Interrogation"/>).
+    /// </summary>
     public async Task EnqueueInterrogationQuestionAsync(
         string sessionId,
         string askingPlayerId,
@@ -69,45 +78,80 @@ public sealed class RoundDialogueCoordinator(
         IReadOnlyList<ChatHistoryEntry> recentHistory,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Enqueueing interrogation question {QuestionId} from player {PlayerId} to NPC #{NpcNumber} in session {SessionId}",
-            questionId,
-            askingPlayerId,
-            targetSpeaker.Number,
-            sessionId);
-
+        logger.LogInformation("Enqueueing R4 interrogation {QuestionId} for Slot #{SlotId} in session {SessionId}", questionId, targetSpeaker.SlotId, sessionId);
         NpcDialoguePrompt prompt = new(
-            sessionId,
-            InterrogationRoundNumber,
-            RoundPhase.Interrogation,
-            targetSpeaker,
-            recentHistory,
-            questionText,
-            questionId);
+            SessionId: sessionId,
+            RoundNumber: InterrogationRoundNumber,
+            Phase: RoundPhase.Interrogation,
+            Speaker: targetSpeaker,
+            RecentHistory: recentHistory,
+            JuryQuestionText: questionText,
+            QuestionId: questionId);
 
         DialogueTask task = new(questionId, prompt, BuildListenersForSpeaker(targetSpeaker, roster), true, askingPlayerId);
         await generationQueue.EnqueueAsync(task, cancellationToken);
     }
 
     /// <summary>
-    /// Создаёт задачу генерации реплики и реакций для одного выступающего NPC в раундах 1–3.
+    /// Ставит в очередь ход эстафеты Раунда 5 (<see cref="RoundPhase.BotCrossfire"/>).
     /// </summary>
-    private static DialogueTask CreateRoundSpeechTask(
+    public async Task EnqueueRound5CrossfireTurnAsync(
+        string sessionId,
+        int turnIndex,
+        NpcPersona currentSpeaker,
+        int previousSlotId,
+        string previousName,
+        string previousSpeech,
+        IReadOnlyList<int> availableSlotsList,
+        IReadOnlyList<NpcPersona> roster,
+        IReadOnlyList<ChatHistoryEntry> recentHistory,
+        CancellationToken cancellationToken)
+    {
+        string taskId = $"{sessionId}:r5:turn{turnIndex}:slot{currentSpeaker.SlotId}";
+        NpcDialoguePrompt prompt = new(
+            SessionId: sessionId,
+            RoundNumber: CrossfireRoundNumber,
+            Phase: RoundPhase.BotCrossfire,
+            Speaker: currentSpeaker,
+            RecentHistory: recentHistory,
+            PreviousSlotId: previousSlotId,
+            PreviousName: previousName,
+            PreviousSpeech: previousSpeech,
+            AvailableSlotsList: availableSlotsList);
+
+        DialogueTask task = new(taskId, prompt, BuildListenersForSpeaker(currentSpeaker, roster), GenerateEnsembleReactions: true);
+        await generationQueue.EnqueueAsync(task, cancellationToken);
+    }
+
+    /// <summary>
+    /// Создаёт стандартную задачу генерации хода и реакций для линейных раундов R1–R3.
+    /// </summary>
+    private static DialogueTask CreateStandardRoundTask(
         string sessionId,
         int roundNumber,
         RoundPhase phase,
         NpcPersona speaker,
         IReadOnlyList<NpcPersona> roster,
-        IReadOnlyList<ChatHistoryEntry> recentHistory)
+        IReadOnlyList<ChatHistoryEntry> recentHistory,
+        string? targetR1Speech)
     {
-        string taskId = $"{sessionId}:r{roundNumber}:npc{speaker.Number}";
-        NpcDialoguePrompt prompt = new(sessionId, roundNumber, phase, speaker, recentHistory);
-        IReadOnlyList<NpcListenerProfile> listeners = BuildListenersForSpeaker(speaker, roster);
-        return new DialogueTask(taskId, prompt, listeners, GenerateEnsembleReactions: true);
+        string taskId = $"{sessionId}:r{roundNumber}:slot{speaker.SlotId}";
+        NpcDialoguePrompt prompt = new(sessionId, roundNumber, phase, speaker, recentHistory, TargetRound1Speech: targetR1Speech);
+        return new DialogueTask(taskId, prompt, BuildListenersForSpeaker(speaker, roster), GenerateEnsembleReactions: true);
     }
 
     /// <summary>
-    /// Формирует список профилей остальных 9 NPC, слушающих выступление текущего спикера.
+    /// Находит реплику цели из Раунда 1 для подстановки в <c>{{TARGET_R1_SPEECH}}</c>.
+    /// </summary>
+    private static string? ResolveTargetRound1Speech(
+        NpcPersona speaker,
+        IReadOnlyDictionary<int, string>? round1SpeechesBySlot) =>
+        round1SpeechesBySlot is not null && round1SpeechesBySlot.TryGetValue(speaker.TargetSlotId, out string? speech)
+            ? speech
+            : null;
+
+    /// <summary>
+    /// Формирует список остальных 9 слотов трибуны в формате <c>{{COMPACT_ROSTER_RELATIONS}}</c>.
     /// </summary>
     private static IReadOnlyList<NpcListenerProfile> BuildListenersForSpeaker(
         NpcPersona speaker,
@@ -116,39 +160,18 @@ public sealed class RoundDialogueCoordinator(
         List<NpcListenerProfile> listeners = new(Math.Max(0, roster.Count - 1));
         foreach (NpcPersona candidate in roster.Where(npc => npc.NpcId != speaker.NpcId))
         {
-            string relation = DescribeRelationToSpeaker(speaker, candidate);
-            listeners.Add(new NpcListenerProfile(
-                candidate.NpcId,
-                candidate.Number,
-                candidate.DisplayName,
-                candidate.Role,
-                candidate.TargetNpcNumber,
-                relation));
+            string line = FormatCompactRelationLine(candidate);
+            listeners.Add(new NpcListenerProfile(candidate.NpcId, candidate.SlotId, candidate.BotName, candidate.Role, candidate.TargetSlotId, line));
         }
 
         return listeners;
     }
 
     /// <summary>
-    /// Определяет краткое описание скрытого отношения слушающего NPC к говорящему.
+    /// Форматирует строку связи слота по шаблону «Слот 7 (Влад) — реальный друг Слота 1» или «импостор, охотится на Слот 1».
     /// </summary>
-    private static string DescribeRelationToSpeaker(NpcPersona speaker, NpcPersona listener)
-    {
-        if (listener.Role == NpcRole.TrueFriend && listener.TargetNpcId == speaker.NpcId)
-        {
-            return TrueFriendRelation;
-        }
-
-        if (listener.Role == NpcRole.Actor && listener.TargetNpcId == speaker.NpcId)
-        {
-            return ActorTargetingSpeakerRelation;
-        }
-
-        if (speaker.Role == NpcRole.Actor && speaker.TargetNpcId == listener.NpcId)
-        {
-            return SpeakerTargetingListenerRelation;
-        }
-
-        return UnrelatedObserverRelation;
-    }
+    private static string FormatCompactRelationLine(NpcPersona listener) =>
+        listener.Role == NpcRole.TrueFriend
+            ? $"Слот {listener.SlotId} ({listener.BotName}) — реальный друг Слота {listener.TargetSlotId}"
+            : $"Слот {listener.SlotId} ({listener.BotName}) — импостор, охотится на Слот {listener.TargetSlotId}";
 }

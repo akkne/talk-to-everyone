@@ -1,8 +1,7 @@
 namespace TalkToEveryone.Api.Infrastructure.Ollama;
 
 /// <summary>
-/// Настройки подключения и параметров генерации локального сервера Ollama.
-/// Значения поступают из переменных окружения секции <see cref="SectionName"/>.
+/// Настройки подключения и параметров инференса локального сервера Ollama по спецификации «Угадай кента».
 /// </summary>
 public sealed class OllamaOptions
 {
@@ -17,12 +16,12 @@ public sealed class OllamaOptions
     public const string DefaultBaseUrl = "http://ollama:11434";
 
     /// <summary>
-    /// Модель по умолчанию, оптимизированная под 8 ГБ VRAM и русский язык.
+    /// Рекомендуемая модель по умолчанию из мастер-спецификации.
     /// </summary>
-    public const string DefaultModel = "qwen2.5:7b-instruct";
+    public const string DefaultModel = "qwen2.5:14b-instruct-q4_K_M";
 
     /// <summary>
-    /// Значение удержания модели в видеопамяти без выгрузки.
+    /// Значение удержания модели в видеопамяти без выгрузки (<c>"keep_alive": -1</c>).
     /// </summary>
     public const int KeepLoadedForever = -1;
 
@@ -32,24 +31,34 @@ public sealed class OllamaOptions
     public const int DefaultTimeoutSeconds = 30;
 
     /// <summary>
-    /// Размер контекстного окна по умолчанию (в токенах), гарантирующий отсутствие выхода за 8 ГБ VRAM.
+    /// Температура генерации хода активного бота (<c>0.75</c>).
     /// </summary>
-    public const int DefaultMaxContextTokens = 4096;
+    public const double DefaultSpeakerTemperature = 0.75;
 
     /// <summary>
-    /// Максимальное число генерируемых токенов для одной реплики NPC.
+    /// Размер контекстного окна хода активного бота (<c>num_ctx: 4096</c>).
     /// </summary>
-    public const int DefaultMaxPredictTokens = 120;
+    public const int DefaultSpeakerContextTokens = 4096;
 
     /// <summary>
-    /// Максимальное число генерируемых токенов для пакетного ответа реакций 9 NPC.
+    /// Максимальное число генерируемых токенов для хода активного бота (<c>num_predict: 140</c>).
     /// </summary>
-    public const int DefaultReactionBatchPredictTokens = 480;
+    public const int DefaultSpeakerPredictTokens = 140;
 
     /// <summary>
-    /// Температура сэмплирования по умолчанию.
+    /// Температура генерации батча реакций трибуны (<c>0.6</c>).
     /// </summary>
-    public const double DefaultTemperature = 0.75;
+    public const double DefaultReactionTemperature = 0.6;
+
+    /// <summary>
+    /// Размер контекстного окна для батча реакций трибуны (<c>num_ctx: 2048</c>).
+    /// </summary>
+    public const int DefaultReactionContextTokens = 2048;
+
+    /// <summary>
+    /// Максимальное число генерируемых токенов для батча реакций (<c>num_predict: 180</c>).
+    /// </summary>
+    public const int DefaultReactionPredictTokens = 180;
 
     /// <summary>
     /// Вместимость очереди задач генерации диалогов по умолчанию.
@@ -57,7 +66,7 @@ public sealed class OllamaOptions
     public const int DefaultQueueCapacity = 64;
 
     /// <summary>
-    /// Максимальное количество последних сообщений чата, включаемых в промпт.
+    /// Максимальное количество последних сообщений чата в краткой сводке комнаты.
     /// </summary>
     public const int DefaultMaxHistoryEntries = 12;
 
@@ -67,7 +76,7 @@ public sealed class OllamaOptions
     public string BaseUrl { get; init; } = DefaultBaseUrl;
 
     /// <summary>
-    /// Название используемой модели в формате Ollama (например, <c>qwen2.5:7b-instruct</c> или <c>gemma3:4b</c>).
+    /// Название используемой модели (например, <c>qwen2.5:14b-instruct-q4_K_M</c> или <c>llama3.1:8b-instruct-q8_0</c>).
     /// </summary>
     public string Model { get; init; } = DefaultModel;
 
@@ -77,29 +86,39 @@ public sealed class OllamaOptions
     public int TimeoutSeconds { get; init; } = DefaultTimeoutSeconds;
 
     /// <summary>
-    /// Размер контекстного окна модели (<c>num_ctx</c>).
-    /// </summary>
-    public int MaxContextTokens { get; init; } = DefaultMaxContextTokens;
-
-    /// <summary>
-    /// Лимит токенов на генерацию одной реплики говорящего NPC (<c>num_predict</c>).
-    /// </summary>
-    public int MaxPredictTokens { get; init; } = DefaultMaxPredictTokens;
-
-    /// <summary>
-    /// Лимит токенов на пакетную генерацию реакций остальных 9 NPC.
-    /// </summary>
-    public int ReactionBatchPredictTokens { get; init; } = DefaultReactionBatchPredictTokens;
-
-    /// <summary>
-    /// Температура генерации (<c>temperature</c>).
-    /// </summary>
-    public double Temperature { get; init; } = DefaultTemperature;
-
-    /// <summary>
     /// Время удержания весов модели в VRAM (<c>-1</c> — удерживать постоянно).
     /// </summary>
     public int KeepAlive { get; init; } = KeepLoadedForever;
+
+    /// <summary>
+    /// Температура генерации хода активного бота (<c>temperature: 0.75</c>).
+    /// </summary>
+    public double SpeakerTemperature { get; init; } = DefaultSpeakerTemperature;
+
+    /// <summary>
+    /// Размер контекстного окна хода активного бота (<c>num_ctx: 4096</c>).
+    /// </summary>
+    public int SpeakerContextTokens { get; init; } = DefaultSpeakerContextTokens;
+
+    /// <summary>
+    /// Лимит токенов на генерацию хода активного бота (<c>num_predict: 140</c>).
+    /// </summary>
+    public int SpeakerPredictTokens { get; init; } = DefaultSpeakerPredictTokens;
+
+    /// <summary>
+    /// Температура генерации батча реакций (<c>temperature: 0.6</c>).
+    /// </summary>
+    public double ReactionTemperature { get; init; } = DefaultReactionTemperature;
+
+    /// <summary>
+    /// Размер контекстного окна для батча реакций (<c>num_ctx: 2048</c>).
+    /// </summary>
+    public int ReactionContextTokens { get; init; } = DefaultReactionContextTokens;
+
+    /// <summary>
+    /// Лимит токенов на генерацию батча реакций (<c>num_predict: 180</c>).
+    /// </summary>
+    public int ReactionPredictTokens { get; init; } = DefaultReactionPredictTokens;
 
     /// <summary>
     /// Максимальный размер очереди задач генерации диалогов.
@@ -107,12 +126,12 @@ public sealed class OllamaOptions
     public int QueueCapacity { get; init; } = DefaultQueueCapacity;
 
     /// <summary>
-    /// Максимальное число реплик истории чата, передаваемых в контекст одного запроса.
+    /// Максимальное число реплик истории в краткой сводке комнаты.
     /// </summary>
     public int MaxHistoryEntries { get; init; } = DefaultMaxHistoryEntries;
 
     /// <summary>
-    /// Разрешает ли сервер автоматическое скачивание модели (<c>/api/pull</c>) при старте, если она ещё не загружена в том Ollama.
+    /// Разрешает ли сервер автоматическое скачивание модели (<c>/api/pull</c>) при старте.
     /// </summary>
     public bool AutoPullModel { get; init; } = true;
 }

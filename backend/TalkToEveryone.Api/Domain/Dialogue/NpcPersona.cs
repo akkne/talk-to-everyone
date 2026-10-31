@@ -1,28 +1,26 @@
 namespace TalkToEveryone.Api.Domain.Dialogue;
 
 /// <summary>
-/// Полный серверный профиль личности и секретной роли NPC для формирования промпта LLM.
+/// Полный серверный профиль участника шоу «Угадай кента» (Слоты 1–10) для формирования системного промпта.
 /// </summary>
-/// <param name="NpcId">Непрозрачный строковый идентификатор NPC.</param>
-/// <param name="Number">Публичный номер участника от 1 до 10.</param>
-/// <param name="DisplayName">Имя персонажа.</param>
-/// <param name="Age">Возраст персонажа.</param>
-/// <param name="CharacterTrait">Описание характера, манеры речи и «красного флага» в дружбе.</param>
-/// <param name="Role">Секретная роль: настоящий друг или актёр.</param>
-/// <param name="TargetNpcId">ID настоящего друга (для TrueFriend) или ID выбранной жертвы (для Actor).</param>
-/// <param name="TargetNpcNumber">Публичный номер (1–10) настоящего друга или жертвы актёра.</param>
-/// <param name="TargetNpcName">Имя настоящего друга или жертвы актёра.</param>
-/// <param name="TrueFriendLore">Секретная общая база фактов (заполнена только для <see cref="NpcRole.TrueFriend"/>).</param>
-/// <param name="ActorLegend">Вымышленная легенда прикрытия (заполнена только для <see cref="NpcRole.Actor"/>).</param>
+/// <param name="NpcId">Непрозрачный строковый идентификатор бота.</param>
+/// <param name="SlotId">Номер слота на двухуровневой трибуне от 1 до 10 (<c>{{SLOT_ID}}</c>).</param>
+/// <param name="BotName">Имя бота (<c>{{BOT_NAME}}</c>).</param>
+/// <param name="Role">Секретная роль: <see cref="NpcRole.TrueFriend"/> («Настоящий кент») или <see cref="NpcRole.Actor"/> («Актёр-импостор»).</param>
+/// <param name="BotVibeOrArchetype">Характер, архетип и стиль базара (<c>{{BOT_VIBE_OR_ARCHETYPE}}</c>).</param>
+/// <param name="TargetNpcId">ID реального кента (для TrueFriend) или ID выбранной жертвы (для Actor).</param>
+/// <param name="TargetSlotId">Номер слота (1–10) реального кента (<c>{{PARTNER_SLOT}}</c>) или жертвы импостора (<c>{{TARGET_SLOT}}</c>).</param>
+/// <param name="TargetName">Имя реального кента (<c>{{PARTNER_NAME}}</c>) или жертвы импостора (<c>{{TARGET_NAME}}</c>).</param>
+/// <param name="TrueFriendLore">Секретная база пары (заполнена для роли «Настоящий кент»).</param>
+/// <param name="DefenseStrategy">Тактика защиты при проколах (<c>{{DEFENSE_STRATEGY}}</c>, заполнена для роли «Актёр-импостор»).</param>
 public sealed record NpcPersona(
     string NpcId,
-    int Number,
-    string DisplayName,
-    int Age,
-    string CharacterTrait,
+    int SlotId,
+    string BotName,
     NpcRole Role,
+    string BotVibeOrArchetype,
     string TargetNpcId,
-    int TargetNpcNumber,
-    string TargetNpcName,
+    int TargetSlotId,
+    string TargetName,
     SharedLore? TrueFriendLore,
-    string? ActorLegend);
+    string? DefenseStrategy);

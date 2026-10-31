@@ -1,80 +1,74 @@
 namespace TalkToEveryone.Api.Domain.Dialogue;
 
 /// <summary>
-/// Каталог допустимых эмоций NPC и нормализация значений, полученных от модели.
+/// Каталог допустимых эмоций (<c>emotion_enum</c>) по спецификации «Угадай кента» и нормализация значений от модели.
 /// </summary>
 public sealed class NpcEmotionCatalog
 {
     /// <summary>
-    /// Эмоция по умолчанию при неизвестном или пустом значении от LLM.
+    /// Спокойствие / базовое состояние (используется по умолчанию при неизвестной эмоции).
     /// </summary>
-    public const string Neutral = "neutral";
+    public const string Chill = "CHILL";
 
     /// <summary>
-    /// Ухмылка или ироничный подкол.
+    /// Открытый смех / рофл.
     /// </summary>
-    public const string Smirk = "smirk";
+    public const string Rofl = "ROFL";
 
     /// <summary>
-    /// Смех или весёлая реакция.
+    /// Нервозность / испарина при проколе или опасном вопросе.
     /// </summary>
-    public const string Laugh = "laugh";
+    public const string Sweat = "SWEAT";
 
     /// <summary>
-    /// Испанский стыд или фейспалм от истории друга.
+    /// Гнев / жесткий наезд или защита кента.
     /// </summary>
-    public const string Facepalm = "facepalm";
+    public const string Rage = "RAGE";
 
     /// <summary>
-    /// Возмущение или защитная агрессия.
+    /// Испанский стыд / фейспалм от кринжовой истории.
     /// </summary>
-    public const string Angry = "angry";
+    public const string Facepalm = "FACEPALM";
 
     /// <summary>
-    /// Нервозность или неуверенность при блефе.
+    /// Ухмылка / самодовольная ирония.
     /// </summary>
-    public const string Nervous = "nervous";
+    public const string Smirk = "SMIRK";
 
     /// <summary>
-    /// Удивление или шок от заявления другого участника.
+    /// Шок / искреннее удивление от наглого вброса.
     /// </summary>
-    public const string Surprised = "surprised";
-
-    /// <summary>
-    /// Уверенное согласие или одобрительная улыбка.
-    /// </summary>
-    public const string Smile = "smile";
+    public const string Shock = "SHOCK";
 
     private static readonly IReadOnlySet<string> AllowedEmotions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        Neutral,
-        Smirk,
-        Laugh,
+        Chill,
+        Rofl,
+        Sweat,
+        Rage,
         Facepalm,
-        Angry,
-        Nervous,
-        Surprised,
-        Smile
+        Smirk,
+        Shock
     };
 
     /// <summary>
-    /// Возвращает список всех поддерживаемых кодов эмоций для инструкций промпта.
+    /// Возвращает список всех поддерживаемых кодов <c>emotion_enum</c>.
     /// </summary>
     public IReadOnlyCollection<string> GetAllowedEmotions() => AllowedEmotions;
 
     /// <summary>
-    /// Приводит строку эмоции от модели к допустимому значению контракта или возвращает <see cref="Neutral"/>.
+    /// Приводит строку эмоции от модели к верхнему регистру из допустимого перечня или возвращает <see cref="Chill"/>.
     /// </summary>
     /// <param name="rawEmotion">Сырая строка эмоции из ответа LLM.</param>
-    /// <returns>Нормализованный код эмоции в нижнем регистре.</returns>
+    /// <returns>Валидный код <c>emotion_enum</c> в верхнем регистре.</returns>
     public string Normalize(string? rawEmotion)
     {
         if (string.IsNullOrWhiteSpace(rawEmotion))
         {
-            return Neutral;
+            return Chill;
         }
 
-        string candidate = rawEmotion.Trim().ToLowerInvariant();
-        return AllowedEmotions.Contains(candidate) ? candidate : Neutral;
+        string candidate = rawEmotion.Trim().ToUpperInvariant();
+        return AllowedEmotions.Contains(candidate) ? candidate : Chill;
     }
 }

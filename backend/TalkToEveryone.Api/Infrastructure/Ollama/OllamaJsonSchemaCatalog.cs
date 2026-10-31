@@ -3,8 +3,7 @@ using System.Text.Json;
 namespace TalkToEveryone.Api.Infrastructure.Ollama;
 
 /// <summary>
-/// Каталог строгих JSON Schema для параметра <c>format</c> в запросах к Ollama (<c>/api/chat</c>).
-/// Гарантирует детерминированную структуру JSON-ответа без обёрток Markdown.
+/// Каталог строгих JSON Schema для поля <c>format</c> в Ollama (Схема А и Схема Б спецификации «Угадай кента»).
 /// </summary>
 public sealed class OllamaJsonSchemaCatalog
 {
@@ -12,16 +11,28 @@ public sealed class OllamaJsonSchemaCatalog
         {
           "type": "object",
           "properties": {
-            "text": {
+            "public_speech": {
               "type": "string",
-              "description": "Короткая живая реплика NPC на русском языке (1-3 предложения)."
+              "description": "Реплика бота вслух для вывода в облачке текста над головой (80-220 символов)."
             },
-            "emotion": {
+            "emotion_enum": {
               "type": "string",
-              "enum": ["neutral", "smirk", "laugh", "facepalm", "angry", "nervous", "surprised", "smile"]
+              "enum": ["CHILL", "ROFL", "SWEAT", "RAGE", "FACEPALM", "SMIRK", "SHOCK"]
+            },
+            "reaction_label": {
+              "type": "string",
+              "description": "Короткий статус действия (2-3 слова, например: 'нервно потеет', 'ухмыляется в кулак')."
+            },
+            "hidden_thought": {
+              "type": "string",
+              "description": "Внутренняя скрытая мысль бота для финального экрана разоблачения."
+            },
+            "addressing_slot": {
+              "type": "integer",
+              "description": "Номер слота (1-10), на который смотрит или к которому обращается бот (0, если обращается ко всему жюри)."
             }
           },
-          "required": ["text", "emotion"],
+          "required": ["public_speech", "emotion_enum", "reaction_label", "hidden_thought", "addressing_slot"],
           "additionalProperties": false
         }
         """;
@@ -35,15 +46,15 @@ public sealed class OllamaJsonSchemaCatalog
               "items": {
                 "type": "object",
                 "properties": {
-                  "npcNumber": { "type": "integer" },
-                  "reaction": { "type": "string" },
-                  "emotion": {
+                  "slot_id": { "type": "integer" },
+                  "emotion_enum": {
                     "type": "string",
-                    "enum": ["neutral", "smirk", "laugh", "facepalm", "angry", "nervous", "surprised", "smile"]
+                    "enum": ["CHILL", "ROFL", "SWEAT", "RAGE", "FACEPALM", "SMIRK", "SHOCK"]
                   },
-                  "reason": { "type": "string" }
+                  "reaction_label": { "type": "string" },
+                  "internal_thought": { "type": "string" }
                 },
-                "required": ["npcNumber", "reaction", "emotion", "reason"],
+                "required": ["slot_id", "emotion_enum", "reaction_label", "internal_thought"],
                 "additionalProperties": false
               }
             }
@@ -57,12 +68,12 @@ public sealed class OllamaJsonSchemaCatalog
     private readonly JsonElement _reactionBatchSchema = ParseSchema(ReactionBatchSchemaJson);
 
     /// <summary>
-    /// Возвращает JSON Schema для генерации одиночной реплики говорящего NPC.
+    /// Возвращает Схему А (<c>SINGLE BOT TURN</c>) для генерации хода активного бота.
     /// </summary>
     public JsonElement GetSpeakerReplySchema() => _speakerReplySchema;
 
     /// <summary>
-    /// Возвращает JSON Schema для пакетной генерации реакций остальных 9 NPC.
+    /// Возвращает Схему Б (<c>BACKGROUND REACTIONS BATCH</c>) для «Режиссёра реакций».
     /// </summary>
     public JsonElement GetReactionBatchSchema() => _reactionBatchSchema;
 

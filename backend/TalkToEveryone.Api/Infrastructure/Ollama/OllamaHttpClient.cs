@@ -25,22 +25,22 @@ public sealed class OllamaHttpClient(
     private readonly OllamaOptions _settings = options.Value;
 
     /// <summary>
-    /// Выполняет запрос генерации к эндпоинту <c>POST /api/chat</c> со строгой JSON-схемой ответа.
+    /// Выполняет запрос генерации к эндпоинту <c>POST /api/chat</c> со строгой JSON-схемой и профилем инференса.
     /// </summary>
-    /// <param name="systemPrompt">Системная инструкция модели.</param>
-    /// <param name="userPrompt">Пользовательский запрос с контекстом раунда.</param>
-    /// <param name="formatSchema">JSON Schema ожидаемого объекта ответа.</param>
-    /// <param name="maxPredictTokens">Лимит генерируемых токенов (<c>num_predict</c>).</param>
+    /// <param name="systemPrompt">Системная инструкция модели (<c>role: "system"</c>).</param>
+    /// <param name="userPrompt">Пользовательский запрос раунда (<c>role: "user"</c>).</param>
+    /// <param name="formatSchema">JSON Schema ожидаемого объекта ответа (<c>format</c>).</param>
+    /// <param name="inferenceProfile">Параметры <c>num_ctx</c>, <c>num_predict</c> и <c>temperature</c>.</param>
     /// <param name="cancellationToken">Токен отмены операции.</param>
-    /// <returns>Сырая JSON-строка, возвращённая моделью в поле <c>message.content</c>.</returns>
+    /// <returns>Сырая JSON-строка из поля <c>message.content</c>.</returns>
     public async Task<string> CompleteChatJsonAsync(
         string systemPrompt,
         string userPrompt,
         JsonElement formatSchema,
-        int maxPredictTokens,
+        OllamaInferenceProfile inferenceProfile,
         CancellationToken cancellationToken)
     {
-        OllamaChatRequestDto request = BuildChatRequest(systemPrompt, userPrompt, formatSchema, maxPredictTokens);
+        OllamaChatRequestDto request = BuildChatRequest(systemPrompt, userPrompt, formatSchema, inferenceProfile);
         using HttpResponseMessage response = await httpClient.PostAsJsonAsync(ChatEndpoint, request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
@@ -87,13 +87,13 @@ public sealed class OllamaHttpClient(
     }
 
     /// <summary>
-    /// Собирает DTO запроса к <c>/api/chat</c> с настройками контекста, лимита токенов и удержания в VRAM.
+    /// Собирает DTO запроса к <c>/api/chat</c> с настройками профиля инференса и удержания в VRAM.
     /// </summary>
     private OllamaChatRequestDto BuildChatRequest(
         string systemPrompt,
         string userPrompt,
         JsonElement formatSchema,
-        int maxPredictTokens)
+        OllamaInferenceProfile inferenceProfile)
     {
         IReadOnlyList<OllamaChatMessageDto> messages =
         [
@@ -102,9 +102,9 @@ public sealed class OllamaHttpClient(
         ];
 
         OllamaModelParametersDto modelParams = new(
-            NumCtx: _settings.MaxContextTokens,
-            NumPredict: maxPredictTokens,
-            Temperature: _settings.Temperature);
+            NumCtx: inferenceProfile.NumCtx,
+            NumPredict: inferenceProfile.NumPredict,
+            Temperature: inferenceProfile.Temperature);
 
         return new OllamaChatRequestDto(
             Model: _settings.Model,

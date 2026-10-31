@@ -5,11 +5,12 @@ namespace TalkToEveryone.Api.Infrastructure.Ollama;
 
 /// <summary>
 /// Фоновый обработчик очереди генерации диалогов NPC (<see cref="IGameGenerationQueue"/>).
-/// Выполняет двухшаговый конвейер «1 + 1»: сначала реплика говорящего (<c>NpcSay</c>), затем пакет реакций 9 слушателей (<c>NpcReaction</c>).
+/// Выполняет конвейер «1 + 1»: сначала ход активного бота по Схеме А (<c>NpcSay</c>),
+/// затем батч из 3 реакций трибуны по Схеме Б (<c>NpcReaction</c>).
 /// </summary>
 /// <param name="queue">Очередь задач генерации на базе <see cref="System.Threading.Channels"/>.</param>
-/// <param name="dialogueModel">Модель генерации реплики говорящего NPC.</param>
-/// <param name="reactionModel">Модель пакетной генерации реакций слушателей.</param>
+/// <param name="dialogueModel">Модель генерации хода активного бота.</param>
+/// <param name="reactionModel">Модель «Режиссёра реакций» трибуны.</param>
 /// <param name="broadcaster">Публикатор событий в игровую сессию.</param>
 /// <param name="options">Настройки таймаутов Ollama.</param>
 /// <param name="logger">Структурированный логгер.</param>
@@ -21,8 +22,8 @@ public sealed class DialogueGenerationWorker(
     IOptions<OllamaOptions> options,
     ILogger<DialogueGenerationWorker> logger) : BackgroundService
 {
-    private const string TimeoutUserMessage = "NPC задумался слишком надолго. Попытка вопроса возвращена.";
-    private const string ErrorUserMessage = "Не удалось получить ответ от NPC. Попытка вопроса возвращена.";
+    private const string TimeoutUserMessage = "Слот задумался слишком надолго. Попытка вопроса возвращена.";
+    private const string ErrorUserMessage = "Не удалось получить ответ от слота. Попытка вопроса возвращена.";
 
     private readonly OllamaOptions _settings = options.Value;
 
@@ -64,7 +65,7 @@ public sealed class DialogueGenerationWorker(
     }
 
     /// <summary>
-    /// Выполняет двухшаговый конвейер «1 + 1»: публикация реплики спикера, затем батч реакций слушателей.
+    /// Выполняет двухшаговый конвейер «1 + 1»: публикация хода спикера, затем батч из 3 реакций трибуны.
     /// </summary>
     private async Task ExecuteTwoStepPipelineAsync(DialogueTask task, CancellationToken cancellationToken)
     {
@@ -85,25 +86,25 @@ public sealed class DialogueGenerationWorker(
 
         if (task.GenerateEnsembleReactions && task.Listeners.Count > 0)
         {
-            await GenerateAndPublishReactionsAsync(task, reply.Text, cancellationToken);
+            await GenerateAndPublishReactionsAsync(task, reply.PublicSpeech, cancellationToken);
         }
     }
 
     /// <summary>
-    /// Запрашивает у модели пакет реакций остальных участников студии и публикует их в сессию.
+    /// Запрашивает у «Режиссёра реакций» 3 самые острые реакции трибуны и публикует их в сессию.
     /// </summary>
     private async Task GenerateAndPublishReactionsAsync(
         DialogueTask task,
-        string spokenText,
+        string currentSpeech,
         CancellationToken cancellationToken)
     {
         NpcDialoguePrompt speakerPrompt = task.DialoguePrompt;
         NpcReactionBatchPrompt reactionPrompt = new(
             SessionId: speakerPrompt.SessionId,
             RoundNumber: speakerPrompt.RoundNumber,
-            SpeakerNumber: speakerPrompt.Speaker.Number,
-            SpeakerName: speakerPrompt.Speaker.DisplayName,
-            SpokenText: spokenText,
+            ActiveSlotId: speakerPrompt.Speaker.SlotId,
+            ActiveName: speakerPrompt.Speaker.BotName,
+            CurrentSpeech: currentSpeech,
             Listeners: task.Listeners);
 
         IReadOnlyList<NpcReactionResult> reactions = await reactionModel.GenerateReactionsAsync(
@@ -114,7 +115,7 @@ public sealed class DialogueGenerationWorker(
     }
 
     /// <summary>
-    /// Переводит ошибку генерации в событие <c>QuestionFailed</c> для допроса раунда 4 или логирует сбой авто-реплики.
+    /// Переводит ошибку генерации в событие <c>QuestionFailed</c> для допроса раунда 4 или логирует сбой авто-хода.
     /// </summary>
     private async Task HandleTaskFailureAsync(
         DialogueTask task,

@@ -25,7 +25,7 @@ services:
       - "11434:11434"
     environment:
       OLLAMA_KEEP_ALIVE: "-1"
-      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_NUM_PARALLEL: "2"
       OLLAMA_MAX_LOADED_MODELS: "1"
     volumes:
       - ollama_data:/root/.ollama
@@ -55,16 +55,18 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${CONNECTIONSTRINGS__DEFAULTCONNECTION}
       Ollama__BaseUrl: ${OLLAMA__BASEURL:-http://ollama:11434}
-      Ollama__Model: ${OLLAMA__MODEL:-qwen2.5:7b-instruct}
+      Ollama__Model: ${OLLAMA__MODEL:-qwen2.5:14b-instruct-q4_K_M}
       Ollama__TimeoutSeconds: ${OLLAMA__TIMEOUTSECONDS:-30}
-      Ollama__MaxContextTokens: ${OLLAMA__MAXCONTEXTTOKENS:-4096}
-      Ollama__MaxPredictTokens: ${OLLAMA__MAXPREDICTTOKENS:-120}
-      Ollama__ReactionBatchPredictTokens: ${OLLAMA__REACTIONBATCHPREDICTTOKENS:-480}
-      Ollama__MaxHistoryEntries: ${OLLAMA__MAXHISTORYENTRIES:-12}
-      Ollama__Temperature: ${OLLAMA__TEMPERATURE:-0.75}
       Ollama__KeepAlive: ${OLLAMA__KEEPALIVE:--1}
       Ollama__QueueCapacity: ${OLLAMA__QUEUECAPACITY:-64}
       Ollama__AutoPullModel: ${OLLAMA__AUTOPULLMODEL:-true}
+      Ollama__MaxHistoryEntries: ${OLLAMA__MAXHISTORYENTRIES:-12}
+      Ollama__SpeakerTemperature: ${OLLAMA__SPEAKERTEMPERATURE:-0.75}
+      Ollama__SpeakerContextTokens: ${OLLAMA__SPEAKERCONTEXTTOKENS:-4096}
+      Ollama__SpeakerPredictTokens: ${OLLAMA__SPEAKERPREDICTTOKENS:-140}
+      Ollama__ReactionTemperature: ${OLLAMA__REACTIONTEMPERATURE:-0.6}
+      Ollama__ReactionContextTokens: ${OLLAMA__REACTIONCONTEXTTOKENS:-2048}
+      Ollama__ReactionPredictTokens: ${OLLAMA__REACTIONPREDICTTOKENS:-180}
 
 volumes:
   postgres_data:

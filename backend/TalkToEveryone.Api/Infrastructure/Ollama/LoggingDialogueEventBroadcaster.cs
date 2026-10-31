@@ -4,7 +4,7 @@ namespace TalkToEveryone.Api.Infrastructure.Ollama;
 
 /// <summary>
 /// Базовая реализация <see cref="IDialogueEventBroadcaster"/> со структурированным логированием событий диалога.
-/// При подключении SignalR-хаба заменяется или декорируется рассылкой в группу сессии.
+/// При подключении SignalR-хаба заменяется или декорируется рассылкой в группу сессии (без утечки <c>HiddenThought</c> до финала).
 /// </summary>
 /// <param name="logger">Структурированный логгер.</param>
 public sealed class LoggingDialogueEventBroadcaster(
@@ -13,7 +13,7 @@ public sealed class LoggingDialogueEventBroadcaster(
     private const string NoQuestionIdPlaceholder = "none";
 
     /// <summary>
-    /// Уведомляет всех игроков сессии о том, что выбранный NPC обдумывает ответ (<c>NpcThinking</c>).
+    /// Уведомляет всех игроков сессии о том, что выбранный слот обдумывает ход (<c>NpcThinking</c>).
     /// </summary>
     /// <param name="sessionId">Идентификатор игровой сессии.</param>
     /// <param name="npcId">Идентификатор NPC.</param>
@@ -35,12 +35,12 @@ public sealed class LoggingDialogueEventBroadcaster(
     }
 
     /// <summary>
-    /// Сохраняет готовую реплику NPC и рассылает событие <c>NpcSay</c> всем участникам сессии.
+    /// Сохраняет ход NPC и рассылает событие <c>NpcSay</c> всем участникам сессии (без раскрытия <c>HiddenThought</c>).
     /// </summary>
     /// <param name="sessionId">Идентификатор игровой сессии.</param>
     /// <param name="npcId">Идентификатор говорящего NPC.</param>
-    /// <param name="reply">Сгенерированный текст и эмоция.</param>
-    /// <param name="inReplyToQuestionId">ID вопроса из 4-го раунда или <c>null</c> для авто-реплик раундов 1–3.</param>
+    /// <param name="reply">Сгенерированный ответ по Схеме А.</param>
+    /// <param name="inReplyToQuestionId">ID вопроса из 4-го раунда или <c>null</c> для авто-ходов.</param>
     /// <param name="cancellationToken">Токен отмены операции.</param>
     public Task PublishNpcSayAsync(
         string sessionId,
@@ -50,20 +50,21 @@ public sealed class LoggingDialogueEventBroadcaster(
         CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "Event NpcSay dispatched for session {SessionId}, NPC {NpcId}, emotion {Emotion}, inReplyTo {QuestionId}",
+            "Event NpcSay dispatched for session {SessionId}, NPC {NpcId}, emotion {EmotionEnum}, addressingSlot {AddressingSlot}, inReplyTo {QuestionId}",
             sessionId,
             npcId,
-            reply.Emotion,
+            reply.EmotionEnum,
+            reply.AddressingSlot,
             inReplyToQuestionId ?? NoQuestionIdPlaceholder);
 
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// Рассылает публичные реакции остальных NPC (<c>NpcReaction</c>), не раскрывая скрытое поле <c>HiddenReason</c>.
+    /// Рассылает 3 самые острые реакции трибуны (<c>NpcReaction</c>), не раскрывая поле <c>InternalThought</c>.
     /// </summary>
     /// <param name="sessionId">Идентификатор игровой сессии.</param>
-    /// <param name="reactions">Коллекция сгенерированных реакций слушателей.</param>
+    /// <param name="reactions">Коллекция сгенерированных реакций трибуны.</param>
     /// <param name="cancellationToken">Токен отмены операции.</param>
     public Task PublishNpcReactionsAsync(
         string sessionId,
@@ -71,7 +72,7 @@ public sealed class LoggingDialogueEventBroadcaster(
         CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "Event NpcReaction batch dispatched for session {SessionId} with {ReactionCount} reactions",
+            "Event NpcReaction batch dispatched for session {SessionId} with {ReactionCount} acute reactions",
             sessionId,
             reactions.Count);
 

@@ -1,16 +1,16 @@
 namespace TalkToEveryone.Api.Domain.Dialogue;
 
 /// <summary>
-/// Сгенерированная реакция одного слушающего NPC на выступление другого участника.
+/// Сгенерированная реакция одного из 3 наиболее задетых ботов трибуны по Схеме Б (<c>BACKGROUND REACTIONS BATCH</c>).
 /// </summary>
-/// <param name="NpcId">Идентификатор реагирующего NPC.</param>
-/// <param name="NpcNumber">Номер реагирующего NPC (1–10).</param>
-/// <param name="Reaction">Публичный короткий текст реакции (например, «фейспалм», «кивает, делая вид, что помнит»).</param>
-/// <param name="Emotion">Нормализованный код эмоции из <see cref="NpcEmotionCatalog"/>.</param>
-/// <param name="HiddenReason">Внутренняя причина реакции (хранится только на сервере, клиенту никогда не отправляется).</param>
+/// <param name="NpcId">Непрозрачный идентификатор реагирующего NPC.</param>
+/// <param name="SlotId">Номер слота на трибуне (<c>slot_id</c>, 1–10).</param>
+/// <param name="EmotionEnum">Код эмоции из <see cref="NpcEmotionCatalog"/> (<c>emotion_enum</c>).</param>
+/// <param name="ReactionLabel">Короткое описание действия/реакции (<c>reaction_label</c>).</param>
+/// <param name="InternalThought">Скрытая внутренняя мысль бота (<c>internal_thought</c>, хранится на сервере до вскрытия).</param>
 public sealed record NpcReactionResult(
     string NpcId,
-    int NpcNumber,
-    string Reaction,
-    string Emotion,
-    string HiddenReason);
+    int SlotId,
+    string EmotionEnum,
+    string ReactionLabel,
+    string InternalThought);

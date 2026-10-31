@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 namespace TalkToEveryone.Api.Infrastructure.Ollama;
 
 /// <summary>
-/// Фоновый сервис проверки доступности модели и предзагрузки весов в видеопамять (VRAM) при старте сервера.
+/// Фоновый сервис Фазы 0: проверка доступности модели и предзагрузка весов в видеопамять (VRAM) при старте сервера.
 /// </summary>
 /// <param name="transport">Низкоуровневый транспорт Ollama.</param>
 /// <param name="schemaCatalog">Каталог JSON Schema.</param>
@@ -15,14 +15,14 @@ public sealed class OllamaWarmupHostedService(
     IOptions<OllamaOptions> options,
     ILogger<OllamaWarmupHostedService> logger) : BackgroundService
 {
-    private const string WarmupSystemPrompt = "Ты участник игры. Ответь одним словом в JSON.";
-    private const string WarmupUserPrompt = "Проверка готовности студии.";
-    private const int WarmupMaxPredictTokens = 16;
+    private const string WarmupSystemPrompt = "Ты участник шоу Угадай кента. Ответь в JSON по схеме.";
+    private const string WarmupUserPrompt = "Проверка готовности трибуны.";
+    private const int WarmupMaxPredictTokens = 32;
 
     private readonly OllamaOptions _settings = options.Value;
 
     /// <summary>
-    /// Выполняет проверку тега модели и холостой прогревочный запрос для закрепления модели в VRAM.
+    /// Выполняет проверку тега модели и холостой прогревочный запрос для закрепления модели в VRAM (<c>keep_alive: -1</c>).
     /// </summary>
     /// <param name="stoppingToken">Токен остановки хоста.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -67,16 +67,21 @@ public sealed class OllamaWarmupHostedService(
     }
 
     /// <summary>
-    /// Отправляет короткий прогревочный запрос для загрузки модели в VRAM с параметром <c>keep_alive: -1</c>.
+    /// Отправляет короткий прогревочный запрос со Схемой А для закрепления модели в VRAM.
     /// </summary>
     private async Task WarmupModelInVramAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Warming up Ollama model {ModelName} in VRAM", _settings.Model);
+        OllamaInferenceProfile warmupProfile = new(
+            NumCtx: _settings.SpeakerContextTokens,
+            NumPredict: WarmupMaxPredictTokens,
+            Temperature: _settings.SpeakerTemperature);
+
         await transport.CompleteChatJsonAsync(
             WarmupSystemPrompt,
             WarmupUserPrompt,
             schemaCatalog.GetSpeakerReplySchema(),
-            WarmupMaxPredictTokens,
+            warmupProfile,
             cancellationToken);
 
         logger.LogInformation("Ollama model {ModelName} is pinned in VRAM and ready", _settings.Model);
