@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import { S2C } from '../shared/contract';
 import type { Commands, EventHandler, GameClient } from '../shared/types';
 import { applyGameEvent, useGameStore, type ConnectionStatus } from '../store/gameStore';
-import { acceptChunk, resetCache } from '../store/cacheStore';
+import { acceptChunk, resetCache, releaseChunk } from '../store/cacheStore';
 
 export const ClientContext = createContext<GameClient | null>(null);
 /** <summary>Inject the selected transport into components and the three.js scene.</summary> */
@@ -14,6 +14,10 @@ export function useClient() {
 export const receiveEvent: EventHandler = (event, payload) => {
   if (event === S2C.STATE_SNAPSHOT) resetCache((payload as import('../shared/types').Snapshot).worldSizeBytes);
   if (event === S2C.CHUNK_DATA) acceptChunk(payload as import('../shared/types').Events[typeof S2C.CHUNK_DATA]);
+  if (event === S2C.NPCS_REMOVED) {
+    const { ids } = payload as import('../shared/types').Events[typeof S2C.NPCS_REMOVED];
+    ids.forEach(releaseChunk);
+  }
   applyGameEvent(event, payload);
 };
 /** <summary>Drop cached details when the authenticated connection is lost.</summary> */

@@ -26,7 +26,7 @@ public sealed partial class GameHub
                 : questions.Pending || questions.Remaining == 0 ? "LIMIT"
                 : questions.AskedTo.Contains(r.TargetNpc) ? "SAME_NPC" : null;
             npc = await db.Npcs.SingleOrDefaultAsync(n => n.Id == r.TargetNpc);
-            if (npc == null) code = "EMPTY";
+            if (npc == null || JsonData.Read<VotingData>(session.VotingJson).Eliminated.Contains(r.TargetNpc)) code = "EMPTY";
             if (code != null)
             { await Clients.Caller.SendAsync("QuestionReject", new { requestId = r.RequestId, code, message = "Вопрос сейчас недоступен." }); return; }
             questions.Remaining--; questions.AskedTo.Add(r.TargetNpc); questions.Pending = true;
@@ -56,9 +56,10 @@ public sealed partial class GameHub
             try
             {
                 me = await db.Players.SingleAsync(p => p.Id == me!.Id);
+                await db.Entry(me).ReloadAsync();
                 var questions = JsonData.Read<QuestionData>(me.QuestionsJson);
                 questions.Pending = false;
-                if ((await db.Sessions.SingleAsync()).RoundPhase == "interrogation")
+                if ((await db.Sessions.AsNoTracking().SingleAsync()).RoundPhase == "interrogation")
                 { questions.Remaining++; questions.AskedTo.Remove(r.TargetNpc); }
                 me.QuestionsJson = JsonData.Write(questions);
                 var processed = JsonData.Read<List<string>>(me.ProcessedJson);
@@ -74,8 +75,16 @@ public sealed partial class GameHub
         try
         {
             me = await db.Players.SingleAsync(p => p.Id == me!.Id);
+            await db.Entry(me).ReloadAsync();
             var questions = JsonData.Read<QuestionData>(me.QuestionsJson); questions.Pending = false;
             me.QuestionsJson = JsonData.Write(questions);
+            var current = await db.Sessions.AsNoTracking().SingleAsync();
+            if (JsonData.Read<VotingData>(current.VotingJson).Eliminated.Contains(npc!.Id))
+            {
+                await db.SaveChangesAsync();
+                await Clients.Caller.SendAsync("QuestionState", new { questions });
+                return;
+            }
             var line = new GameMessage { PlayerId = me.Id, NpcId = npc!.Id, Text = answer, Emotion = emotion, InReplyTo = r.RequestId, At = JsonData.Now };
             db.Messages.Add(line); await db.SaveChangesAsync();
             await Clients.Caller.SendAsync("QuestionState", new { questions });

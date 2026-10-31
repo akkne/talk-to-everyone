@@ -17,7 +17,8 @@ export interface ChatMessage { id: string; npc: NpcId; text: string; inReplyTo: 
 export interface RevealData { trueFriends: [NpcId, NpcId][]; actors: NpcId[] }
 export interface ScoreEntry { id: string; score: number; title: string }
 export interface LobbyState { sessionId: string; players: { id: string; name: string; connected: boolean }[]; leaderId: string | null; minPlayers: number; canStart: boolean; started: boolean }
-export interface Snapshot { sessionId: string; me: { id: string; role: string }; phase: 'lobby' | 'playing' | 'finished'; round: Round | null; rounds: RoundSpec[]; scene: SceneSpec; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board; questions: QuestionState; chat: ChatMessage[]; worldSizeBytes: number; score: Record<string, number>; scoreboard: ScoreEntry[] | null; reveal: RevealData | null }
+export interface VotingState { round: number; stage: number; candidates: [NpcId, NpcId][]; eligible: boolean; submitted: boolean; received: number; total: number; endsAt: number }
+export interface Snapshot { voting: VotingState | null; teamScore: number; sessionId: string; me: { id: string; role: string }; phase: 'lobby' | 'playing' | 'finished'; round: Round | null; rounds: RoundSpec[]; scene: SceneSpec; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board; questions: QuestionState; chat: ChatMessage[]; worldSizeBytes: number; score: Record<string, number>; scoreboard: ScoreEntry[] | null; reveal: RevealData | null }
 type Request = { requestId: string };
 export interface Commands {
   [C2S.AUTH]: { token: string; name: string };
@@ -32,12 +33,14 @@ export interface Commands {
   [C2S.MARK_LIAR]: Request & { npc: NpcId };
   [C2S.UNMARK_LIAR]: Request & { npc: NpcId };
   [C2S.SAVE_NOTE]: Request & { npc: NpcId; text: string };
-  [C2S.SUBMIT_PAIR]: Request & { round: number; a?: NpcId; b?: NpcId; skip?: boolean };
+  [C2S.SUBMIT_PAIR]: Request & { round: number; stage: number; a?: NpcId; b?: NpcId; skip?: boolean };
   [C2S.ASK_QUESTION]: Request & { targetNpc: NpcId; text: string };
   [C2S.PING]: { t: number };
 }
 interface Reject { code: string; message: string; requestId?: string | null }
 export interface Events {
+  [S2C.VOTING_STATE]: VotingState;
+  [S2C.NPCS_REMOVED]: { ids: NpcId[]; teamScore: number };
   [S2C.AUTH_OK]: { playerId: string; sessionId: string; role: string };
   [S2C.AUTH_ERR]: Reject;
   [S2C.LOBBY_STATE]: LobbyState;

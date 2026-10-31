@@ -40,7 +40,7 @@ JSON использует `camelCase`. Все даты и дедлайны — U
 | Вопросы | `StateSnapshot.questions`, `QuestionOk`, `QuestionState`, `QuestionFailed`, `QuestionReject` | остаток, адресаты и ожидание ответа |
 | Чат и финал | `StateSnapshot.chat/scoreboard/reveal`, `NpcSay`, `ScoreUpdate`, `GameEnded` | реплики по серверным ID, очки и раскрытие ролей |
 
-`StateSnapshot` полностью заменяет игровые коллекции после входа или восстановления: `{sessionId,me,phase,round,rounds,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal}`. `round=null` в лобби; `scoreboard` и `reveal` доступны только после финала. Секретные роли и истории NPC до финала не передаются.
+`StateSnapshot` полностью заменяет игровые коллекции после входа или восстановления: `{sessionId,me,phase,round,rounds,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal,teamScore,voting}`. `round=null` в лобби; `scoreboard` и `reveal` доступны только после финала. Секретные роли и истории NPC до финала не передаются.
 
 ## Команды фронта
 
@@ -54,11 +54,11 @@ JSON использует `camelCase`. Все даты и дедлайны — U
 | `PairNpcs`, `UnpairNpcs` | `{requestId,a,b}` | `BoardSnapshot` / `BoardReject` |
 | `MarkLiar`, `UnmarkLiar` | `{requestId,npc}` | `BoardSnapshot` / `BoardReject` |
 | `SaveNote` | `{requestId,npc,text}` | `BoardSnapshot` / `BoardReject` |
-| `SubmitPair` | `{requestId,round,a,b}` или `{requestId,round,skip:true}` | `BoardSnapshot`, `PairSubmitted` / `BoardReject` |
+| `SubmitPair` | `{requestId,round,stage,a,b}` | `VotingState` / `BoardReject` |
 | `AskQuestion` | `{requestId,targetNpc,text}` | `QuestionOk` → `NpcThinking` → `QuestionState`, `NpcSay`; либо `QuestionReject` / `QuestionFailed` |
 | `Ping` | `{t}` | `Pong {t,serverTime}` |
 
-`requestId` связывает ответ с командой и используется сервером для идемпотентности. `SendPose.seq` монотонно растёт, клиент передаёт не чаще 10 раз в секунду. Доска не меняется оптимистично. `SubmitPair` доступен только в фазе `choice` после раундов 2, 3 и 4. Вопросы доступны только в фазе `interrogation` раунда 4; лимит и адресатов проверяет сервер.
+`requestId` связывает ответ с командой и используется сервером для идемпотентности. `SendPose.seq` монотонно растёт, клиент передаёт не чаще 10 раз в секунду. Доска не меняется оптимистично. `SubmitPair` доступен только в фазе `choice` после раундов 2, 4 и 5. Вопросы доступны только в фазе `interrogation` раунда 4; лимит и адресатов проверяет сервер.
 
 ## Потеря связи и ошибки
 
@@ -67,3 +67,5 @@ JSON использует `camelCase`. Все даты и дедлайны — U
 ## Границы текущего бэкенда
 
 В раундах 1–3 сервер пока не публикует вступительные реплики NPC; лента остаётся пустой до серверных `NpcSay`. Без настроенной LLM бэкенд возвращает собственный тестовый ответ на вопросы. Точные коллизии мебели и проверка реального LLM-провайдера остаются в [роадмапе бэкенда](../backend/docs/roadmap.md).
+
+Общее голосование, события `VotingState` / `NpcsRemoved`, начисление очков и удаление NPC описаны в [контракте бэкенда](../backend/docs/backend.md#общее-голосование-и-выбывание). `StateSnapshot.voting` восстанавливает тур и факт голосования; `teamScore` используется в интерфейсе общего счёта.

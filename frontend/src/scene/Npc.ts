@@ -56,5 +56,17 @@ export class Npc {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false }));
     sprite.scale.set(bubble ? 2.8 : 1.5, bubble ? 1.05 : 0.24, 1); return sprite;
   }
+  dispose() {
+    this.group.traverse(object => {
+      const mesh = object as THREE.Mesh;
+      mesh.geometry?.dispose();
+      const materials = mesh.material ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : [];
+      for (const material of materials) {
+        for (const value of Object.values(material)) if (value instanceof THREE.Texture) value.dispose();
+        material.dispose();
+      }
+    });
+    this.group.clear();
+  }
   private removeSprite(sprite: THREE.Sprite) { this.group.remove(sprite); sprite.material.map?.dispose(); sprite.material.dispose(); }
 }

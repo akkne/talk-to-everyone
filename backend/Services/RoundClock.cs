@@ -16,22 +16,21 @@ public sealed class RoundClock(IServiceScopeFactory scopes, IHubContext<GameHub>
                 using var scope = scopes.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<GameDb>();
                 var session = await db.Sessions.SingleAsync(ct);
-                if (session.Phase != "playing" || session.EndsAt > JsonData.Now) continue;
-                if (session.RoundPhase != "choice")
+                if (session.Phase != "playing") continue;
+                if (session.RoundPhase == "choice")
                 {
-                    var choice = session.Round is 2 or 3 or 4;
-                    await hub.Clients.All.SendAsync("RoundEnded", new { n = session.Round, choiceEndsAt = choice ? JsonData.Now + settings.ChoiceSeconds * 1000L : (long?)null }, ct);
-                    if (choice)
-                    {
-                        session.RoundPhase = "choice"; session.EndsAt = JsonData.Now + settings.ChoiceSeconds * 1000L;
-                        await db.SaveChangesAsync(ct);
-                        await hub.Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session), ct);
-                        continue;
-                    }
+                    if (!await Voting.Advance(db, hub.Clients, session, settings)) continue;
                 }
-                if (session.Round >= 4) { await GameLogic.Finish(db, hub); continue; }
+                else if (session.EndsAt > JsonData.Now) continue;
+                else if (session.RoundPhase != "resolved")
+                {
+                    var choice = Voting.IsChoiceRound(session.Round);
+                    await hub.Clients.All.SendAsync("RoundEnded", new { n = session.Round, choiceEndsAt = choice ? JsonData.Now + settings.ChoiceSeconds * 1000L : (long?)null }, ct);
+                    if (choice) { await Voting.Start(db, hub.Clients, session, settings); continue; }
+                }
+                if (session.Round >= 5) { await GameLogic.Finish(db, hub); continue; }
                 session.Round++;
-                session.RoundPhase = session.Round switch { 2 => "gossip", 3 => "blindspots", 4 => "interrogation", _ => "presentation" };
+                session.RoundPhase = session.Round switch { 2 => "gossip", 3 => "blindspots", 4 => "interrogation", 5 => "debate", _ => "presentation" };
                 session.EndsAt = JsonData.Now + settings.RoundSeconds * 1000L;
                 await db.SaveChangesAsync(ct);
                 await hub.Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session), ct);

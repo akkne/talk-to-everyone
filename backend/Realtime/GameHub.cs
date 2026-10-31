@@ -13,7 +13,7 @@ public sealed record CommandRequest(string RequestId);
 public sealed record PairRequest(string RequestId, string A, string B);
 public sealed record NpcRequest(string RequestId, string Npc);
 public sealed record NoteRequest(string RequestId, string Npc, string Text);
-public sealed record SubmitRequest(string RequestId, int Round, string? A, string? B, bool Skip);
+public sealed record SubmitRequest(string RequestId, int Round, string? A, string? B, bool Skip, int Stage = 1);
 public sealed record QuestionRequest(string RequestId, string TargetNpc, string Text);
 public sealed record PingRequest(long T);
 
@@ -92,6 +92,7 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
                 if (await db.Players.CountAsync() >= 8)
                 { await Clients.Caller.SendAsync("AuthErr", new { code = "SESSION_FULL", message = "Комната заполнена." }); return; }
                 me = new GamePlayer { Name = name, Role = role, TokenHash = hash,
+                    Score = JsonData.Read<VotingData>((await db.Sessions.SingleAsync()).VotingJson).TeamScore,
                     BoardJson = JsonData.Write(new BoardData()), QuestionsJson = JsonData.Write(new QuestionData()), PoseJson = JsonData.Write(new PoseData()) };
                 db.Players.Add(me);
             }
@@ -121,9 +122,16 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
             var me = await Authorized(); if (me == null) return;
             var session = await db.Sessions.SingleAsync();
             if (me.Role != "leader" || session.Phase != "lobby") return;
+            var roster = NpcDatabase.CreateRoster();
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            db.Npcs.RemoveRange(await db.Npcs.ToListAsync());
+            await db.SaveChangesAsync();
+            db.Npcs.AddRange(roster);
+            session.VotingJson = JsonData.Write(new VotingData());
             session.Phase = "playing"; session.Round = 1; session.RoundPhase = "presentation";
             session.EndsAt = JsonData.Now + settings.RoundSeconds * 1000L;
             await db.SaveChangesAsync();
+            await transaction.CommitAsync();
             var npcs = await db.Npcs.OrderBy(n => n.Number).ToListAsync();
             await Clients.All.SendAsync("GameStarted", new { rounds = GameLogic.RoundSpecs(settings.RoundSeconds), npcs = npcs.Select(GameLogic.NpcView).ToArray(), sceneVersion = "1" });
             await Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session));
@@ -137,7 +145,8 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
         if (await Authorized() == null) return;
         if (request?.Ids == null || request.Ids.Length > 3 || request.Ids.Length == 0 || string.IsNullOrWhiteSpace(request.ReqId))
         { await Clients.Caller.SendAsync("ServerError", new { code = "BAD_PAYLOAD", message = "Неверный запрос деталей." }); return; }
-        var npcs = await db.Npcs.Where(n => request.Ids.Contains(n.Id)).ToListAsync();
+        var eliminated = JsonData.Read<VotingData>((await db.Sessions.SingleAsync()).VotingJson).Eliminated;
+        var npcs = await db.Npcs.Where(n => request.Ids.Contains(n.Id) && !eliminated.Contains(n.Id)).ToListAsync();
         await Clients.Caller.SendAsync("ChunkData", new { reqId = request.ReqId, npcs = npcs.Select(n => new
         { id = n.Id, details = GameLogic.Details(n), sizeBytes = Encoding.UTF8.GetByteCount(JsonData.Write(GameLogic.Details(n))) }).ToArray() });
     }

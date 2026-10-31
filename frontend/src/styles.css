@@ -26,3 +26,22 @@
 
 .portrait{position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#bcb7a6,#666e5e);isolation:isolate}.portrait:before{content:'';position:absolute;left:50%;top:16%;width:34%;height:40%;background:#373d32;border-radius:45% 45% 42% 42%;transform:translateX(-50%);box-shadow:inset -6px -4px 0 #0002}.portrait:after{content:'';position:absolute;left:50%;bottom:-23%;width:93%;height:73%;background:var(--person,#777);border-radius:48% 48% 5% 5%;transform:translateX(-50%);box-shadow:inset -20px 0 0 #0002}
 .entry-area{padding-top:0}
+
+.voting-overlay { position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; background: #151813dc; padding: 24px; }
+.voting-panel { display: flex; flex-direction: column; width: min(850px, 100%); max-height: 90dvh; background: #eee6d4; color: #2d3027; border: 1px solid #b5ae98; box-shadow: 0 30px 90px #0006; }
+.voting-panel header { padding: 24px 28px 18px; }
+.voting-panel h2 { margin: 8px 0; font-size: clamp(24px, 4vw, 36px); font-family: Georgia, serif; }
+.voting-panel p { font-size: 14px; line-height: 1.6; }
+.voting-status { display: flex; justify-content: space-between; gap: 12px; padding-top: 16px; font-size: 13px; }
+.voting-table-wrap { overflow: auto; min-height: 100px; }
+.voting-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.voting-table th { position: sticky; top: 0; background: #ded5be; text-align: left; padding: 12px 28px; font-size: 12px; }
+.voting-table td { padding: 0 28px; border-bottom: 1px solid #d3c9af; }
+.voting-table label { display: block; cursor: pointer; padding: 14px 0; }
+.voting-table tr.selected { background: #d3ddb9; }
+.voting-table input { appearance: auto; padding: 0; background: transparent; width: 20px; height: 20px; accent-color: #52663d; cursor: pointer; }
+.voting-panel footer { padding: 18px 28px; border-top: 1px solid #b5ae98; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.voting-panel footer p { font-size: 12px; }
+.voting-panel footer small { opacity: .75; }
+.voting-panel .primary { flex-shrink: 0; }
+@media (max-width: 600px) { .voting-overlay { padding: 10px; } .voting-panel header, .voting-panel footer { padding: 16px; } .voting-table th, .voting-table td { padding-left: 12px; padding-right: 12px; } .voting-panel footer { flex-direction: column; align-items: stretch; gap: 10px; } .voting-status { flex-wrap: wrap; } }

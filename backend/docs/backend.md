@@ -4,7 +4,7 @@
 
 ## Снимок
 
-`StateSnapshot = {sessionId,me:{id,role},phase,round,rounds,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal}`. В лобби `round=null`; до финала `scoreboard` и `reveal` равны `null`. `round={n,phase,endsAt,choiceEndsAt}`; `rounds` содержит серверные названия и длительности этапов. `npcs` содержит только `{id,number,color,anchorId}`. `board={pairs,liars,locks,notes,submitted}` и `questions={remaining,askedTo,pending}` персональные. `chat` содержит серверные `{id,npc,text,inReplyTo,emotion,at}`. Роли, связи и легенды не выдаются до финала.
+`StateSnapshot = {sessionId,me:{id,role},phase,round,rounds,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal,teamScore,voting}`. В лобби `round=null`; до финала `scoreboard` и `reveal` равны `null`. `round={n,phase,endsAt,choiceEndsAt}`; `rounds` содержит серверные названия и длительности этапов. `npcs` содержит только `{id,number,color,anchorId}`. `board={pairs,liars,locks,notes,submitted}` и `questions={remaining,askedTo,pending}` персональные. `chat` содержит серверные `{id,npc,text,inReplyTo,emotion,at}`. Роли, связи и легенды не выдаются до финала.
 
 `scene={version,room,npcStands,playerSeats,spawnPoints}`. `players` содержит `{id,name,connected,pose}`; `pose={position,yaw,pitch,mode,seatId,seq}`. `seats={id,occupiedBy}[]`. Клиент строит сцену по `scene` и отображает только подтверждённые сервером изменения.
 
@@ -18,10 +18,23 @@
 | `SitDown {requestId,seatId}`, `StandUp {requestId}` | `SeatState`, `PlayersTick` или `ActionReject` |
 | `RequestChunk {reqId,ids}`, `ReleaseChunk {ids}` | `ChunkData {reqId,npcs:[{id,details,sizeBytes}]}`; детали публичные |
 | `PairNpcs`, `UnpairNpcs` с `{requestId,a,b}`; `MarkLiar`, `UnmarkLiar` с `{requestId,npc}`; `SaveNote {requestId,npc,text}` | Личный `BoardSnapshot {board,requestId}` или `BoardReject` |
-| `SubmitPair {requestId,round,a,b}` либо `{requestId,round,skip:true}` | `BoardSnapshot`, `PairSubmitted` или `BoardReject` |
+| `SubmitPair {requestId,round,stage,a,b}` | `VotingState` или `BoardReject` |
 | `AskQuestion {requestId,targetNpc,text}` | `QuestionOk` → `NpcThinking` → `QuestionState` и `NpcSay` или `QuestionFailed`; отказ — `QuestionReject` |
 | `Ping {t}` | `Pong {t,serverTime}` |
 
-После ответа `QuestionState {questions}` сбрасывает `pending` у автора вопроса. Сервер сам ведёт раунды 1–4, после 2/3/4 открывает окно `choice` для одной пары, затем выдаёт `GameEnded {reveal,scoreboard}` и `ScoreUpdate`. Вопросы разрешены только в раунде 4: два разным NPC, до 300 символов. Заметка — до 200 символов, три пары и четыре актёра на доске. Детали NPC не содержат секретов; клиент держит максимум один chunk и 10% `worldSizeBytes`.
+После ответа `QuestionState {questions}` сбрасывает `pending` у автора вопроса. Сервер ведёт раунды 1–5, после 2/4/5 открывает общее голосование `choice`, затем выдаёт `GameEnded {reveal,scoreboard}` и `ScoreUpdate`. Вопросы разрешены только в раунде 4: два разным NPC, до 300 символов. Заметка — до 200 символов, три пары и четыре актёра на доске. Детали NPC не содержат секретов; клиент держит максимум один chunk и 10% `worldSizeBytes`.
 
 Ошибки содержат стабильные `code` и русское `message`. `requestId` связывает команду с ответом; повтор успешной команды обрабатывается без повторного изменения. Точные коллизии мебели ещё не завершены; см. [роадмап](roadmap.md).
+
+
+## Общее голосование и выбывание
+
+`VotingState={round,stage,candidates,eligible,submitted,received,total,endsAt}` персонализирован: чужие голоса не раскрываются. В первом туре доступны все неупорядоченные пары активных NPC. Каждый подключённый к началу голосования судья получает один голос; новый участник ждёт следующего голосования, переподключившийся сохраняет право голоса и свой ответ. Текущий список жюри фиксируется до конца обоих туров.
+
+Когда все проголосовали либо истёк `GAME_CHOICE_SECONDS`, совпавший выбор принимается. Если предложены разные пары, начинается ровно один повторный тур (`stage=2`) только с этими парами. Во втором туре выигрывает большинство; при равенстве случайно выбирается одна из пар с максимальным числом голосов. Если голосов нет, случайно выбирается пара из доступных в текущем туре. Пропуска голоса отдельной командой нет; отсутствие ответа учитывается по таймеру.
+
+`SubmitPair` проверяет раунд, тур, дедлайн, право голоса и наличие пары среди кандидатов. Повторная доставка с тем же `requestId` возвращает актуальное `VotingState`, повторный голос с новым ID отклоняется.
+
+`NpcsRemoved={ids,teamScore}` удаляет обоих NPC у всех клиентов. Сервер очищает их сообщения, вопросы, заметки, пары, метки и старые выборы из всех личных досок. Удалённые NPC недоступны для новых вопросов, заметок, деталей и голосования; запоздавшие ответы LLM не возвращают их в чат. Снимок при переподключении содержит только оставшихся участников и текущее голосование.
+
+Общие очки: настоящая пара +300/+200/+100 после раундов 2/4/5; друг + актёр −100; два актёра −150; два друга из разных пар 0. Личные пометки об актёрах не меняют счёт. `teamScore` — единый счёт; `score`/`ScoreUpdate` сохраняют совместимость, всем игрокам выдают одинаковое значение. Итоговое раскрытие показывает только оставшихся NPC.

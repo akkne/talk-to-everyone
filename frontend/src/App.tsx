@@ -6,6 +6,7 @@ import { resetGame, useGameStore } from './store/gameStore';
 import { resetCache } from './store/cacheStore';
 import { Lobby } from './components/Lobby';
 import { HUD } from './components/HUD';
+import { Voting } from './components/Voting';
 import { Board } from './components/Board';
 import { Chat } from './components/Chat';
 import { QuestionMenu } from './components/QuestionMenu';
@@ -17,7 +18,7 @@ import { Icon } from './components/Icon';
 export default function App() {
   const [client, setClient] = useState<GameClient>(() => new SignalRClient(receiveEvent, connectionStatus));
   const activeClient = useRef(client); const [questions, setQuestions] = useState(false);
-  const { phase, boardOpen, error, connection, round } = useGameStore();
+  const { phase, boardOpen, error, connection, round, voting } = useGameStore();
   const connect = async (name: string, token: string) => {
     await activeClient.current.disconnect(); resetGame(); resetCache();
     const next = new SignalRClient(receiveEvent, connectionStatus);
@@ -27,7 +28,7 @@ export default function App() {
   const exit = async () => { await activeClient.current.disconnect(); resetGame(); resetCache(); setQuestions(false); };
   useEffect(() => () => { void activeClient.current.disconnect(); }, []);
   useEffect(() => { setQuestions(round?.phase === 'interrogation'); }, [round?.phase]);
-  useEffect(() => { if ((boardOpen || questions) && document.pointerLockElement) document.exitPointerLock(); }, [boardOpen, questions]);
+  useEffect(() => { if ((boardOpen || questions || !!voting) && document.pointerLockElement) document.exitPointerLock(); }, [boardOpen, questions, voting]);
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
@@ -40,9 +41,10 @@ export default function App() {
   }, [phase, boardOpen]);
   return <ClientContext.Provider value={client}>
     {phase === 'lobby' ? <Lobby onConnect={connect} onExit={() => void exit()} /> : phase === 'reveal' ? <Reveal onExit={() => void exit()} /> : <div className="game-page">
-      <div className="scene-area"><Scene controlsBlocked={questions} /></div><HUD onExit={() => void exit()} onQuestions={() => setQuestions(true)} /><Chat />
+      <div className="scene-area"><Scene controlsBlocked={questions || !!voting} /></div><HUD onExit={() => void exit()} onQuestions={() => setQuestions(true)} /><Chat />
       {questions && round?.phase === 'interrogation' && !boardOpen && <QuestionMenu onClose={() => setQuestions(false)} />}
-      {boardOpen && <Board />}
+      {boardOpen && !voting && <Board />}
+      {voting && <Voting key={`${voting.round}:${voting.stage}`} />}
     </div>}
     {phase !== 'lobby' && connection !== 'ready' && <div className="connection-banner" role="status">{connection === 'offline' ? 'Связь потеряна. Войдите снова, чтобы получить сохранённое состояние.' : 'Восстанавливаем соединение. Действия временно недоступны.'}{connection === 'offline' && <button onClick={() => void exit()}>Ко входу →</button>}</div>}
     {error && <div className="toast" role="alert"><span>{error}</span><button onClick={() => useGameStore.setState({ error: null })} aria-label="Закрыть уведомление"><Icon name="close" size={18} /></button></div>}

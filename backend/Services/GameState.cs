@@ -38,7 +38,7 @@ public static class GameLogic
         new { n = 2, phase = "gossip", title = "Истории", durationSec },
         new { n = 3, phase = "blindspots", title = "Факты", durationSec },
         new { n = 4, phase = "interrogation", title = "Допрос", durationSec },
-        new { n = 5, phase = "reveal", title = "Вскрытие", durationSec = 0 }
+        new { n = 5, phase = "debate", title = "Перепалка", durationSec }
     ];
     public static object Seats(IEnumerable<GamePlayer> players) => Enumerable.Range(1, 8).Select(n => new
     {
@@ -55,8 +55,9 @@ public static class GameLogic
     {
         var session = await db.Sessions.SingleAsync();
         var players = await db.Players.AsNoTracking().ToListAsync();
-        var npcs = await db.Npcs.AsNoTracking().OrderBy(n => n.Number).ToListAsync();
-        var chat = await db.Messages.AsNoTracking().Where(m => !m.IsQuestion).OrderBy(m => m.At).Select(m => new
+        var voting = JsonData.Read<VotingData>(session.VotingJson);
+        var npcs = await db.Npcs.AsNoTracking().Where(n => !voting.Eliminated.Contains(n.Id)).OrderBy(n => n.Number).ToListAsync();
+        var chat = await db.Messages.AsNoTracking().Where(m => !m.IsQuestion && !voting.Eliminated.Contains(m.NpcId)).OrderBy(m => m.At).Select(m => new
         { m.Id, npc = m.NpcId, m.Text, m.InReplyTo, m.Emotion, m.At }).ToListAsync();
         var scoreboard = session.Phase == "finished" ? Scoreboard(players) : null;
         return new
@@ -68,14 +69,15 @@ public static class GameLogic
             worldSizeBytes = Encoding.UTF8.GetByteCount(JsonData.Write(Scene))
                 + npcs.Sum(n => Encoding.UTF8.GetByteCount(JsonData.Write(NpcView(n)))
                     + Encoding.UTF8.GetByteCount(JsonData.Write(Details(n)))),
-            score = players.ToDictionary(p => p.Id, p => p.Score), scoreboard,
+            score = players.ToDictionary(p => p.Id, _ => voting.TeamScore), scoreboard, teamScore = voting.TeamScore,
+            voting = session.RoundPhase == "choice" ? Voting.View(session, me.Id) : null,
             reveal = session.Phase == "finished" ? Reveal(npcs) : null
         };
     }
 
     public static object Reveal(List<GameNpc> npcs) => new
     {
-        trueFriends = npcs.Where(n => n.Role == "friend" && n.Number < n.RelatedNumber)
+        trueFriends = npcs.Where(n => n.Role == "friend" && n.Number < n.RelatedNumber && npcs.Any(other => other.Number == n.RelatedNumber))
             .Select(n => new[] { n.Id, $"npc-{n.RelatedNumber}" }).ToArray(),
         actors = npcs.Where(n => n.Role == "actor").Select(n => n.Id).ToArray()
     };
@@ -87,23 +89,9 @@ public static class GameLogic
     {
         var session = await db.Sessions.SingleAsync();
         var players = await db.Players.ToListAsync();
-        var npcs = await db.Npcs.ToListAsync();
-        var choices = await db.Choices.ToListAsync();
-        foreach (var player in players)
-        {
-            var score = 0;
-            foreach (var choice in choices.Where(c => c.PlayerId == player.Id && c.A != null && c.B != null))
-            {
-                var a = npcs.Single(n => n.Id == choice.A); var b = npcs.Single(n => n.Id == choice.B);
-                score += a.Role == "friend" && b.Role == "friend" && a.RelatedNumber == b.Number
-                    ? choice.Round == 2 ? 300 : choice.Round == 3 ? 200 : 100
-                    : a.Role == "actor" && b.Role == "actor" ? -150
-                    : a.Role != b.Role ? -100 : 0;
-            }
-            var board = JsonData.Read<BoardData>(player.BoardJson);
-            score += board.Liars.Count(id => npcs.Any(n => n.Id == id && n.Role == "actor")) * 50;
-            player.Score = score;
-        }
+        var voting = JsonData.Read<VotingData>(session.VotingJson);
+        var npcs = await db.Npcs.Where(n => !voting.Eliminated.Contains(n.Id)).ToListAsync();
+        foreach (var player in players) player.Score = voting.TeamScore;
         session.Phase = "finished"; session.Round = 5; session.RoundPhase = "reveal"; session.EndsAt = 0;
         await db.SaveChangesAsync();
         var scoreboard = Scoreboard(players);

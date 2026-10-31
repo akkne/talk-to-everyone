@@ -34,6 +34,9 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const sync = () => {
       const state = useGameStore.getState();
       controller.setOccupied(state.seats.filter(seat => seat.occupiedBy && seat.occupiedBy !== state.playerId).map(seat => seat.id));
+      for (const [id, npc] of npcs) if (!state.npcs.some(n => n.id === id)) {
+        scene.remove(npc.group); npc.dispose(); npcs.delete(id);
+      }
       for (const meta of state.npcs) if (!npcs.has(meta.id)) {
         const stand = spec.npcStands.find(x => x.id === meta.anchorId);
         if (!stand) continue;

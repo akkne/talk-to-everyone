@@ -176,6 +176,10 @@ namespace Backend.Migrations
                     b.Property<int>("Round")
                         .HasColumnType("integer");
 
+                    b.Property<string>("VotingJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("RoundPhase")
                         .IsRequired()
                         .HasColumnType("text");

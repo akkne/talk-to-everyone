@@ -20,7 +20,10 @@ public sealed partial class GameHub
             var session = await db.Sessions.SingleAsync();
             if (session.Phase != "playing") { await BoardReject(op, "WRONG_PHASE", requestId); return; }
             var board = JsonData.Read<BoardData>(me.BoardJson);
-            if (!change(board)) { await BoardReject(op, "INVALID", requestId); return; }
+            var active = await db.Npcs.Select(n => n.Id).ToListAsync();
+            var removed = JsonData.Read<VotingData>(session.VotingJson).Eliminated;
+            active.RemoveAll(removed.Contains);
+            if (!change(board) || board.Pairs.SelectMany(p => p).Concat(board.Liars).Concat(board.Notes.Keys).Any(id => !active.Contains(id))) { await BoardReject(op, "INVALID", requestId); return; }
             me.BoardJson = JsonData.Write(board); Remember(me, op, requestId); await db.SaveChangesAsync();
             await Clients.Caller.SendAsync("BoardSnapshot", new { board, requestId });
         }
@@ -68,33 +71,22 @@ public sealed partial class GameHub
         {
             var me = await Authorized(); if (me == null) return;
             if (r == null || !ValidRequestId(r.RequestId)) { await BoardReject("SubmitPair", "INVALID", r?.RequestId ?? ""); return; }
-            if (Seen(me, "SubmitPair", r.RequestId))
-            {
-                var old = JsonData.Read<BoardData>(me.BoardJson);
-                await Clients.Caller.SendAsync("BoardSnapshot", new { board = old, requestId = r.RequestId });
-                await Clients.Caller.SendAsync("PairSubmitted", new { round = r.Round, pair = old.Submitted.GetValueOrDefault(r.Round) });
-                return;
-            }
             var session = await db.Sessions.SingleAsync();
-            if (session.Phase != "playing" || session.RoundPhase != "choice" || session.Round != r.Round)
+            if (Seen(me, "SubmitPair", r.RequestId))
+            { await Clients.Caller.SendAsync("VotingState", Voting.View(session, me.Id)); return; }
+            var data = JsonData.Read<VotingData>(session.VotingJson);
+            if (session.Phase != "playing" || session.RoundPhase != "choice" || session.Round != r.Round ||
+                data.Stage != r.Stage || session.EndsAt <= JsonData.Now)
             { await BoardReject("SubmitPair", "WRONG_PHASE", r.RequestId); return; }
-            var board = JsonData.Read<BoardData>(me.BoardJson);
-            if (board.Submitted.ContainsKey(r.Round)) { await BoardReject("SubmitPair", "ALREADY_SUBMITTED", r.RequestId); return; }
-            string[]? pair = null;
-            if (!r.Skip)
-            {
-                if (!ValidNpc(r.A) || !ValidNpc(r.B) || r.A == r.B || Locked(board, r.A!) || Locked(board, r.B!) ||
-                    !board.Pairs.Any(p => p.Length == 2 && GameLogic.PairKey(p[0], p[1]) == GameLogic.PairKey(r.A!, r.B!)))
-                { await BoardReject("SubmitPair", "INVALID", r.RequestId); return; }
-                pair = [r.A!, r.B!]; board.Locks[GameLogic.PairKey(r.A!, r.B!)] = r.Round;
-            }
-            board.Submitted[r.Round] = pair; me.BoardJson = JsonData.Write(board); Remember(me, "SubmitPair", r.RequestId);
-            db.Choices.Add(new PairChoice { PlayerId = me.Id, Round = r.Round, A = pair?[0], B = pair?[1] });
+            if (!data.Electorate.Contains(me.Id) || data.Ballots.ContainsKey(me.Id) || r.Skip || r.A == null || r.B == null ||
+                !data.Candidates.Any(p => Voting.Key(p) == GameLogic.PairKey(r.A, r.B)))
+            { await BoardReject("SubmitPair", "INVALID", r.RequestId); return; }
+            data.Ballots[me.Id] = new[] { r.A, r.B }.Order().ToArray();
+            session.VotingJson = JsonData.Write(data); Remember(me, "SubmitPair", r.RequestId);
             await db.SaveChangesAsync();
-            await Clients.Caller.SendAsync("BoardSnapshot", new { board, requestId = r.RequestId });
-            await Clients.Caller.SendAsync("PairSubmitted", new { round = r.Round, pair });
+            await Voting.Broadcast(db, Clients, session);
+            await Voting.Advance(db, Clients, session, settings);
         }
         finally { gate.Lock.Release(); }
     }
-
 }

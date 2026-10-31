@@ -10,7 +10,7 @@ import { Icon } from './Icon';
 
 /** <summary>Board operations are commands; only BoardSnapshot changes the visible assignments.</summary> */
 export function Board() {
-  const { board, npcs, round, connection, phase } = useGameStore(); const client = useClient();
+  const { board, npcs, connection, phase } = useGameStore(); const client = useClient();
   const [selected, setSelected] = useState<string | null>(null); const root = useRef<HTMLDivElement>(null);
   const disabled = connection !== 'ready' || phase === 'reveal';
   const number = (id: string) => String(npcs.find(n => n.id === id)?.number ?? '?').padStart(2, '0');
@@ -29,9 +29,9 @@ export function Board() {
       })}</div></div>
       <div className="assignment-grid"><section><div className="slot-heading"><span>ПРЕДПОЛАГАЕМЫЕ ДРУЗЬЯ</span><span>{board.pairs.length} / {GAME.PAIR_SLOTS}</span></div><div className="pair-slots">{Array.from({ length: GAME.PAIR_SLOTS }, (_, i) => {
         const pair = board.pairs[i]; const lock = pair ? lockedRound(board.locks, ...pair) : undefined;
-        return <div className={`pair-slot ${pair ? 'filled' : ''}`} key={i}>{pair ? <><span className="pair-label">{number(pair[0])}<span className="thread-symbol">⟷</span>{number(pair[1])}</span><div>{lock !== undefined ? <span className="lock-badge"><Icon name="lock" size={13} /> раунд {lock}</span> : <><button disabled={disabled || round?.phase !== 'choice' || board.submitted[String(round.n)] !== undefined} onClick={() => void command(client, C2S.SUBMIT_PAIR, { requestId: createId(), a: pair[0], b: pair[1], round: round!.n })} title="Зафиксировать пару. Бонус зависит от правильности версии."><Icon name="lock" size={14} /> +{round?.n === 2 ? 300 : round?.n === 3 ? 200 : 100}</button><button className="ml-3" aria-label={`Разъединить ${number(pair[0])} и ${number(pair[1])}`} disabled={disabled} onClick={() => void command(client, C2S.UNPAIR_NPCS, { requestId: createId(), a: pair[0], b: pair[1] })}><Icon name="close" size={14} /></button></>}</div></> : <span className="empty-slot">+ <span>Пара {i + 1}</span></span>}</div>;
+        return <div className={`pair-slot ${pair ? 'filled' : ''}`} key={i}>{pair ? <><span className="pair-label">{number(pair[0])}<span className="thread-symbol">⟷</span>{number(pair[1])}</span><div>{lock !== undefined ? <span className="lock-badge"><Icon name="lock" size={13} /> раунд {lock}</span> : <><button className="ml-3" aria-label={`Разъединить ${number(pair[0])} и ${number(pair[1])}`} disabled={disabled} onClick={() => void command(client, C2S.UNPAIR_NPCS, { requestId: createId(), a: pair[0], b: pair[1] })}><Icon name="close" size={14} /></button></>}</div></> : <span className="empty-slot">+ <span>Пара {i + 1}</span></span>}</div>;
       })}</div></section><section><div className="slot-heading"><span>АКТЁРЫ-ОДИНОЧКИ</span><span>{board.liars.length} / {GAME.LIAR_SLOTS}</span></div><div className="liar-slots">{Array.from({ length: GAME.LIAR_SLOTS }, (_, i) => <div className={`liar-slot ${board.liars[i] ? 'filled' : ''}`} key={i}>{board.liars[i] ? <><span>№ {number(board.liars[i])}</span><button aria-label={`Снять метку актёра ${number(board.liars[i])}`} disabled={disabled} onClick={() => void command(client, C2S.UNMARK_LIAR, { requestId: createId(), npc: board.liars[i] })}><Icon name="close" size={12} /></button></> : '—'}</div>)}</div></section></div>
     </div>
-    <footer className="board-footer"><span><span className="status-dot" /> {selected ? `Выбран № ${number(selected)} — выберите второго` : 'Версии подтверждаются сервером'}</span><span>{round?.phase === 'choice' && board.submitted[String(round.n)] === undefined && <button disabled={disabled} onClick={() => void command(client, C2S.SUBMIT_PAIR, { requestId: createId(), round: round.n, skip: true })}>Пропустить выбор</button>} Друг + актёр <b>−100</b><i />Два актёра <b>−150</b></span></footer>
+    <footer className="board-footer"><span><span className="status-dot" /> {selected ? `Выбран № ${number(selected)} — выберите второго` : 'Версии подтверждаются сервером'}</span><span> Друг + актёр <b>−100</b><i />Два актёра <b>−150</b></span></footer>
   </section>;
 }

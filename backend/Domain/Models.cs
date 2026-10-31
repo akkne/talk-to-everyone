@@ -6,6 +6,7 @@ public sealed class GameSession
     public string Phase { get; set; } = "lobby";
     public int Round { get; set; }
     public string RoundPhase { get; set; } = "";
+    public string VotingJson { get; set; } = "{}";
     public long EndsAt { get; set; }
 }
 
