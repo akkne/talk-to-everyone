@@ -1,6 +1,6 @@
 # TODO: later прописать README.md
 
-Актуальный [контракт API v2](backend/docs/backend.md) и [план интеграции фронта с бэком](docs/integration.md). Старые планы в `frontend/PLAN.md` и `backend/docs/roadmap.md` архивные.
+Актуальный [контракт API v2](backend/docs/backend.md), [план интеграции фронта с бэком](docs/integration.md) и [план интеграции локальной LLM через Ollama](backend/docs/ollama-integration.md). Старые планы в `frontend/PLAN.md` и `backend/docs/roadmap.md` архивные.
 
 
 ## В папке backend лежит только серверная логика, в папке фронтенд лежит все что связано с клиентом, там лежит вся геймдев логика. это два отдельных сервиса.
