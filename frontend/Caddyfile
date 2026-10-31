@@ -1,0 +1,14 @@
+{$CADDY_DOMAIN:localhost} {
+	encode zstd gzip
+
+	@backend path /api/* /hubs/* /health /health/db
+	handle @backend {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
