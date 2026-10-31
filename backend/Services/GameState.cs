@@ -42,13 +42,15 @@ public static class GameLogic
     ];
     public static object Seats(IEnumerable<GamePlayer> players) => Enumerable.Range(1, 8).Select(n => new
     {
-        id = $"seat-{n}", occupiedBy = players.FirstOrDefault(p => JsonData.Read<PoseData>(p.PoseJson).SeatId == $"seat-{n}")?.Id
+        id = $"seat-{n}", occupiedBy = players.FirstOrDefault(p => p.Connected && JsonData.Read<PoseData>(p.PoseJson).SeatId == $"seat-{n}")?.Id
     }).ToArray();
     public static object Lobby(IEnumerable<GamePlayer> players, GameSession session) => new
     {
         sessionId = session.Id, players = players.Select(p => new { id = p.Id, name = p.Name, connected = p.Connected }).ToArray(),
-        leaderId = players.FirstOrDefault(p => p.Role == "leader")?.Id, minPlayers = 1,
-        canStart = session.Phase == "lobby" && players.Any(p => p.Role == "leader" && p.Connected), started = session.Phase != "lobby"
+        leaderId = players.FirstOrDefault(p => p.Role == "leader" && p.Connected)?.Id ?? players.FirstOrDefault(p => p.Role == "leader")?.Id,
+        minPlayers = 1,
+        canStart = (session.Phase == "lobby" || session.Phase == "finished") && players.Any(p => p.Role == "leader" && p.Connected),
+        started = session.Phase == "playing"
     };
 
     public static async Task<object> Snapshot(GameDb db, GamePlayer me, GameSettings settings)

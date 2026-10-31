@@ -5,6 +5,7 @@ namespace Backend;
 
 public sealed class GameDb(DbContextOptions<GameDb> options) : DbContext(options)
 {
+    public DbSet<UserAccount> Users => Set<UserAccount>();
     public DbSet<GameSession> Sessions => Set<GameSession>();
     public DbSet<GamePlayer> Players => Set<GamePlayer>();
     public DbSet<GameNpc> Npcs => Set<GameNpc>();
@@ -13,6 +14,8 @@ public sealed class GameDb(DbContextOptions<GameDb> options) : DbContext(options
 
     protected override void OnModelCreating(ModelBuilder model)
     {
+        model.Entity<UserAccount>().HasKey(x => x.Id);
+        model.Entity<UserAccount>().HasIndex(x => x.Login).IsUnique();
         model.Entity<GameSession>().HasKey(x => x.Id);
         model.Entity<GamePlayer>().HasKey(x => x.Id);
         model.Entity<GamePlayer>().HasIndex(x => x.TokenHash).IsUnique();

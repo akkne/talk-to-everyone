@@ -9,12 +9,17 @@ const cloth = (color: string, roughness = 0.86) => new THREE.MeshStandardMateria
 export class Npc {
   readonly group = new THREE.Group();
   readonly head = new THREE.Group();
+  private readonly body: THREE.Mesh;
   private readonly bodyMaterial: THREE.MeshStandardMaterial;
   private label: THREE.Sprite;
   private bubble: THREE.Sprite | null = null;
   private name = '';
   private reactionAt = -Infinity;
   private bubbleUntil = 0;
+  private targetPos: THREE.Vector3 | null = null;
+  private targetYaw = 0;
+  private targetPitch = 0;
+
   constructor(readonly meta: NpcMeta) {
     const profile = meta.appearance;
     const skin = cloth(skinTones[(profile?.skin ?? meta.number) % skinTones.length]);
@@ -35,7 +40,7 @@ export class Npc {
       arm.rotation.z = side * 0.16;
       add(this.group, new THREE.SphereGeometry(0.105, 9, 7), skin, side * 0.42, 0.71, 0.02);
     }
-    add(this.group, new THREE.CylinderGeometry(0.32, 0.39, 0.76, 12), this.bodyMaterial, 0, 1.07, 0);
+    this.body = add(this.group, new THREE.CylinderGeometry(0.32, 0.39, 0.76, 12), this.bodyMaterial, 0, 1.07, 0);
     add(this.group, new THREE.CylinderGeometry(0.12, 0.12, 0.14, 10), skin, 0, 1.5, 0);
     this.head.position.y = 1.75;
     add(this.head, new THREE.SphereGeometry(0.245, 16, 12), skin, 0, 0, 0);
@@ -81,14 +86,32 @@ export class Npc {
       add(this.head, new THREE.CylinderGeometry(0.23, 0.24, 0.13, 14), this.bodyMaterial, 0, 0.22, 0);
       add(this.head, new THREE.BoxGeometry(0.36, 0.035, 0.2), this.bodyMaterial, 0, 0.18, 0.21);
     }
-    this.label = this.text(`№ ${String(meta.number).padStart(2, '0')}`, false);
+    this.label = this.text(meta.number > 0 ? `№ ${String(meta.number).padStart(2, '0')}` : '', false);
     this.label.position.y = 2.31; this.group.add(this.label);
   }
   setName(name?: string) {
-    const next = name || `№ ${String(this.meta.number).padStart(2, '0')}`;
+    const next = name || (this.meta.number > 0 ? `№ ${String(this.meta.number).padStart(2, '0')}` : 'Судья');
     if (next === this.name) return;
     this.name = next; this.removeSprite(this.label);
     this.label = this.text(next, false); this.label.position.y = 2.31; this.group.add(this.label);
+  }
+  setTargetPose(x: number, y: number, z: number, yaw: number, pitch: number, seated: boolean) {
+    if (!this.targetPos) {
+      this.targetPos = new THREE.Vector3(x, y, z);
+      this.group.position.set(x, y, z);
+      this.group.rotation.y = yaw;
+      this.head.rotation.x = pitch;
+    } else {
+      this.targetPos.set(x, y, z);
+      if (this.group.position.distanceTo(this.targetPos) > 3.0) {
+        this.group.position.copy(this.targetPos);
+      }
+    }
+    this.targetYaw = yaw;
+    this.targetPitch = pitch;
+    this.body.position.y = seated ? 0.85 : 1.07;
+    this.head.position.y = seated ? 1.50 : 1.75;
+    this.label.position.y = seated ? 2.06 : 2.31;
   }
   say(text: string) {
     if (this.bubble) this.removeSprite(this.bubble);
@@ -97,6 +120,12 @@ export class Npc {
   }
   react(at: number) { this.reactionAt = at; }
   update(now: number) {
+    if (this.targetPos) {
+      this.group.position.lerp(this.targetPos, 0.22);
+      const dyaw = Math.atan2(Math.sin(this.targetYaw - this.group.rotation.y), Math.cos(this.targetYaw - this.group.rotation.y));
+      this.group.rotation.y += dyaw * 0.25;
+      this.head.rotation.x += (this.targetPitch - this.head.rotation.x) * 0.25;
+    }
     const age = now - this.reactionAt;
     this.bodyMaterial.emissive.set('#f6b84b');
     this.bodyMaterial.emissiveIntensity = age < 2400 ? (0.5 + Math.sin(age / 110) * 0.5) * 0.45 : 0;

@@ -7,11 +7,12 @@ public sealed partial class GameHub
 {
     public async Task AskQuestion(QuestionRequest r)
     {
-        GamePlayer? me; GameNpc? npc;
+        GamePlayer? me; GameNpc? npc; stringaskerName = "";
         await gate.Lock.WaitAsync();
         try
         {
             me = await Authorized(); if (me == null) return;
+            stringaskerName = me.Name;
             if (r == null || !ValidRequestId(r.RequestId))
             { await Clients.Caller.SendAsync("QuestionReject", new { requestId = r?.RequestId, code = "EMPTY", message = "Неверный ID вопроса." }); return; }
             if (Seen(me, "AskQuestion", r.RequestId))
@@ -45,7 +46,8 @@ public sealed partial class GameHub
             try
             {
                 var history = await db.Messages.AsNoTracking().Where(m => m.NpcId == npc!.Id && m.InReplyTo != r.RequestId).OrderByDescending(m => m.At).Take(8).ToListAsync();
-                (answer, emotion) = await llm.Answer(npc!, r.Text, history);
+                var roster = await db.Npcs.AsNoTracking().ToListAsync();
+                (answer, emotion) = await llm.Answer(npc!, r.Text, history, roster);
             }
             finally { gate.LlmLock.Release(); }
         }
@@ -85,7 +87,9 @@ public sealed partial class GameHub
                 await Clients.Caller.SendAsync("QuestionState", new { questions });
                 return;
             }
-            var line = new GameMessage { PlayerId = me.Id, NpcId = npc!.Id, Text = answer, Emotion = emotion, InReplyTo = r.RequestId, At = JsonData.Now };
+            var formattedText = $"[{stringaskerName}: «{r.Text.Trim()}»] {answer}";
+            if (formattedText.Length > 500) formattedText = formattedText[..500];
+            var line = new GameMessage { PlayerId = me.Id, NpcId = npc!.Id, Text = formattedText, Emotion = emotion, InReplyTo = r.RequestId, At = JsonData.Now };
             db.Messages.Add(line); await db.SaveChangesAsync();
             await Clients.Caller.SendAsync("QuestionState", new { questions });
             await Clients.All.SendAsync("NpcSay", new { id = line.Id, npc = line.NpcId, text = line.Text, inReplyTo = line.InReplyTo, emotion = line.Emotion, at = line.At });

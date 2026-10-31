@@ -54,7 +54,10 @@ public static class Voting
     {
         var data = JsonData.Read<VotingData>(session.VotingJson);
         if (session.RoundPhase != "choice" || data.Stage == 0) return false;
-        if (session.EndsAt > JsonData.Now && data.Ballots.Count < data.Electorate.Count) return false;
+        var connectedIds = await db.Players.Where(p => p.Connected).Select(p => p.Id).ToListAsync();
+        var activeElectorate = data.Electorate.Where(connectedIds.Contains).ToList();
+        var allConnectedVoted = activeElectorate.Count > 0 && activeElectorate.All(data.Ballots.ContainsKey);
+        if (session.EndsAt > JsonData.Now && data.Ballots.Count < data.Electorate.Count && !allConnectedVoted) return false;
         var nominations = Nominations(data);
         if (data.Stage == 1 && nominations.Count > 1)
         {

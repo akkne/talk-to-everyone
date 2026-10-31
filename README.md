@@ -1,21 +1,36 @@
-# Угадай друзей
+# Угадай друзей (LAN Multiplayer — Radmin VPN / Hamachi + Ollama / HTTPS Docker)
 
-Браузерная игра: 10 NPC, три настоящие пары, четыре актёра. React/Three.js — `frontend/`, игровой ASP.NET Core/SignalR/PostgreSQL API — `backend/Backend.csproj`.
+Браузерная мультиплеерная игра социальной дедукции: 10 ИИ-участников на трибуне (3 настоящие пары друзей и 4 актёра-самозванца) и команда живых судей (до 8 игроков в комнате).
 
 - [Запуск бэкенда](backend/README.md)
 - [Контракт фронта и бэка](backend/docs/backend.md)
 - [Роадмап бэкенда](backend/docs/roadmap.md)
 - [Текущая интеграция](docs/integration.md)
-- [Прототип Ollama](backend/docs/ollama-integration.md) — отдельный проект `backend/TalkToEveryone.Api/`; игровой SignalR API запускается через Docker Compose.
+- [Прототип Ollama](backend/docs/ollama-integration.md)
 
 Фронтенд подключён к контракту SignalR v2. Схема обмена и запуск описаны в [документации интеграции](docs/integration.md).
 
-## Запуск через Docker Compose с HTTPS
+## Как запустить игру по LAN (Radmin VPN / Hamachi)
 
-1. Скопируйте `.env.example` в `.env`. Замените пароль PostgreSQL и оба токена `GAME_TOKENS` на уникальные значения не короче 16 символов.
-2. Для публичного сервера задайте `CADDY_DOMAIN` равным DNS имени, указывающему на сервер, и откройте входящие порты 80 и 443. Для локального запуска оставьте `localhost`.
-3. Запустите `docker compose up --build -d` и откройте `https://localhost` или `https://<CADDY_DOMAIN>`. Токены из `.env` введите в форме входа.
+### На компьютере-хосте (где установлена Ollama)
 
-Конфигурация [Caddy](frontend/Caddyfile) включается в Docker образ при сборке. Caddy обслуживает собранный фронтенд и проксирует `/api/*`, `/hubs/*`, `/health` и `/health/db` на игровой API, включая WebSocket. HTTP перенаправляется на HTTPS. Сертификаты и ключи Caddy сохраняются в томе `caddy_data`. Для `localhost` Caddy выдаёт сертификат собственного центра сертификации: браузер предупредит о недоверенном сертификате, пока корневой сертификат из тома (`/data/caddy/pki/authorities/local/root.crt`) не добавлен в хранилище доверенных сертификатов клиента. Для публичного DNS имени Caddy получает сертификат автоматически.
+1. Убедитесь, что **Ollama** запущена на компьютере-хосте (`ollama serve` или приложение Ollama в трее) и скачана модель (например, `ollama pull qwen2.5:14b-instruct-q4_K_M` или любая другая установленная модель — сервер определит доступную модель автоматически).
+2. Запустите [`start-host.bat`](start-host.bat) (или выполните `docker compose up --build` в папке проекта).
+   - Если запускаете вручную без Docker:
+     - Терминал 1 (Backend): `cd backend && dotnet run --project Backend.csproj` (слушает `0.0.0.0:5000`, подключается к `http://localhost:11434`).
+     - Терминал 2 (Frontend): `cd frontend && npm install && npm run dev -- --host 0.0.0.0` (слушает `0.0.0.0:5173` и проксирует `/hubs`, `/api`, `/health` на бэкенд).
+3. Откройте в браузере `http://localhost:5173` (или `https://localhost` при запуске через Caddy), зарегистрируйтесь или войдите в аккаунт и нажмите **«Создать лобби (Хост)»**.
+4. В открывшемся лобби вы увидите готовые ссылки для друзей (`Radmin VPN: http://26.x.x.x:5173` / `Hamachi: http://25.x.x.x:5173`) и **Код комнаты** (`1234` по умолчанию).
 
-PostgreSQL и игровой API доступны только внутри сети Compose. Опциональный сервер Ollama запускается командой `docker compose --profile ollama up -d`; игровой API сейчас использует отдельный OpenAI совместимый endpoint из `LLM_ENDPOINT`, `LLM_MODEL` и `LLM_API_KEY`, а не Ollama напрямую. Без этих переменных игра запускается, но вопросы NPC возвращают ошибку.
+### У друзей (клиентов в Radmin VPN / Hamachi)
+
+1. Подключитесь к одной сети Radmin VPN или Hamachi с хостом.
+2. Откройте в браузере ссылку хоста: `http://<IP_ХОСТА_В_RADMIN_ИЛИ_HAMACHI>:5173`.
+3. Зарегистрируйтесь или войдите по логину и паролю, введите код комнаты (`1234`) и нажмите **«Присоединиться к команде»**.
+4. Когда все зашли в комнату, хост нажимает **«Начать игру»**.
+
+## Запуск через Docker Compose с HTTPS (Caddy)
+
+1. Скопируйте `.env.example` в `.env`. При необходимости задайте `POSTGRES_PASSWORD`, `JWT_SECRET` и `CADDY_DOMAIN`.
+2. Запустите `docker compose up --build -d` и откройте `https://localhost` (через Caddy) или `http://localhost:5173` (dev-сервер Vite для LAN).
+3. Конфигурация [Caddy](frontend/Caddyfile) включается в Docker образ при сборке и проксирует `/api/*`, `/hubs/*`, `/health` и `/health/db` на игровой API, включая WebSocket.

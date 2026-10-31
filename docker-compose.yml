@@ -5,7 +5,9 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-talk_to_everyone}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,19 +20,46 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: talk-to-everyone-backend
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      DATABASE_URL: Host=postgres;Port=5432;Database=${POSTGRES_DB:-talk_to_everyone};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      GAME_TOKENS: ${GAME_TOKENS:?Set GAME_TOKENS in .env}
-      GAME_ORIGINS: https://${CADDY_DOMAIN:-localhost}
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+      DATABASE_URL: ${DATABASE_URL:-Host=postgres;Port=5432;Database=talk_to_everyone;Username=postgres;Password=postgres}
+      GAME_HOST_CODE: ${GAME_HOST_CODE:-host}
+      GAME_ROOM_CODE: ${GAME_ROOM_CODE:-1234}
+      GAME_ROUND_SECONDS: ${GAME_ROUND_SECONDS:-120}
+      GAME_CHOICE_SECONDS: ${GAME_CHOICE_SECONDS:-45}
+      JWT_SECRET: ${JWT_SECRET:-talk-to-everyone-super-secret-jwt-key-2026-min-32-bytes}
+      Ollama__BaseUrl: ${OLLAMA__BASEURL:-http://host.docker.internal:11434}
+      Ollama__Model: ${OLLAMA__MODEL:-qwen2.5:14b-instruct-q4_K_M}
+      Ollama__TimeoutSeconds: ${OLLAMA__TIMEOUTSECONDS:-30}
       LLM_ENDPOINT: ${LLM_ENDPOINT:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+
+  frontend:
+    image: node:22-alpine
+    container_name: talk-to-everyone-frontend
+    working_dir: /app
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      BACKEND_URL: http://backend:5000
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
 
   caddy:
     build:
@@ -49,7 +78,6 @@ services:
       - caddy_data:/data
       - caddy_config:/config
 
-  # Optional standalone server; the game API uses the OpenAI-compatible LLM_* endpoint.
   ollama:
     profiles: [ollama]
     image: ollama/ollama:latest
@@ -70,6 +98,7 @@ services:
 
 volumes:
   postgres_data:
+  frontend_node_modules:
   caddy_data:
   caddy_config:
   ollama_data:

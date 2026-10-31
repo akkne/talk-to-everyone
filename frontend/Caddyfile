@@ -3,7 +3,7 @@
 
 	@backend path /api/* /hubs/* /health /health/db
 	handle @backend {
-		reverse_proxy backend:8080
+		reverse_proxy backend:5000
 	}
 
 	handle {

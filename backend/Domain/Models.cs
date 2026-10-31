@@ -1,5 +1,14 @@
 namespace Backend;
 
+public sealed class UserAccount
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Login { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+    public string Name { get; set; } = "";
+    public long CreatedAt { get; set; }
+}
+
 public sealed class GameSession
 {
     public string Id { get; set; } = "main";

@@ -4,6 +4,7 @@ import { ClientContext, connectionStatus, receiveEvent } from './core/client';
 import type { GameClient, GameInfo } from './shared/types';
 import { resetGame, useGameStore } from './store/gameStore';
 import { resetCache } from './store/cacheStore';
+import { verifyStoredSession } from './store/authStore';
 import { Lobby } from './components/Lobby';
 import { HUD } from './components/HUD';
 import { Voting } from './components/Voting';
@@ -14,16 +15,16 @@ import { Reveal } from './components/Reveal';
 import { Scene } from './scene/Scene';
 import { Icon } from './components/Icon';
 
-/** <summary>Phase routing and session lifetime; no router or browser credential persistence.</summary> */
+/** <summary>Phase routing, JWT session verification, and SignalR session lifetime.</summary> */
 export default function App() {
   const [client, setClient] = useState<GameClient>(() => new SignalRClient(receiveEvent, connectionStatus));
   const activeClient = useRef(client); const [questions, setQuestions] = useState(false);
   const { phase, boardOpen, error, connection, round, voting } = useGameStore();
-  const connect = async (name: string, token: string) => {
+  const connect = async (token: string) => {
     await activeClient.current.disconnect(); resetGame(); resetCache();
     const next = new SignalRClient(receiveEvent, connectionStatus);
     activeClient.current = next; setClient(next);
-    await next.connect(token, name);
+    await next.connect(token);
   };
   const exit = async () => { await activeClient.current.disconnect(); resetGame(); resetCache(); setQuestions(false); };
   useEffect(() => {
@@ -32,9 +33,12 @@ export default function App() {
       .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json() as Promise<GameInfo>; })
       .then(gameInfo => useGameStore.setState({ gameInfo, gameInfoError: null }))
       .catch(() => { if (!controller.signal.aborted) useGameStore.setState(state => ({ gameInfoError: state.gameInfo ? null : 'Не удалось загрузить правила игры с сервера.' })); });
-    return () => controller.abort();
+    void verifyStoredSession();
+    return () => {
+      controller.abort();
+      void activeClient.current.disconnect();
+    };
   }, []);
-  useEffect(() => () => { void activeClient.current.disconnect(); }, []);
   useEffect(() => { setQuestions(round?.phase === 'interrogation'); }, [round?.phase]);
   useEffect(() => { if ((boardOpen || questions || !!voting) && document.pointerLockElement) document.exitPointerLock(); }, [boardOpen, questions, voting]);
   useEffect(() => {

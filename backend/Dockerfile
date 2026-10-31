@@ -7,6 +7,7 @@ RUN dotnet publish Backend.csproj -c Release -o /app/publish --no-restore /p:Use
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
-EXPOSE 8080
+EXPOSE 5000
+ENV ASPNETCORE_URLS=http://0.0.0.0:5000
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "Backend.dll"]

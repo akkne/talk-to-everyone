@@ -11,6 +11,7 @@ interface GameState {
   voting: VotingState | null; teamScore: number;
   score: Record<string, number>; titles: Record<string, string>; reveal: RevealData | null;
   chat: ChatMessage[]; questions: QuestionState; boardOpen: boolean;
+  thinkingNpc: string | null; thinkingAt: number;
   error: string | null; rtt: number | null;
   gameInfo: GameInfo | null; gameInfoError: string | null;
   metrics: { fps: number; calls: number; triangles: number; geometries: number; textures: number };
@@ -21,6 +22,7 @@ function initial(): GameState {
     round: null, rounds: [], roundEnded: false, lobby: null, scene: null, players: [], npcs: [], seats: [],
     board: { pairs: [], liars: [], locks: {}, notes: {}, submitted: {} }, score: {}, titles: {}, reveal: null,
     chat: [], questions: { remaining: 0, askedTo: [], pending: false }, boardOpen: false,
+    thinkingNpc: null, thinkingAt: 0,
     error: null, rtt: null, gameInfo: null, gameInfoError: null, metrics: { fps: 0, calls: 0, triangles: 0, geometries: 0, textures: 0 },
   };
 }
@@ -50,8 +52,8 @@ const handlers: Handlers = {
   })),
   [S2C.AUTH_OK]: p => set({ playerId: p.playerId, sessionId: p.sessionId, role: p.role }),
   [S2C.AUTH_ERR]: p => set({ error: p.message, connection: 'offline' }),
-  [S2C.LOBBY_STATE]: p => set({ lobby: p }),
-  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: p.npcs, reveal: null }),
+  [S2C.LOBBY_STATE]: p => set(s => ({ lobby: p, role: p.leaderId === s.playerId ? 'leader' : s.role })),
+  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: p.npcs, reveal: null, chat: [], voting: null, teamScore: 0 }),
   [S2C.ROUND_STARTED]: p => set({ round: p, roundEnded: false, phase: 'playing' }),
   [S2C.ROUND_ENDED]: p => { if (p.n === useGameStore.getState().round?.n) set({ roundEnded: true }); },
   [S2C.GAME_ENDED]: p => set({ phase: 'reveal', reveal: p.reveal, boardOpen: false, voting: null, ...scoreFields(p.scoreboard) }),
@@ -67,8 +69,8 @@ const handlers: Handlers = {
   [S2C.PLAYERS_TICK]: p => set({ players: p.players }),
   [S2C.SEAT_STATE]: p => set({ seats: p.seats }),
   [S2C.ACTION_REJECT]: p => set({ error: p.message }),
-  [S2C.NPC_THINKING]: () => {},
-  [S2C.NPC_SAY]: p => set(s => ({ chat: !s.npcs.some(n => n.id === p.npc) || s.chat.some(x => x.id === p.id) ? s.chat : [...s.chat, p].slice(-UI.MAX_CHAT) })),
+  [S2C.NPC_THINKING]: p => set({ thinkingNpc: p.npc, thinkingAt: performance.now() }),
+  [S2C.NPC_SAY]: p => set(s => ({ thinkingNpc: s.thinkingNpc === p.npc ? null : s.thinkingNpc, chat: !s.npcs.some(n => n.id === p.npc) || s.chat.some(x => x.id === p.id) ? s.chat : [...s.chat, p].slice(-UI.MAX_CHAT) })),
   [S2C.BOARD_SNAPSHOT]: p => set({ board: p.board }),
   [S2C.BOARD_REJECT]: p => set({ error: p.message }),
   [S2C.PAIR_SUBMITTED]: () => {},

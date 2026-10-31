@@ -3,8 +3,9 @@ import { C2S, HUB, NET, S2C } from '../shared/contract';
 import { UI } from '../shared/config';
 import type { Commands, EventHandler, Events, GameClient, Pose, Vec3 } from '../shared/types';
 import type { ConnectionStatus } from '../store/gameStore';
+import { useAuthStore } from '../store/authStore';
 
-/** <summary>Authenticated WebSocket transport. Tokens remain only in memory and the Auth DTO.</summary> */
+/** <summary>Authenticated WebSocket transport using JWT Bearer token and room code.</summary> */
 export class SignalRClient implements GameClient {
   private readonly connection: HubConnection;
   private credentials: Commands[typeof C2S.AUTH] | null = null;
@@ -20,7 +21,11 @@ export class SignalRClient implements GameClient {
 
   constructor(private readonly emit: EventHandler, private readonly status: (status: ConnectionStatus) => void) {
     this.connection = new HubConnectionBuilder()
-      .withUrl(`${import.meta.env.VITE_HUB_ORIGIN || ''}${HUB}`, { transport: HttpTransportType.WebSockets, skipNegotiation: true })
+      .withUrl(`${import.meta.env.VITE_HUB_ORIGIN || ''}${HUB}`, {
+        transport: HttpTransportType.WebSockets,
+        skipNegotiation: true,
+        accessTokenFactory: () => useAuthStore.getState().jwt || '',
+      })
       .withAutomaticReconnect([...NET.RECONNECT_DELAYS_MS])
       .configureLogging(LogLevel.None).build();
     for (const event of Object.values(S2C)) this.connection.on(event, payload => this.receive(event, payload));
@@ -29,8 +34,8 @@ export class SignalRClient implements GameClient {
     this.connection.onclose(() => { this.suspend(); this.status('offline'); });
   }
   /** <summary>Initial failures remain retryable from the lobby; auto-reconnect handles established connections.</summary> */
-  async connect(token: string, name: string) {
-    this.credentials = { token, name };
+  async connect(token: string) {
+    this.credentials = { token };
     const epoch = ++this.epoch;
     this.status('connecting');
     this.armDeadline();
@@ -39,7 +44,7 @@ export class SignalRClient implements GameClient {
       if (epoch !== this.epoch) return;
       await this.authenticate();
     } catch {
-      if (epoch === this.epoch) this.fail('Сервер недоступен. Проверьте адрес, запуск бэкенда и токен, затем повторите вход.');
+      if (epoch === this.epoch) this.fail('Сервер недоступен или сессия истекла. Проверьте вход в аккаунт и повторите попытку.');
     }
   }
   /** <summary>Auth is always the first invocation on a newly established connection.</summary> */

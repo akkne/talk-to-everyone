@@ -30,7 +30,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const controller = new CameraController(camera, element, client, spec, setHint, message => useGameStore.setState({ error: message }));
     const npcs = new Map<string, Npc>(); const judges = new Map<string, Npc>();
     const lod = new NpcLod(camera, npcs, client);
-    let lastChat = ''; let lastMeSeq = -1; let lastSeat: string | null = null;
+    let lastChat = ''; let lastThinkingAt = 0; let lastMeSeq = -1; let lastSeat: string | null = null;
     const sync = () => {
       const state = useGameStore.getState();
       controller.setOccupied(state.seats.filter(seat => seat.occupiedBy && seat.occupiedBy !== state.playerId).map(seat => seat.id));
@@ -44,6 +44,10 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         npc.group.position.set(stand.position.x, stand.position.y, stand.position.z);
         npc.group.rotation.y = stand.yaw;
         npcs.set(meta.id, npc); scene.add(npc.group);
+      }
+      if (state.thinkingNpc && state.thinkingAt > lastThinkingAt) {
+        lastThinkingAt = state.thinkingAt;
+        npcs.get(state.thinkingNpc)?.react(performance.now());
       }
       const me = state.players.find(p => p.id === state.playerId);
       if (me && (lastMeSeq < 0 || me.pose.seatId !== lastSeat || (me.pose.seq > lastMeSeq && controller.differsFrom(me.pose)))) {
@@ -62,13 +66,18 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         let judge = judges.get(player.id);
         if (!judge) {
           judge = new Npc({ id: player.id, number: 0, color: '#dfbf63', anchorId: '' });
-          judge.setName(player.name);
           judges.set(player.id, judge); scene.add(judge.group);
         }
+        judge.setName(player.name);
         judge.group.visible = player.connected;
-        judge.group.position.set(player.pose.position.x, player.pose.position.y, player.pose.position.z);
-        judge.group.rotation.y = -player.pose.yaw;
-        judge.head.rotation.x = -player.pose.pitch;
+        judge.setTargetPose(
+          player.pose.position.x,
+          player.pose.position.y,
+          player.pose.position.z,
+          -player.pose.yaw,
+          -player.pose.pitch,
+          player.pose.mode === 'seated'
+        );
       });
     };
     const syncCache = () => { const entries = useCacheStore.getState().entries; npcs.forEach((npc, id) => npc.setName(entries[id]?.details.displayName)); };
@@ -85,7 +94,9 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     let frame = 0; let frames = 0; let sampleAt = performance.now();
     const animate = (now: number) => {
       controller.setEnabled(!blocked.current && !useGameStore.getState().boardOpen && useGameStore.getState().connection === 'ready');
-      frame = requestAnimationFrame(animate); controller.update(now); npcs.forEach(npc => npc.update(now));
+      frame = requestAnimationFrame(animate); controller.update(now);
+      npcs.forEach(npc => npc.update(now));
+      judges.forEach(judge => judge.update(now));
       lod.update(now, useGameStore.getState().connection === 'ready');
       renderer.render(scene, camera); frames++;
       if (now - sampleAt >= 1000) {

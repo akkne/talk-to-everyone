@@ -23,8 +23,9 @@ export interface VotingState { round: number; stage: number; candidates: [NpcId,
 export interface Snapshot { voting: VotingState | null; teamScore: number; sessionId: string; me: { id: string; role: string }; phase: 'lobby' | 'playing' | 'finished'; round: Round | null; rounds: RoundSpec[]; gameInfo: GameInfo; scene: SceneSpec; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board; questions: QuestionState; chat: ChatMessage[]; worldSizeBytes: number; score: Record<string, number>; scoreboard: ScoreEntry[] | null; reveal: RevealData | null }
 type Request = { requestId: string };
 export interface Commands {
-  [C2S.AUTH]: { token: string; name: string };
+  [C2S.AUTH]: { token: string; name?: string };
   [C2S.START_GAME]: undefined;
+  [C2S.RESET_GAME]: undefined;
   [C2S.SEND_POSE]: { seq: number; position: Vec3; yaw: number; pitch: number };
   [C2S.SIT_DOWN]: Request & { seatId: string };
   [C2S.STAND_UP]: Request;
@@ -69,4 +70,4 @@ export interface Events {
   [S2C.PONG]: { t: number; serverTime: number };
 }
 export type EventHandler = <K extends keyof Events>(event: K, payload: Events[K]) => void;
-export interface GameClient { connect(token: string, name: string): Promise<void>; disconnect(): Promise<void>; send<K extends keyof Commands>(method: K, payload: Commands[K]): Promise<void>; setPose(position: Vec3, yaw: number, pitch: number): void; syncPose(pose: Pose): void }
+export interface GameClient { connect(token: string): Promise<void>; disconnect(): Promise<void>; send<K extends keyof Commands>(method: K, payload: Commands[K]): Promise<void>; setPose(position: Vec3, yaw: number, pitch: number): void; syncPose(pose: Pose): void }
