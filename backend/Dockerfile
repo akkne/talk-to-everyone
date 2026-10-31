@@ -1,13 +1,12 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["TalkToEveryone.Api/TalkToEveryone.Api.csproj", "TalkToEveryone.Api/"]
-RUN dotnet restore "TalkToEveryone.Api/TalkToEveryone.Api.csproj"
+COPY Backend.csproj ./
+RUN dotnet restore Backend.csproj
 COPY . .
-WORKDIR "/src/TalkToEveryone.Api"
-RUN dotnet publish "TalkToEveryone.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish Backend.csproj -c Release -o /app/publish --no-restore /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 EXPOSE 8080
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "TalkToEveryone.Api.dll"]
+ENTRYPOINT ["dotnet", "Backend.dll"]
