@@ -12,15 +12,15 @@
 
 ## Как запустить игру по LAN (Radmin VPN / Hamachi)
 
-### На компьютере-хосте (где установлена Ollama)
+### На компьютере-хосте
 
-1. Убедитесь, что **Ollama** запущена на компьютере-хосте (`ollama serve` или приложение Ollama в трее) и скачана модель (например, `ollama pull qwen2.5:14b-instruct-q4_K_M` или любая другая установленная модель — сервер определит доступную модель автоматически).
-2. Запустите [`start-host.bat`](start-host.bat) (или выполните `docker compose up --build` в папке проекта).
+1. Запустите [`start-host.bat`](start-host.bat) (или выполните `docker compose up --build` в папке проекта). Docker Compose запустит Ollama и скачает модель `qwen2.5:3b-instruct` при первом запуске; дождитесь окончания загрузки.
    - Если запускаете вручную без Docker:
+     - Запустите Ollama и скачайте модель: `ollama pull qwen2.5:3b-instruct`.
      - Терминал 1 (Backend): `cd backend && dotnet run --project Backend.csproj` (слушает `0.0.0.0:5000`, подключается к `http://localhost:11434`).
      - Терминал 2 (Frontend): `cd frontend && npm install && npm run dev -- --host 0.0.0.0` (слушает `0.0.0.0:5173` и проксирует `/hubs`, `/api`, `/health` на бэкенд).
-3. Откройте в браузере `http://localhost:5173` (или `https://localhost` при запуске через Caddy), зарегистрируйтесь или войдите в аккаунт и нажмите **«Создать лобби (Хост)»**.
-4. В открывшемся лобби вы увидите готовые ссылки для друзей (`Radmin VPN: http://26.x.x.x:5173` / `Hamachi: http://25.x.x.x:5173`) и **Код комнаты** (`1234` по умолчанию).
+2. Откройте в браузере `http://localhost:5173` (или `https://localhost` при запуске через Caddy), зарегистрируйтесь или войдите в аккаунт и нажмите **«Создать лобби (Хост)»**.
+3. В открывшемся лобби вы увидите готовые ссылки для друзей (`Radmin VPN: http://26.x.x.x:5173` / `Hamachi: http://25.x.x.x:5173`) и **Код комнаты** (`1234` по умолчанию).
 
 ### У друзей (клиентов в Radmin VPN / Hamachi)
 
@@ -32,5 +32,5 @@
 ## Запуск через Docker Compose с HTTPS (Caddy)
 
 1. Скопируйте `.env.example` в `.env`. При необходимости задайте `POSTGRES_PASSWORD`, `JWT_SECRET` и `CADDY_DOMAIN`.
-2. Запустите `docker compose up --build -d` и откройте `https://localhost` (через Caddy) или `http://localhost:5173` (dev-сервер Vite для LAN).
+2. Запустите `docker compose up --build -d`, дождитесь загрузки модели и откройте `https://localhost` (через Caddy) или `http://localhost:5173` (dev-сервер Vite для LAN). Проверить наличие модели можно в лобби или через авторизованный `/health/ollama`.
 3. Конфигурация [Caddy](frontend/Caddyfile) включается в Docker образ при сборке и проксирует `/api/*`, `/hubs/*`, `/health` и `/health/db` на игровой API, включая WebSocket.

@@ -35,10 +35,12 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
   }
   for (const part of spec.room.obstacles) addBox(part.center.x, part.center.y, part.center.z, part.size.x, part.size.y, part.size.z, material('#d4dfda'));
   for (const ramp of spec.room.ramps) {
-    const length = Math.hypot(ramp.to.x - ramp.from.x, ramp.to.z - ramp.from.z);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(ramp.width, 0.12, length), platformMat);
+    const dx = ramp.to.x - ramp.from.x, dy = ramp.to.y - ramp.from.y, dz = ramp.to.z - ramp.from.z;
+    const length = Math.hypot(dx, dz);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(ramp.width, 0.12, Math.hypot(length, dy)), platformMat);
     mesh.position.set((ramp.from.x + ramp.to.x) / 2, (ramp.from.y + ramp.to.y) / 2, (ramp.from.z + ramp.to.z) / 2);
-    mesh.rotation.x = -Math.atan2(ramp.to.y - ramp.from.y, length); scene.add(mesh);
+    // Local +Z points from the lower landing to the upper landing.
+    mesh.rotation.set(-Math.atan2(dy, length), Math.atan2(dx, dz), 0, 'YXZ'); scene.add(mesh);
   }
 
   // A soft central aisle guides the player toward the two rows of participants.

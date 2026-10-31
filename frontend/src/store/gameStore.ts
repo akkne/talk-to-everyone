@@ -77,9 +77,9 @@ const handlers: Handlers = {
   [S2C.QUESTION_OK]: p => set({ questions: p.questions }),
   [S2C.QUESTION_STATE]: p => set({ questions: p.questions }),
   [S2C.QUESTION_REJECT]: p => set({ error: p.message }),
-  [S2C.QUESTION_FAILED]: p => set({ error: p.message, questions: p.questions }),
+  [S2C.QUESTION_FAILED]: p => set({ error: p.message, questions: p.questions, thinkingNpc: null }),
   [S2C.SCORE_UPDATE]: p => set(scoreFields(p.players)),
-  [S2C.SERVER_ERROR]: p => set({ error: p.message }),
+  [S2C.SERVER_ERROR]: p => set({ error: p.message, thinkingNpc: null }),
   [S2C.PONG]: p => set({ rtt: Math.max(0, Date.now() - p.t) }),
 };
 export function applyGameEvent<K extends keyof Events>(event: K, payload: Events[K]) { handlers[event](payload); }

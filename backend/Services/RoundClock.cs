@@ -129,6 +129,11 @@ public sealed class RoundDirector(IServiceScopeFactory scopes, IHubContext<GameH
         catch (Exception ex)
         {
             log.LogWarning(ex, "Error while running round {Round} speeches", round);
+            await hub.Clients.All.SendAsync("ServerError", new
+            {
+                code = "LLM_ERROR",
+                message = "Модель не смогла сгенерировать реплику. Проверьте подключение Ollama."
+            });
         }
     }
 }

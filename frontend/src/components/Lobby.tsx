@@ -152,7 +152,7 @@ export function Lobby({ onConnect, onExit }: Props) {
           <button className="btn block" disabled={busy || !token.trim()}>{busy ? 'Подключаемся…' : 'Присоединиться к команде'}<Icon name="arrow" /></button>
           <button className="btn ghost block create-room" type="button" style={{ marginTop: '10px' }} disabled={busy} onClick={createAsHost} title="Войти как ведущий (хост) комнаты">Создать лобби (Хост)</button>
           {hostInfo?.ollama && <p className="footnote" style={{ marginTop: '0.5rem' }}>
-            Ollama на хосте: <b>{hostInfo.ollama.connected ? `Подключена (${hostInfo.ollama.model})` : 'Ожидание запуска Ollama'}</b>
+            Ollama: <b>{hostInfo.ollama.connected ? `Подключена (${hostInfo.ollama.model})` : 'Модель недоступна'}</b>
           </p>}
           {busy && <button type="button" className="text-button mt-3" onClick={onExit}>Отменить подключение</button>}
         </form>
@@ -183,7 +183,7 @@ export function Lobby({ onConnect, onExit }: Props) {
             {hostInfo?.ollama && (
               <div className="room-detail">
                 <Icon name="sound" />
-                <span>ИИ (Ollama): <b>{hostInfo.ollama.connected ? hostInfo.ollama.model : 'резервный режим'}</b></span>
+                <span>ИИ (Ollama): <b>{hostInfo.ollama.connected ? hostInfo.ollama.model : 'модель недоступна'}</b></span>
               </div>
             )}
           </aside></div></section></main>}

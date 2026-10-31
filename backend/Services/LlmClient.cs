@@ -13,10 +13,10 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         config["OLLAMA_BASE_URL"] ?? config["Ollama:BaseUrl"] ?? config["OLLAMA__BASEURL"] ?? "http://localhost:11434";
 
     private string ConfiguredModel =>
-        config["OLLAMA_MODEL"] ?? config["Ollama:Model"] ?? config["OLLAMA__MODEL"] ?? config["LLM_MODEL"] ?? "qwen2.5:14b-instruct-q4_K_M";
+        config["OLLAMA_MODEL"] ?? config["Ollama:Model"] ?? config["OLLAMA__MODEL"] ?? "qwen2.5:3b-instruct";
 
     private int TimeoutSeconds =>
-        int.TryParse(config["Ollama:TimeoutSeconds"] ?? config["OLLAMA__TIMEOUTSECONDS"], out var s) ? Math.Clamp(s, 5, 120) : 25;
+        int.TryParse(config["Ollama:TimeoutSeconds"] ?? config["OLLAMA__TIMEOUTSECONDS"], out var s) ? Math.Clamp(s, 5, 120) : 90;
 
     public async Task<object> GetOllamaStatusAsync(CancellationToken ct = default)
     {
@@ -55,11 +55,11 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                             names.Add(name);
                     }
                 }
-                _resolvedOllamaUrl = candidate;
                 var preferred = ConfiguredModel;
-                _resolvedModel = names.FirstOrDefault(n => string.Equals(n, preferred, StringComparison.OrdinalIgnoreCase) || n.StartsWith($"{preferred}:", StringComparison.OrdinalIgnoreCase))
-                    ?? names.FirstOrDefault()
-                    ?? preferred;
+                var installedModel = names.FirstOrDefault(n => string.Equals(n, preferred, StringComparison.OrdinalIgnoreCase) || n.StartsWith($"{preferred}:", StringComparison.OrdinalIgnoreCase));
+                if (installedModel == null) continue;
+                _resolvedOllamaUrl = candidate;
+                _resolvedModel = installedModel;
                 return (_resolvedOllamaUrl, _resolvedModel, names.ToArray());
             }
             catch
@@ -83,10 +83,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
             $"Контекст прошлых реплик: {historySummary}\n" +
             "Ответь жюри прямо, дерзко и в своем характере (80–200 символов). Если тебя пытаются поймать на лжи — выкручивайся по своей тактике защиты. Верни JSON: {\"text\": \"...\", \"emotion\": \"neutral|happy|sad|angry|surprised\"}.";
 
-        var result = await TryCompleteAsync(systemPrompt, userPrompt, 220);
-        if (result != null) return result.Value;
-
-        return (BuildFallbackAnswer(npc, question), "neutral");
+        return await CompleteAsync(systemPrompt, userPrompt, 220);
     }
 
     public async Task<(string text, string emotion)> GenerateRoundSpeech(
@@ -123,10 +120,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
             _ => $"Твоя реплика в раунде {round}. Верни JSON: {{\"text\": \"...\", \"emotion\": \"neutral\"}}."
         };
 
-        var result = await TryCompleteAsync(systemPrompt, userPrompt, round == 2 ? 260 : 210, ct);
-        if (result != null) return result.Value;
-
-        return (BuildFallbackRoundSpeech(npc, round, partner), "neutral");
+        return await CompleteAsync(systemPrompt, userPrompt, round == 2 ? 260 : 210, ct);
     }
 
     private static string BuildSystemPrompt(GameNpc npc, List<GameNpc>? roster, bool isRound1To3)
@@ -144,7 +138,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                "Говори живым разговорным русским языком, коротко и панчево (80–220 символов). Отвечай строго JSON-объектом с полями text и emotion.";
     }
 
-    private async Task<(string text, string emotion)?> TryCompleteAsync(string systemPrompt, string userPrompt, int maxChars, CancellationToken ct = default)
+    private async Task<(string text, string emotion)> CompleteAsync(string systemPrompt, string userPrompt, int maxChars, CancellationToken ct = default)
     {
         // 1. Try local/host Ollama first
         var (ollamaUrl, ollamaModel, _) = await ProbeOllamaAsync(ct);
@@ -189,7 +183,8 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                 using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cts.Token), cancellationToken: cts.Token);
                 var raw = body.RootElement.GetProperty("message").GetProperty("content").GetString() ?? "";
                 var parsed = ParseJsonReply(raw, maxChars);
-                if (parsed != null) return parsed;
+                if (parsed != null) return parsed.Value;
+                log.LogWarning("Ollama returned an empty or invalid reply at {OllamaUrl} (model {Model})", ollamaUrl, ollamaModel);
             }
             catch (Exception ex)
             {
@@ -225,7 +220,8 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                 using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cts.Token), cancellationToken: cts.Token);
                 var raw = body.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
                 var parsed = ParseJsonReply(raw, maxChars);
-                if (parsed != null) return parsed;
+                if (parsed != null) return parsed.Value;
+                log.LogWarning("External LLM endpoint returned an empty or invalid reply");
             }
             catch (Exception ex)
             {
@@ -233,7 +229,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
             }
         }
 
-        return null;
+        throw new InvalidOperationException("No language model returned a valid answer. Check Ollama or LLM_ENDPOINT configuration.");
     }
 
     private static (string text, string emotion)? ParseJsonReply(string raw, int maxChars)
@@ -256,37 +252,5 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
             _ => "neutral"
         };
         return (text, emotion);
-    }
-
-    private static string BuildFallbackAnswer(GameNpc npc, string question)
-    {
-        var loreLine = npc.Lore.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-        var cleanLore = loreLine.Contains(':') ? loreLine[(loreLine.IndexOf(':') + 1)..].Trim() : loreLine.Trim();
-        return cleanLore.Length > 0
-            ? $"Слушайте, я {npc.Name}, и скажу прямо: {cleanLore}. Так что не надо искать тут подвох!"
-            : $"Я {npc.Name}. Помню эту историю до мельчайших деталей, а кто путается в показаниях — тот пусть и оправдывается.";
-    }
-
-    private static string BuildFallbackRoundSpeech(GameNpc npc, int round, GameNpc? partner)
-    {
-        var lines = npc.Lore.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(l => l.Contains(':') ? l[(l.IndexOf(':') + 1)..].Trim() : l.Trim())
-            .Where(l => l.Length > 0)
-            .ToArray();
-
-        return round switch
-        {
-            1 => $"Всем салют, на связи {npc.Name} (Слот №{npc.Number})! Мой главный ред флаг — когда кент начинает давать заднюю и сливаться с общих тем.",
-            2 => lines.Length > 0
-                ? $"Помню, как мы словились: {lines[0]}. Такое вообще невозможно выдумать со стороны!"
-                : $"У нас с моим кентом столько общих приключений было, что любой самозванец сразу посыплется на деталях.",
-            3 => lines.Length > 2
-                ? $"По фактам: {lines[2]}.{(lines.Length > 3 ? $" И как мы всегда говорим: «{lines[3]}»!" : "")}"
-                : $"Мой кент сразу поймёт наш локальный мем и кто кому до сих пор торчит с прошлой тусовки.",
-            5 => partner != null
-                ? $"Хватит мутить воду! Слот №{partner.Number} ({partner.Name}) знает, о чём я говорю, а остальным актёрам пора на выход."
-                : $"Присмотритесь к тем, кто повторяет чужие истории слово в слово — там чистая актёрская игра!",
-            _ => $"Я {npc.Name}, и моя версия полностью сходится с реальностью."
-        };
     }
 }

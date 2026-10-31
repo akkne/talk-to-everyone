@@ -25,6 +25,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -38,9 +40,9 @@ services:
       GAME_ROUND_SECONDS: ${GAME_ROUND_SECONDS:-120}
       GAME_CHOICE_SECONDS: ${GAME_CHOICE_SECONDS:-45}
       JWT_SECRET: ${JWT_SECRET:-talk-to-everyone-super-secret-jwt-key-2026-min-32-bytes}
-      Ollama__BaseUrl: ${OLLAMA__BASEURL:-http://host.docker.internal:11434}
-      Ollama__Model: ${OLLAMA__MODEL:-qwen2.5:14b-instruct-q4_K_M}
-      Ollama__TimeoutSeconds: ${OLLAMA__TIMEOUTSECONDS:-30}
+      Ollama__BaseUrl: ${OLLAMA__BASEURL:-http://ollama:11434}
+      Ollama__Model: ${OLLAMA__MODEL:-qwen2.5:3b-instruct}
+      Ollama__TimeoutSeconds: ${OLLAMA__TIMEOUTSECONDS:-90}
       LLM_ENDPOINT: ${LLM_ENDPOINT:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
@@ -79,7 +81,6 @@ services:
       - caddy_config:/config
 
   ollama:
-    profiles: [ollama]
     image: ollama/ollama:latest
     restart: unless-stopped
     environment:
@@ -88,13 +89,22 @@ services:
       OLLAMA_MAX_LOADED_MODELS: "1"
     volumes:
       - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA__MODEL:-qwen2.5:3b-instruct}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['ollama pull "$$OLLAMA_MODEL"']
 
 volumes:
   postgres_data:

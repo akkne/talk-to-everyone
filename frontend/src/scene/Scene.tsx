@@ -74,8 +74,8 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
           player.pose.position.x,
           player.pose.position.y,
           player.pose.position.z,
-          -player.pose.yaw,
-          -player.pose.pitch,
+          Math.PI - player.pose.yaw,
+          player.pose.pitch,
           player.pose.mode === 'seated'
         );
       });
