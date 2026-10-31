@@ -20,6 +20,9 @@ public sealed class NpcPromptComposer(
     private const string DefaultInsideMeme = "кодовая фраза про сырный соус";
     private const string DefaultDefenseStrategy = "переводить всё в рофл и обвинять оппонента в потере памяти";
     private const string EmptySummaryPlaceholder = "Пока реплик не было.";
+    private const string DefaultAvailableSlots = "1, 2, 3";
+    private const int DefaultPreviousSlotId = 1;
+    private const int DefaultActiveSlotId = 0;
     private const string ReactionsSystemInstruction =
         "Ты — системный режиссер реакций трибуны в шоу \"Угадай кента\". " +
         "Выбери ровно 3 ботов из списка, у которых фраза спикера вызовет самую острую реакцию, и верни JSON.";
@@ -29,16 +32,11 @@ public sealed class NpcPromptComposer(
     /// <summary>
     /// Формирует единый системный промпт активного бота (шаблон для R1–R5, <c>messages[0]</c>).
     /// </summary>
-    /// <param name="prompt">Контекст хода бота.</param>
-    /// <returns>Текст системного промпта.</returns>
     public string ComposeSpeakerSystemPrompt(NpcDialoguePrompt prompt)
     {
         NpcPersona speaker = prompt.Speaker;
         string roleType = speaker.Role == NpcRole.TrueFriend ? TrueFriendRoleLabel : ActorRoleLabel;
-        string roleBlock = speaker.Role == NpcRole.TrueFriend
-            ? BuildTrueFriendBlock(speaker)
-            : BuildActorBlock(speaker);
-
+        string roleBlock = speaker.Role == NpcRole.TrueFriend ? BuildTrueFriendBlock(speaker) : BuildActorBlock(speaker);
         return $"""
             Ты — {speaker.BotName}, твой номер на трибуне — Слот №{speaker.SlotId}.
             Ты участвуешь в молодежном веб-шоу социальной дедукции "Угадай кента". Перед тобой сидит живое жюри, а вокруг тебя на двух ярусах — еще 9 участников (Слоты 1–10).
@@ -59,8 +57,6 @@ public sealed class NpcPromptComposer(
     /// <summary>
     /// Формирует пользовательский промпт (<c>role: "user"</c>) по шаблону конкретного раунда (R1–R5).
     /// </summary>
-    /// <param name="prompt">Контекст хода бота.</param>
-    /// <returns>Текст инструкции текущего раунда.</returns>
     public string ComposeSpeakerUserPrompt(NpcDialoguePrompt prompt) =>
         prompt.Phase switch
         {
@@ -76,20 +72,14 @@ public sealed class NpcPromptComposer(
     /// <summary>
     /// Формирует системный промпт для «Режиссёра реакций».
     /// </summary>
-    /// <returns>Системная инструкция для батча реакций.</returns>
     public string ComposeReactionsSystemPrompt() => ReactionsSystemInstruction;
 
     /// <summary>
-    /// Формирует пользовательский промпт «Режиссёра реакций» (Single-Call Batch для выбора 3 самых острых реакций из 9 ботов).
+    /// Формирует пользовательский промпт «Режиссёра реакций» (выбор 3 самых острых реакций из 9 ботов).
     /// </summary>
-    /// <param name="prompt">Контекст произнесённой фразы и скрытых связей трибуны.</param>
-    /// <returns>Текст запроса для генерации батча реакций.</returns>
     public string ComposeReactionsUserPrompt(NpcReactionBatchPrompt prompt)
     {
-        string compactRelations = string.Join(
-            "; ",
-            prompt.Listeners.Select(listener => listener.CompactRelationLine));
-
+        string compactRelations = string.Join("; ", prompt.Listeners.Select(item => item.CompactRelationLine));
         return $"""
             Ты — системный режиссер реакций трибуны в шоу "Угадай кента".
             Только что Слот №{prompt.ActiveSlotId} ({prompt.ActiveName}) произнес фразу: "{prompt.CurrentSpeech}".
@@ -151,7 +141,7 @@ public sealed class NpcPromptComposer(
     /// </summary>
     private static string BuildRound2CounterThrowPrompt(NpcDialoguePrompt prompt) =>
         $"""
-        Только что Слот №{prompt.ActiveSlotId ?? 0} ({prompt.ActiveName ?? string.Empty}) рассказал историю: "{prompt.ActiveRound2Speech ?? string.Empty}".
+        Только что Слот №{prompt.ActiveSlotId ?? DefaultActiveSlotId} ({prompt.ActiveName ?? string.Empty}) рассказал историю: "{prompt.ActiveRound2Speech ?? string.Empty}".
         Кинь короткую встречную реплику с места (до 110 символов)!
         Если это твой реальный кент — подколи его деталью из вашей базы.
         Если это твоя цель (ты импостор) — уверенно подтверди историю и нагло примажься к ней.
@@ -162,23 +152,18 @@ public sealed class NpcPromptComposer(
     /// Инструкция Раунда 3: Блиц — Долги и локальный мем.
     /// </summary>
     private static string BuildRound3Prompt() =>
-        """
-        Сейчас Раунд 3 (Блиц). Коротко вкинь факт про ваш материальный коннект с другом (кто кому сколько торчит, какая у вас общая вещь) и нативно используй ваш локальный мем.
-        """;
+        "Сейчас Раунд 3 (Блиц). Коротко вкинь факт про ваш материальный коннект с другом (кто кому сколько торчит, какая у вас общая вещь) и нативно используй ваш локальный мем.";
 
     /// <summary>
     /// Инструкция Раунда 4: Послотовый допрос от жюри.
     /// </summary>
-    private string BuildRound4Prompt(NpcDialoguePrompt prompt)
-    {
-        string summary = FormatRoomSummary(prompt.RecentHistory);
-        return $"""
-            Сейчас Раунд 4 (Допрос). Живой игрок из жюри задает вопрос лично тебе (Слот №{prompt.Speaker.SlotId}):
-            ВОПРОС ЖЮРИ: "{prompt.JuryQuestionText ?? string.Empty}"
-            Контекст прошлых реплик в комнате: {summary}
-            Ответь жюри прямо, дерзко и в своем характере (до 200 символов). Если тебя пытаются поймать на лжи или нестыковке — выкручивайся по своей тактике защиты.
-            """;
-    }
+    private string BuildRound4Prompt(NpcDialoguePrompt prompt) =>
+        $"""
+        Сейчас Раунд 4 (Допрос). Живой игрок из жюри задает вопрос лично тебе (Слот №{prompt.Speaker.SlotId}):
+        ВОПРОС ЖЮРИ: "{prompt.JuryQuestionText ?? string.Empty}"
+        Контекст прошлых реплик в комнате: {FormatRoomSummary(prompt.RecentHistory)}
+        Ответь жюри прямо, дерзко и в своем характере (до 200 символов). Если тебя пытаются поймать на лжи или нестыковке — выкручивайся по своей тактике защиты.
+        """;
 
     /// <summary>
     /// Инструкция Раунда 5: Цепная перепалка ИИ (эстафета).
@@ -187,13 +172,13 @@ public sealed class NpcPromptComposer(
     {
         string availableSlots = prompt.AvailableSlotsList is { Count: > 0 }
             ? string.Join(", ", prompt.AvailableSlotsList)
-            : "1, 2, 3";
-
+            : DefaultAvailableSlots;
+        int prevSlot = prompt.PreviousSlotId ?? DefaultPreviousSlotId;
         return $"""
             Сейчас Раунд 5 (Свободная перепалка ботов без участия жюри).
-            Предыдущий ход сделал Слот №{prompt.PreviousSlotId ?? 1} ({prompt.PreviousName ?? string.Empty}), обратившись к тебе со словами: "{prompt.PreviousSpeech ?? string.Empty}".
+            Предыдущий ход сделал Слот №{prevSlot} ({prompt.PreviousName ?? string.Empty}), обратившись к тебе со словами: "{prompt.PreviousSpeech ?? string.Empty}".
             Список слотов, которые еще НЕ говорили в этом раунде: {availableSlots}.
-            Ответь на предъяву Слота №{prompt.PreviousSlotId ?? 1} и переведи стрелки (задай вопрос или кинь наезд) на одного из участников из списка {availableSlots} (укажи его номер в поле addressing_slot).
+            Ответь на предъяву Слота №{prevSlot} и переведи стрелки (задай вопрос или кинь наезд) на одного из участников из списка {availableSlots} (укажи его номер в поле addressing_slot).
             """;
     }
 
