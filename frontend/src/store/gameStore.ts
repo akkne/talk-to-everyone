@@ -37,6 +37,10 @@ const scoreFields = (players: { id: string; score: number; title: string }[]) =>
   score: Object.fromEntries(players.map(x => [x.id, x.score])),
   titles: Object.fromEntries(players.map(x => [x.id, x.title])),
 });
+const namedNpcs = (npcs: NpcMeta[]) => npcs.map(npc => ({
+  ...npc,
+  name: npc.name || `Участник № ${String(npc.number).padStart(2, '0')}`,
+}));
 const handlers: Handlers = {
   [S2C.VOTING_STATE]: p => set({ voting: p.stage ? p : null, boardOpen: false }),
   [S2C.NPCS_REMOVED]: p => set(s => ({
@@ -53,14 +57,14 @@ const handlers: Handlers = {
   [S2C.AUTH_OK]: p => set({ playerId: p.playerId, sessionId: p.sessionId, role: p.role }),
   [S2C.AUTH_ERR]: p => set({ error: p.message, connection: 'offline' }),
   [S2C.LOBBY_STATE]: p => set(s => ({ lobby: p, role: p.leaderId === s.playerId ? 'leader' : s.role })),
-  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: p.npcs, reveal: null, chat: [], voting: null, teamScore: 0 }),
+  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: namedNpcs(p.npcs), reveal: null, chat: [], voting: null, teamScore: 0 }),
   [S2C.ROUND_STARTED]: p => set({ round: p, roundEnded: false, phase: 'playing' }),
   [S2C.ROUND_ENDED]: p => { if (p.n === useGameStore.getState().round?.n) set({ roundEnded: true }); },
   [S2C.GAME_ENDED]: p => set({ phase: 'reveal', reveal: p.reveal, boardOpen: false, voting: null, ...scoreFields(p.scoreboard) }),
   [S2C.STATE_SNAPSHOT]: p => set({
     sessionId: p.sessionId, playerId: p.me.id, role: p.me.role,
     phase: p.phase === 'finished' ? 'reveal' : p.phase,
-    round: p.round, rounds: p.rounds, gameInfo: p.gameInfo, gameInfoError: null, roundEnded: false, scene: p.scene, players: p.players, npcs: p.npcs, seats: p.seats,
+    round: p.round, rounds: p.rounds, gameInfo: p.gameInfo, gameInfoError: null, roundEnded: false, scene: p.scene, players: p.players, npcs: namedNpcs(p.npcs), seats: p.seats,
     voting: p.voting, teamScore: p.teamScore, board: p.board, questions: p.questions, chat: p.chat.slice(-UI.MAX_CHAT), score: p.score,
     titles: p.scoreboard ? scoreFields(p.scoreboard).titles : {}, reveal: p.reveal,
     error: null, boardOpen: false,
