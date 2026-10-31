@@ -83,7 +83,7 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
   const signCanvas = document.createElement('canvas'); signCanvas.width = 1024; signCanvas.height = 256;
   const ctx = signCanvas.getContext('2d')!;
   ctx.fillStyle = '#f9f7f0'; ctx.fillRect(0, 0, 1024, 256);
-  ctx.fillStyle = '#28666b'; ctx.textAlign = 'center'; ctx.font = 'bold 88px Georgia, serif';
+  ctx.fillStyle = '#0a66c2'; ctx.textAlign = 'center'; ctx.font = '600 82px -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif';
   ctx.fillText('УГАДАЙ ДРУЗЕЙ', 512, 153);
   ctx.fillStyle = '#c88e5d'; ctx.fillRect(276, 188, 472, 8);
   const texture = new THREE.CanvasTexture(signCanvas); texture.colorSpace = THREE.SRGBColorSpace;

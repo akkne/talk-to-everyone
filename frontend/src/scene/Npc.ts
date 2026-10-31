@@ -136,7 +136,9 @@ export class Npc {
     const context = canvas.getContext('2d')!;
     context.fillStyle = bubble ? '#fffdf7' : '#fffaf0'; context.fillRect(0, 0, canvas.width, canvas.height);
     context.strokeStyle = '#d9cfbd'; context.lineWidth = 5; context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
-    context.fillStyle = '#34434a'; context.font = bubble ? '25px sans-serif' : 'bold 30px sans-serif';
+    context.fillStyle = '#34434a'; context.font = bubble
+      ? '25px -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif'
+      : '600 30px -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif';
     context.textAlign = 'center';
     const words = text.slice(0, 125).split(/\s+/); const lines: string[] = []; let line = '';
     for (const word of words) { if (context.measureText(`${line} ${word}`).width > 465) { lines.push(line); line = word; } else line += `${line ? ' ' : ''}${word}`; }

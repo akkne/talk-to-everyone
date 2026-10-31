@@ -6,11 +6,12 @@ import { createId } from '../shared/id';
 import { command, useClient } from '../core/client';
 
 export function Voting() {
-  const { voting, npcs, connection, teamScore, gameInfo } = useGameStore();
+  const { voting, npcs, connection, teamScore, gameInfo, role } = useGameStore();
   const entries = useCacheStore(s => s.entries); const client = useClient();
   const [selected, setSelected] = useState<string | null>(null);
   const [first, setFirst] = useState<string | null>(null);
   const [pending, setPending] = useState(false); const [now, setNow] = useState(Date.now());
+  const [skipping, setSkipping] = useState(false);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(timer); }, []);
   if (!voting) return null;
   const label = (id: string) => {
@@ -34,6 +35,11 @@ export function Voting() {
     await command(client, C2S.SUBMIT_PAIR, { requestId: createId(), round: voting.round, stage: voting.stage, a: chosen[0], b: chosen[1] });
     setPending(false);
   };
+  const skip = async () => {
+    setSkipping(true);
+    await command(client, C2S.SKIP_ROUND, { requestId: createId() });
+    setSkipping(false);
+  };
   return <section className="voting-overlay" role="dialog" aria-modal="true" aria-labelledby="voting-title">
     <div className="voting-panel">
       <header><span className="eyebrow">ЖЮРИ · ПОСЛЕ РАУНДА {voting.round} · ТУР {voting.stage}</span>
@@ -55,7 +61,7 @@ export function Voting() {
         })}</div>}
       </div>
       <footer><p role="status">{voting.submitted ? 'Ваш голос принят. Ждём остальных.' : !voting.eligible ? 'Вы подключились после начала голосования. Дождитесь следующего.' : gameInfo ? `Верная пара: ${gameInfo.scoring.correct.map(x => `+${x.points} в раунде ${x.round}`).join(', ')}. Друг и актёр: ${gameInfo.scoring.mixed}; два актёра: ${gameInfo.scoring.twoActors}.` : 'Выберите пару для общего голосования.'}<br /><small>{voting.stage === 2 ? 'Победит пара с наибольшим числом голосов. При ничьей — случайная из лидеров.' : 'Если голоса разойдутся, пройдёт повторный тур.'} Если голосов нет — случайная пара из предложенных.</small></p>
-        <button className="primary" disabled={disabled || !chosen} onClick={() => void submit()}>{voting.submitted ? 'Голос принят' : pending ? 'Отправляем…' : 'Проголосовать'}</button></footer>
+        <div className="voting-actions">{role === 'leader' && <button className="secondary" disabled={skipping || connection !== 'ready' || now >= voting.endsAt} onClick={() => void skip()}>{skipping ? 'Завершаем…' : 'Завершить голосование'}</button>}<button className="primary" disabled={disabled || !chosen} onClick={() => void submit()}>{voting.submitted ? 'Голос принят' : pending ? 'Отправляем…' : 'Проголосовать'}</button></div></footer>
     </div>
   </section>;
 }

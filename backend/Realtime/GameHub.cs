@@ -259,6 +259,28 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
         finally { gate.Lock.Release(); }
     }
 
+    // Demo control: the leader can end the current timed phase for everyone.
+    public async Task SkipRound(CommandRequest request)
+    {
+        await gate.Lock.WaitAsync();
+        try
+        {
+            var me = await Authorized(); if (me == null) return;
+            if (request == null || !ValidRequestId(request.RequestId))
+            { await ActionReject("SkipRound", "INVALID_REQUEST", request?.RequestId); return; }
+            var session = await db.Sessions.SingleAsync();
+            if (me.Role != "leader" || session.Phase != "playing" || session.RoundPhase == "resolved")
+            { await ActionReject("SkipRound", "WRONG_PHASE", request.RequestId); return; }
+            if (Seen(me, "SkipRound", request.RequestId) || session.EndsAt <= JsonData.Now) return;
+            session.EndsAt = JsonData.Now;
+            Remember(me, "SkipRound", request.RequestId);
+            await db.SaveChangesAsync();
+            await Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session));
+            if (session.RoundPhase == "choice") await Voting.Broadcast(db, Clients, session);
+        }
+        finally { gate.Lock.Release(); }
+    }
+
     public async Task ResetGame()
     {
         await gate.Lock.WaitAsync();

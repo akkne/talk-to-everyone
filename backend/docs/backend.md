@@ -16,6 +16,7 @@
 | --- | --- |
 | `Auth {token,name}` | `AuthOk` → `StateSnapshot` → `LobbyState` или `AuthErr` |
 | `StartGame` без аргумента, только ведущий | `GameStarted`, `RoundStarted` |
+| `SkipRound {requestId}`, только ведущий во время игры | Текущий таймер завершается; `RoundStarted` обновляет срок, затем штатный переход раунда или голосования |
 | `SendPose {seq,position,yaw,pitch}` | `PlayersTick {players,serverTime}` или `ActionReject` |
 | `SitDown {requestId,seatId}`, `StandUp {requestId}` | `SeatState`, `PlayersTick` или `ActionReject` |
 | `RequestChunk {reqId,ids}`, `ReleaseChunk {ids}` | `ChunkData {reqId,npcs:[{id,details,sizeBytes}]}`; детали публичные |

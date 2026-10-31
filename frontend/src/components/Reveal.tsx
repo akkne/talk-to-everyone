@@ -2,6 +2,7 @@ import { useGameStore } from '../store/gameStore';
 import { C2S } from '../shared/contract';
 import { command, useClient } from '../core/client';
 import { Icon } from './Icon';
+import { Brand } from './Brand';
 
 /** <summary>Reveal only server-provided roles; absent late-join reveal remains explicitly unknown.</summary> */
 export function Reveal({ onExit }: { onExit: () => void }) {
@@ -12,7 +13,7 @@ export function Reveal({ onExit }: { onExit: () => void }) {
     const ok = await command(client, C2S.RESET_GAME, undefined);
     if (!ok) onExit();
   };
-  return <main className="reveal-page"><div className="eyebrow">ВСКРЫТИЕ ДЕЛА</div><h1>Теперь всё<br /><em>сходится.</em></h1><p className="muted">Убедительная история ещё не делает человека другом.</p>
+  return <div className="final-shell"><header className="final-header"><Brand onClick={onExit} /><span>Результаты игры</span></header><main className="reveal-page"><div className="eyebrow">ИТОГИ РАССЛЕДОВАНИЯ</div><h1>Теперь всё<br /><em>сходится.</em></h1><p className="muted">Убедительная история ещё не делает человека другом.</p>
     <div className="reveal-score"><b>{teamScore}</b><span>общих очков<br />{titles[playerId] || 'Ожидаем итоговый титул от сервера'}</span></div>
     {!reveal ? <div className="reveal-wait">Ожидаем итог от сервера.</div> : <div className="reveal-grid"><section><h2>Настоящие друзья</h2>{reveal.trueFriends.map(([a, b]) => {
       const correct = board.pairs.some(pair => pair.includes(a) && pair.includes(b));
@@ -22,5 +23,5 @@ export function Reveal({ onExit }: { onExit: () => void }) {
       <button className="primary" onClick={() => void backToLobby()}>Новая игра (в лобби)<Icon name="arrow" /></button>
       <button className="secondary" onClick={onExit}>Выйти из комнаты</button>
     </div>
-  </main>;
+  </main></div>;
 }

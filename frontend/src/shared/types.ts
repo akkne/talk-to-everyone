@@ -26,6 +26,7 @@ export interface Commands {
   [C2S.AUTH]: { token: string; name?: string };
   [C2S.START_GAME]: undefined;
   [C2S.RESET_GAME]: undefined;
+  [C2S.SKIP_ROUND]: Request;
   [C2S.SEND_POSE]: { seq: number; position: Vec3; yaw: number; pitch: number };
   [C2S.SIT_DOWN]: Request & { seatId: string };
   [C2S.STAND_UP]: Request;
