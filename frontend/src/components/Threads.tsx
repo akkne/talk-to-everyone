@@ -20,5 +20,5 @@ export function Threads({ root, pairs }: { root: RefObject<HTMLDivElement>; pair
     element.querySelectorAll('[data-npc]').forEach(card => observer.observe(card)); measure();
     return () => observer.disconnect();
   }, [root, pairs]);
-  return <svg className="threads" aria-hidden="true">{lines.map(line => <g key={line.key}><line {...line} stroke="#260d09" strokeWidth="5" opacity="0.2" /><line {...line} stroke="#c0392b" strokeWidth="2.5" /></g>)}</svg>;
+  return <svg className="threads" aria-hidden="true">{lines.map(({ key, ...line }) => <g key={key}><line {...line} stroke="#76a1bf" strokeWidth="4" opacity="0.12" /><line {...line} stroke="#76a1bf" strokeWidth="1.5" /></g>)}</svg>;
 }

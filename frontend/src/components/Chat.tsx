@@ -1,19 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect,useRef,useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useCacheStore } from '../store/cacheStore';
 import { Icon } from './Icon';
-
-/** <summary>Bounded transcript. Each NpcSay is displayed verbatim as one received fragment.</summary> */
-export function Chat() {
-  const chat = useGameStore(s => s.chat); const npcs = useGameStore(s => s.npcs);
-  const reactions = useGameStore(s => s.reactions); const debug = useGameStore(s => s.debug);
-  const entries = useCacheStore(s => s.entries); const list = useRef<HTMLDivElement>(null); const follow = useRef(true);
-  useEffect(() => { if (follow.current && list.current) list.current.scrollTop = list.current.scrollHeight; }, [chat]);
-  return <aside className="chat-panel"><header><div className="flex items-center gap-2"><Icon name="sound" size={16} /><span className="eyebrow">ЗА СТОЛОМ</span></div><span className="recording"><i />LIVE</span></header>
-    <div className="chat-list" ref={list} role="log" aria-label="Реплики участников" onScroll={e => { const el = e.currentTarget; follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50; }}>
-      {!chat.length && <div className="chat-empty"><Icon name="sound" size={30} /><p>Сначала послушаем.</p><span>Здесь появятся реплики участников.<br />Замечайте детали и противоречия.</span></div>}
-      {chat.map(message => { const npc = npcs.find(n => n.id === message.npc); return <div className="chat-message" key={message.id}><span className="chat-avatar" style={{ background: npc?.color }}>{(npc?.index ?? 0) + 1}</span><div><b>{entries[message.npc]?.details.displayName || `Незнакомец ${String((npc?.index ?? 0) + 1).padStart(2, '0')}`}</b>{message.inReplyTo && <small>ответ на вопрос</small>}<p>{message.text}</p></div></div>; })}
-    </div><footer>Уверенный голос — ещё не доказательство.</footer>
-    {import.meta.env.DEV && debug && <div className="debug-reasons">{reactions.slice(-4).map((r, i) => <p key={i}>{r.npc}: {r.reason || r.reaction}</p>)}</div>}
-  </aside>;
+export function Chat(){
+ const {chat,npcs,round}=useGameStore();const entries=useCacheStore(s=>s.entries);const [minimized,setMinimized]=useState(false);const list=useRef<HTMLDivElement>(null),follow=useRef(true);
+ useEffect(()=>{if(follow.current&&list.current)list.current.scrollTop=list.current.scrollHeight;},[chat,minimized]);
+ return <aside className={`chat ${minimized?'minimized':''}`} aria-label="Разговор в студии"><header className="chat-header"><div className="chat-heading"><Icon name="sound"/>Разговор в студии</div><button className="icon-btn" aria-expanded={!minimized} aria-label={minimized?'Развернуть чат':'Свернуть чат'} onClick={()=>setMinimized(!minimized)}><span>{minimized?'⌄':'⌃'}</span></button></header><div className="chat-body"><div className="log" role="log" ref={list} aria-label="История разговора" onScroll={e=>{const el=e.currentTarget;follow.current=el.scrollHeight-el.scrollTop-el.clientHeight<50;}}><p className="system">Раунд {round.n}. Слушайте участников и замечайте общие детали.</p>{!chat.length&&<p className="system">Здесь появятся реплики участников.</p>}{chat.map(m=>{const npc=npcs.find(n=>n.id===m.npc);return <article className="line" key={m.id}><div className="author"><i style={{background:npc?.color}}/><b>{entries[m.npc]?.details.displayName||'Участник'}</b><span>· {String((npc?.index??0)+1).padStart(2,'0')}{m.inReplyTo?' · Ответ на вопрос':''}</span></div><p>{m.text}</p></article>;})}</div><div className="chat-form" title="Общий чат игроков пока не подключён к серверу"><input className="chat-input" disabled aria-label="Сообщение игрокам" placeholder="Чат игроков пока недоступен"/><button type="button" disabled aria-label="Отправить сообщение"><Icon name="arrow"/></button></div></div></aside>;
 }

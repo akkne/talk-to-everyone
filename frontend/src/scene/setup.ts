@@ -1,33 +1,36 @@
 import * as THREE from 'three';
+import type { SceneSpec, Vec3 } from './world';
 
-/** <summary>Build the room entirely from primitives and local materials.</summary> */
-export function setupRoom(scene: THREE.Scene) {
-  scene.background = new THREE.Color('#15130f');
-  scene.fog = new THREE.Fog('#15130f', 12, 28);
-  scene.add(new THREE.HemisphereLight('#ffe8c2', '#24251e', 2));
-  const light = new THREE.PointLight('#ffd28a', 100, 18, 2);
-  light.position.set(0, 5, 0); scene.add(light);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(35, 35), new THREE.MeshStandardMaterial({ color: '#292b25', roughness: 1 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.y = -0.04; scene.add(floor);
-  const table = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 0.18, 48), new THREE.MeshStandardMaterial({ color: '#4a3524', roughness: 0.85 }));
-  table.scale.x = 1.45; table.position.set(0, 0.76, -0.3); scene.add(table);
-  const inset = new THREE.Mesh(new THREE.CylinderGeometry(2.78, 2.78, 0.01, 48), new THREE.MeshStandardMaterial({ color: '#35463d', roughness: 1 }));
-  inset.scale.x = 1.45; inset.position.set(0, 0.86, -0.3); scene.add(inset);
-  for (const x of [-3, 3]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.75, 2.5), new THREE.MeshStandardMaterial({ color: '#261e17' }));
-    leg.position.set(x, 0.37, -0.3); scene.add(leg);
+export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
+  scene.background = new THREE.Color('#15191e');
+  scene.add(new THREE.HemisphereLight('#e2eeff', '#34302d', 2));
+  const addBox = (position: Vec3, size: Vec3, color: string) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), new THREE.MeshStandardMaterial({ color, roughness: 1 }));
+    mesh.position.copy(position); scene.add(mesh); return mesh;
+  };
+  const { room } = spec;
+  addBox({ x: 0, y: -.1, z: 0 }, { x: room.width, y: .2, z: room.depth }, '#30353b');
+  addBox({ x: 0, y: room.height + .1, z: 0 }, { x: room.width, y: .2, z: room.depth }, '#242932');
+  room.walls.forEach(b => addBox(b.center, b.size, '#242932'));
+  room.platforms.forEach(b => addBox(b.center, b.size, '#535e6b'));
+  room.obstacles.filter(b => !b.id.startsWith('npc-') && !b.id.startsWith('chair-')).forEach(b => addBox(b.center, b.size, '#464d57'));
+  for (const r of room.ramps) {
+    const from = new THREE.Vector3().copy(r.from), to = new THREE.Vector3().copy(r.to);
+    const delta = to.clone().sub(from);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(r.width, .08, delta.length()), new THREE.MeshStandardMaterial({ color: '#737f8d', roughness: 1 }));
+    mesh.position.copy(from.add(to).multiplyScalar(.5)); mesh.position.y -= .04;
+    // Local Z follows the ramp; X remains across its width.
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), delta.normalize()); scene.add(mesh);
   }
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(30, 10, 0.3), new THREE.MeshStandardMaterial({ color: '#34382e' }));
-  wall.position.set(0, 4, -9); scene.add(wall);
-  for (let x = -12; x <= 12; x += 2) {
-    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.035, 5, 0.04), new THREE.MeshStandardMaterial({ color: '#6b6250' }));
-    panel.position.set(x, 2.5, -8.8); scene.add(panel);
+  for (const seat of spec.playerSeats) {
+    const chair = new THREE.Group(); chair.position.copy(seat.position); chair.rotation.y = -seat.yaw;
+    const material = new THREE.MeshStandardMaterial({ color: '#69768a', roughness: 1 });
+    const cushion = new THREE.Mesh(new THREE.BoxGeometry(.8, .15, .8), material); cushion.position.y = .45;
+    const back = new THREE.Mesh(new THREE.BoxGeometry(.8, .65, .12), material); back.position.set(0, .8, .35);
+    chair.add(cushion, back); scene.add(chair);
   }
-  const lamp = new THREE.Mesh(new THREE.ConeGeometry(0.9, 0.5, 24, 1, true), new THREE.MeshStandardMaterial({ color: '#b6a076', side: THREE.DoubleSide }));
-  lamp.position.set(0, 4.8, -0.3); scene.add(lamp);
-  for (let i = 0; i < 6; i++) {
-    const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.48), new THREE.MeshStandardMaterial({ color: '#d6cbb0' }));
-    paper.rotation.set(-Math.PI / 2, 0, i * 0.7); paper.position.set(Math.sin(i * 2) * 2, 0.875, Math.cos(i * 2) * 1.4 - 0.3); scene.add(paper);
+  for (const z of [-7, -3, 5]) {
+    const light = new THREE.PointLight('#eef4ff', 160, 16, 2); light.position.set(0, 5.5, z); scene.add(light);
   }
 }
 /** <summary>Release all GPU resources created by the scene, including text sprites.</summary> */

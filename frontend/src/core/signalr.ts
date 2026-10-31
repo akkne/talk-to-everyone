@@ -12,9 +12,6 @@ export class SignalRClient implements GameClient {
   private ready = false;
   private timers: ReturnType<typeof setInterval>[] = [];
   private authDeadline?: ReturnType<typeof setTimeout>;
-  private camera: Commands[typeof C2S.SEND_CAMERA] = { yaw: 0, pitch: 0 };
-  private sentCamera = '';
-  private cameraBusy = false;
   private epoch = 0;
 
   constructor(private readonly emit: EventHandler, private readonly status: (status: ConnectionStatus) => void) {
@@ -44,7 +41,7 @@ export class SignalRClient implements GameClient {
   /** <summary>Auth is always the first invocation on a newly established connection.</summary> */
   private async authenticate() {
     if (!this.credentials) return;
-    this.authenticated = false; this.ready = false; this.sentCamera = '';
+    this.authenticated = false; this.ready = false;
     this.status('authenticating'); this.armDeadline();
     await this.connection.invoke(C2S.AUTH, this.credentials);
   }
@@ -69,26 +66,11 @@ export class SignalRClient implements GameClient {
     if (!this.ready || method === C2S.AUTH) throw new Error('Дождитесь подключения и восстановления сессии.');
     await (payload === undefined ? this.connection.invoke(method) : this.connection.invoke(method, payload));
   }
-  setCamera(yaw: number, pitch: number) {
-    if (!Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
-    const clamp = (v: number) => Math.max(-UI.CAMERA_LIMIT, Math.min(UI.CAMERA_LIMIT, v));
-    this.camera = { yaw: clamp(yaw), pitch: clamp(pitch) };
-  }
   private startTimers() {
     this.timers.forEach(clearInterval);
     this.timers = [
       setInterval(() => { void this.send(C2S.PING, { t: Date.now() }).catch(() => {}); }, NET.PING_INTERVAL_MS),
-      setInterval(() => { void this.flushCamera(); }, 1000 / NET.CAMERA_HZ),
     ];
-  }
-  /** <summary>Send the latest changed pose, without queuing obsolete camera frames.</summary> */
-  private async flushCamera() {
-    const key = `${this.camera.yaw}:${this.camera.pitch}`;
-    if (!this.ready || this.cameraBusy || key === this.sentCamera) return;
-    this.cameraBusy = true;
-    try { await this.send(C2S.SEND_CAMERA, { ...this.camera }); this.sentCamera = key; }
-    catch { /* A later tick or reconnect retries the current pose. */ }
-    finally { this.cameraBusy = false; }
   }
   private suspend() {
     this.ready = false; this.authenticated = false;

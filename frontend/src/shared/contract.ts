@@ -1,5 +1,5 @@
 export const HUB = '/hubs/game';
-export const C2S = { AUTH:'Auth', START_GAME:'StartGame', SEND_CAMERA:'SendCamera',
+export const C2S = { AUTH:'Auth', START_GAME:'StartGame', SEND_POSE:'SendPose', SIT_DOWN:'SitDown', STAND_UP:'StandUp',
   REQUEST_CHUNK:'RequestChunk', RELEASE_CHUNK:'ReleaseChunk',
   PAIR_NPCS:'PairNpcs', UNPAIR_NPCS:'UnpairNpcs', MARK_LIAR:'MarkLiar',
   UNMARK_LIAR:'UnmarkLiar', LOCK_PAIR:'LockPair', SAVE_NOTE:'SaveNote',
@@ -8,7 +8,7 @@ export const S2C = { AUTH_OK:'AuthOk', AUTH_ERR:'AuthErr',
   LOBBY_STATE:'LobbyState', GAME_STARTED:'GameStarted',
   ROUND_STARTED:'RoundStarted', ROUND_ENDED:'RoundEnded', GAME_ENDED:'GameEnded',
   STATE_SNAPSHOT:'StateSnapshot', CHUNK_DATA:'ChunkData', PLAYERS_TICK:'PlayersTick',
-  NPC_SAY:'NpcSay', NPC_REACTION:'NpcReaction',
+  SEAT_STATE:'SeatState', ACTION_REJECT:'ActionReject', NPC_SAY:'NpcSay', NPC_REACTION:'NpcReaction',
   BOARD_SNAPSHOT:'BoardSnapshot', BOARD_REJECT:'BoardReject',
   QUESTION_OK:'QuestionOk', QUESTION_REJECT:'QuestionReject',
   SCORE_UPDATE:'ScoreUpdate', SERVER_ERROR:'ServerError', PONG:'Pong' } as const;

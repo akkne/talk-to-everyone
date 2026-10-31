@@ -1,36 +1,21 @@
 import { useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { GAME, C2S } from '../shared/contract';
+import { useCacheStore } from '../store/cacheStore';
+import { GAME,C2S } from '../shared/contract';
 import { lockedRound } from '../shared/config';
-import { command, useClient } from '../core/client';
-import { Polaroid } from './Polaroid';
+import { command,useClient } from '../core/client';
 import { Threads } from './Threads';
 import { Icon } from './Icon';
-
-/** <summary>Board operations are commands; only BoardSnapshot changes the visible assignments.</summary> */
-export function Board() {
-  const { board, npcs, round, connection, roundEnded, phase } = useGameStore(); const client = useClient();
-  const [selected, setSelected] = useState<string | null>(null); const root = useRef<HTMLDivElement>(null);
-  const disabled = connection !== 'ready' || roundEnded || phase === 'reveal';
-  const number = (id: string) => String((npcs.find(n => n.id === id)?.index ?? -1) + 1).padStart(2, '0');
-  const select = (id: string) => {
-    if (selected === id) { setSelected(null); return; }
-    if (!selected) { setSelected(id); return; }
-    void command(client, C2S.PAIR_NPCS, { round: round.n, a: selected, b: id }); setSelected(null);
-  };
-  return <section className="board-overlay" role="dialog" aria-modal="true" aria-labelledby="board-title">
-    <header className="board-header"><div><span className="eyebrow">ЛИЧНОЕ ДЕЛО / ВАШИ ВЕРСИИ</span><h2 id="board-title">Всё связано.</h2></div><p>Выберите две карточки, чтобы создать пару.<br /><span>Правый клик — оставить заметку.</span></p><button className="key-button" onClick={() => useGameStore.setState({ boardOpen: false })}>Закрыть <kbd>Tab</kbd><Icon name="close" size={16} /></button></header>
-    <div className="board-scroll">
-      <div className="board-sheet" ref={root}><Threads root={root} pairs={board.pairs} /><div className="polaroid-grid">{npcs.map(npc => {
-        const pair = board.pairs.find(p => p.includes(npc.id)); const liar = board.liars.includes(npc.id);
-        return <Polaroid key={npc.id} npc={npc} selected={selected === npc.id} assigned={!!pair || liar} liar={liar} locked={!!pair && lockedRound(board.locks, ...pair) !== undefined} note={board.notes[npc.id] || ''} disabled={disabled}
-          onSelect={() => select(npc.id)} onLiar={() => { setSelected(null); void command(client, liar ? C2S.UNMARK_LIAR : C2S.MARK_LIAR, { npc: npc.id }); }} onNote={text => { void command(client, C2S.SAVE_NOTE, { npc: npc.id, text }); }} />;
-      })}</div></div>
-      <div className="assignment-grid"><section><div className="slot-heading"><span>ПРЕДПОЛАГАЕМЫЕ ДРУЗЬЯ</span><span>{board.pairs.length} / {GAME.PAIR_SLOTS}</span></div><div className="pair-slots">{Array.from({ length: GAME.PAIR_SLOTS }, (_, i) => {
-        const pair = board.pairs[i]; const lock = pair ? lockedRound(board.locks, ...pair) : undefined;
-        return <div className={`pair-slot ${pair ? 'filled' : ''}`} key={i}>{pair ? <><span className="pair-label">{number(pair[0])}<span className="thread-symbol">⟷</span>{number(pair[1])}</span><div>{lock !== undefined ? <span className="lock-badge"><Icon name="lock" size={13} /> раунд {lock}</span> : <><button disabled={disabled || !GAME.LOCK_BONUS[round.n]} onClick={() => void command(client, C2S.LOCK_PAIR, { a: pair[0], b: pair[1], round: round.n })} title="Зафиксировать пару. Бонус зависит от правильности версии."><Icon name="lock" size={14} /> +{GAME.LOCK_BONUS[round.n] || 0}</button><button className="ml-3" aria-label={`Разъединить ${number(pair[0])} и ${number(pair[1])}`} disabled={disabled} onClick={() => void command(client, C2S.UNPAIR_NPCS, { a: pair[0], b: pair[1] })}><Icon name="close" size={14} /></button></>}</div></> : <span className="empty-slot">+ <span>Пара {i + 1}</span></span>}</div>;
-      })}</div></section><section><div className="slot-heading"><span>АКТЁРЫ-ОДИНОЧКИ</span><span>{board.liars.length} / {GAME.LIAR_SLOTS}</span></div><div className="liar-slots">{Array.from({ length: GAME.LIAR_SLOTS }, (_, i) => <div className={`liar-slot ${board.liars[i] ? 'filled' : ''}`} key={i}>{board.liars[i] ? <><span>№ {number(board.liars[i])}</span><button aria-label={`Снять метку актёра ${number(board.liars[i])}`} disabled={disabled} onClick={() => void command(client, C2S.UNMARK_LIAR, { npc: board.liars[i] })}><Icon name="close" size={12} /></button></> : '—'}</div>)}</div></section></div>
-    </div>
-    <footer className="board-footer"><span><span className="status-dot" /> {selected ? `Выбран № ${number(selected)} — выберите второго` : 'Версии подтверждаются сервером'}</span><span>Друг + актёр <b>−100</b><i />Два актёра <b>−150</b></span></footer>
-  </section>;
+export function Board(){
+ const {board,npcs,round,connection,roundEnded,phase}=useGameStore();const entries=useCacheStore(s=>s.entries);const client=useClient();
+ const [selected,setSelected]=useState<string|null>(null),[first,setFirst]=useState<string|null>(null),[drafts,setDrafts]=useState<Record<string,string>>({});const root=useRef<HTMLDivElement>(null);
+ const disabled=connection!=='ready'||roundEnded||phase==='reveal';
+ const number=(id:string)=>String((npcs.find(n=>n.id===id)?.index??-1)+1).padStart(2,'0');
+ const name=(id:string)=>entries[id]?.details.displayName||`Участник ${number(id)}`;
+ const current=selected||npcs[0]?.id; const note=drafts[current]??board.notes[current]??'';
+ const send=(method:typeof C2S.SAVE_NOTE,text:string)=>void command(client,method,{npc:current,text});
+ const select=(id:string)=>{setSelected(id);if(board.pairs.some(p=>p.includes(id))||board.liars.includes(id)){setFirst(null);return;}if(first===id){setFirst(null);return;}if(first){void command(client,C2S.PAIR_NPCS,{round:round.n,a:first,b:id});setFirst(null);}else setFirst(id);};
+ return <aside className="notebook open" aria-label="Личный блокнот детектива"><section className="notebook-panel" role="dialog" aria-label="Заметки и пары"><header className="notebook-head"><div><h1>Блокнот детектива</h1><p>Здесь остаются ваши личные наблюдения.</p></div><button className="icon-btn" onClick={()=>useGameStore.setState({boardOpen:false})} aria-label="Свернуть блокнот"><Icon name="close"/></button></header><div className="notebook-body"><div className="small-label"><b>Участники студии</b><span>{board.pairs.length} из 3 пар</span></div><div className="board" ref={root}><Threads root={root} pairs={board.pairs}/><div className="bots">{npcs.map(npc=><button key={npc.id} data-npc={npc.id} className={`bot ${current===npc.id?'selected':''} ${first===npc.id?'chosen':''} ${board.notes[npc.id]?'has-note':''} ${board.liars.includes(npc.id)?'is-actor':''}`} disabled={disabled} onClick={()=>select(npc.id)} aria-pressed={current===npc.id} aria-label={`${name(npc.id)}, участник ${number(npc.id)}`}><span className="portrait pin" style={{'--person':npc.color,'--pale':`${npc.color}25`} as React.CSSProperties}/><span>{number(npc.id)} <span className="name">{entries[npc.id]?.details.displayName||''}</span></span>{board.liars.includes(npc.id)&&<span className="actor-tag">Актёр</span>}</button>)}</div></div><p className="board-hint">{first?`Участник ${number(first)} выбран, теперь добавьте второго участника.`:'Выберите двух участников, чтобы связать их в своей версии.'}</p>
+ {current&&<section className="note-section"><label className="note-label" htmlFor="personal-note"><b>{name(current)} · {number(current)}</b><span>{note.length} / {GAME.NOTE_MAX_LEN}</span></label><textarea id="personal-note" className="note-field" value={note} key={current} maxLength={GAME.NOTE_MAX_LEN} disabled={disabled} placeholder="Какая деталь показалась вам важной?" onChange={e=>setDrafts(d=>({...d,[current]:e.target.value}))} onBlur={()=>{if(note!==(board.notes[current]||''))send(C2S.SAVE_NOTE,note);}}/><div className="note-actions"><button className="text-button" disabled={disabled||note===(board.notes[current]||'')} onClick={()=>send(C2S.SAVE_NOTE,note)}>Сохранить заметку</button><button className="text-button" disabled={disabled||board.pairs.some(p=>p.includes(current))} onClick={()=>{setFirst(null);void command(client,board.liars.includes(current)?C2S.UNMARK_LIAR:C2S.MARK_LIAR,{npc:current});}}>{board.liars.includes(current)?'Снять метку актёра':'Отметить как актёра'}</button></div></section>}
+ <div className="pairs">{board.pairs.map(pair=>{const lock=lockedRound(board.locks,...pair);return <div className="pair-row" key={pair.join(':')}><span className="pair-mark"><b>{number(pair[0])}</b><i/><b>{number(pair[1])}</b></span><span>{name(pair[0])} и {name(pair[1])}</span>{lock!==undefined?<span className="pair-locked"><Icon name="lock" size={11}/>Раунд {lock}</span>:<><button className="lock-pair" disabled={disabled||!GAME.LOCK_BONUS[round.n]} onClick={()=>void command(client,C2S.LOCK_PAIR,{a:pair[0],b:pair[1],round:round.n})} title="Подтвердить пару"><Icon name="lock" size={13}/></button><button className="icon-btn" disabled={disabled} aria-label={`Убрать связь ${number(pair[0])} и ${number(pair[1])}`} onClick={()=>void command(client,C2S.UNPAIR_NPCS,{a:pair[0],b:pair[1]})}><Icon name="close"/></button></>}</div>;})}{!board.pairs.length&&<div className="pair-empty">Ваши предполагаемые пары появятся здесь, когда вы соедините участников.</div>}</div><div className="actor-summary"><span>Актёры: {board.liars.length} из 4</span>{board.liars.map(id=><button key={id} disabled={disabled} onClick={()=>void command(client,C2S.UNMARK_LIAR,{npc:id})}>{number(id)} ×</button>)}</div><p className="notebook-footer"><Icon name="lock"/>Эти записи видите только вы. <kbd>Tab</kbd> — свернуть.</p></div></section></aside>;
 }

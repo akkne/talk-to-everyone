@@ -1,3 +1,4 @@
+import type { SceneSpec } from '../scene/world';
 import { create } from 'zustand';
 import { GAME, S2C } from '../shared/contract';
 import { UI } from '../shared/config';
@@ -8,6 +9,7 @@ export type ConnectionStatus = 'offline' | 'connecting' | 'authenticating' | 'sy
 interface GameState {
   connection: ConnectionStatus; preview: boolean; sessionId: string; playerId: string; role: string;
   phase: 'lobby' | 'playing' | 'reveal'; round: Round; roundEnded: boolean;
+  scene: SceneSpec | null; seats: { id: string; occupiedBy: string | null }[];
   lobby: LobbyState | null; players: Player[]; npcs: NpcMeta[]; board: Board;
   score: Record<string, number>; titles: Record<string, string>; reveal: RevealData | null;
   chat: (Events[typeof S2C.NPC_SAY] & { id: string })[];
@@ -20,7 +22,7 @@ interface GameState {
 function initial(): GameState {
   return {
     connection: 'offline', preview: false, sessionId: '', playerId: '', role: '', phase: 'lobby',
-    round: { n: 0, phase: 'lobby', endsAt: 0 }, roundEnded: false, lobby: null, players: [], npcs: [],
+    round: { n: 0, phase: 'lobby', endsAt: 0 }, roundEnded: false, scene: null, seats: [], lobby: null, players: [], npcs: [],
     board: { pairs: [], liars: [], locks: {}, notes: {} }, score: {}, titles: {}, reveal: null,
     chat: [], reactions: [], remaining: null, askedTo: [], questionPending: false,
     boardOpen: false, debug: false, error: null, rtt: null,
@@ -45,12 +47,15 @@ const handlers: Handlers = {
     const me = typeof p.me === 'string' ? p.me : p.me.id ?? p.me.playerId;
     set({ sessionId: p.sessionId, playerId: me || useGameStore.getState().playerId,
       phase: !p.started ? 'lobby' : p.round.phase === 'reveal' ? 'reveal' : 'playing',
+      scene: p.scene ?? null, seats: p.seats ?? [],
       round: p.round, roundEnded: false, players: p.players, npcs: p.npcs, board: p.board, score: p.score,
       remaining: p.started ? null : GAME.QUESTIONS_PER_JUDGE, askedTo: [], questionPending: false,
       reveal: null, chat: [], reactions: [], error: null,
     });
   },
   [S2C.CHUNK_DATA]: () => {}, // Details belong only to the bounded cache store.
+  [S2C.SEAT_STATE]: p => set({ seats: p.seats }),
+  [S2C.ACTION_REJECT]: p => set({ error: p.message }),
   [S2C.PLAYERS_TICK]: p => set({ players: p.players }),
   [S2C.NPC_SAY]: p => set(s => ({ chat: [...s.chat, { ...p, text: p.text.slice(0, 4000), id: createId() }].slice(-UI.MAX_CHAT) })),
   [S2C.NPC_REACTION]: p => set(s => ({ reactions: [...s.reactions, { ...p, reason: import.meta.env.DEV ? p.reason : undefined, at: performance.now() }].slice(-UI.MAX_REACTIONS) })),

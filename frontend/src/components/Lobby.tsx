@@ -1,52 +1,25 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { C2S } from '../shared/contract';
 import { command, useClient } from '../core/client';
 import { Icon } from './Icon';
-
+import { Brand, initials } from './Brand';
+import { HomeArt } from './HomeArt';
 interface Props { onConnect: (name: string, token: string, preview: boolean) => Promise<void>; onExit: () => void }
-/** <summary>One-session lobby; credentials are never persisted to browser storage.</summary> */
 export function Lobby({ onConnect, onExit }: Props) {
-  const [name, setName] = useState(''); const [token, setToken] = useState(''); const [starting, setStarting] = useState(false);
-  const { connection, lobby, playerId, preview } = useGameStore(); const client = useClient();
-  const connected = connection === 'ready'; const busy = !['offline', 'ready'].includes(connection);
-  const leader = lobby?.players[0]?.id === playerId;
-  const submit = (event: FormEvent) => { event.preventDefault(); void onConnect(name.trim(), token, false); setToken(''); };
-  const start = async () => { setStarting(true); await command(client, C2S.START_GAME, undefined); setStarting(false); };
-  return <main className="lobby-page">
-    <header className="lobby-header"><a className="wordmark" href="/" aria-label="Угадай друзей — главная"><span className="brand-mark">у.</span>угадай друзей<span className="brand-period">®</span></a><span className="eyebrow">БЮРО СОЦИАЛЬНЫХ РАССЛЕДОВАНИЙ</span><span className="edition">ДЕЛО № 001 / 2026</span></header>
-    <div className="lobby-grid">
-      <section className="lobby-intro">
-        <div className="case-label"><span className="status-dot" /> СОЦИАЛЬНЫЙ ДЕТЕКТИВ <span className="ml-3 opacity-40">01 — 05</span></div>
-        <h1>Друзья.<br />Или хорошие<br /><em>актёры?</em></h1>
-        <p className="intro-copy">Десять незнакомцев за одним столом.<br />Одни делят воспоминания. Другие их придумывают.<br /><span>Сможете отличить дружбу от убедительной истории?</span></p>
-        <div className="case-facts"><div><b>10</b><span>подозреваемых</span></div><div><b>03</b><span>пары друзей</span></div><div><b>04</b><span>актёра-одиночки</span></div></div>
-        <div className="intro-note"><span>↳</span> Слушайте. Сопоставляйте. Не верьте первому впечатлению.</div>
-      </section>
-      <section className="entry-area">
-        <div className="dossier-decoration" aria-hidden="true"><div className="mini-photo photo-a"><div className="portrait" style={{ '--person': '#9ca78a' } as React.CSSProperties} /><span>свидетель № 04</span></div><div className="mini-photo photo-b"><div className="portrait" style={{ '--person': '#b98b74' } as React.CSSProperties} /><span>свидетель № 07</span></div><span className="red-thread" /><span className="dossier-stamp">ДОВЕРЯЙ,<br />НО ПРОВЕРЯЙ</span></div>
-        <div className="entry-card">
-          <div className="flex items-center justify-between"><span className="eyebrow">ВАШЕ МЕСТО ЗА СТОЛОМ</span><Icon name="eye" /></div>
-          <h2>{connected ? 'Вы в деле.' : 'Войти в расследование'}</h2>
-          {connected ? <div>
-            <p className="muted mb-5">{preview ? 'Осмотр интерфейса · без сервера и AI' : `Сессия ${lobby?.sessionId || 'подключена'}`}</p>
-            <div className="lobby-players">{lobby?.players.map((p, i) => <div key={p.id}><span className={`status-dot ${p.connected ? '' : 'opacity-30'}`} /><span>{p.name}{p.id === playerId ? ' · вы' : ''}</span><small>{i === 0 ? 'ведущий' : 'судья'}</small></div>)}</div>
-            <button className="primary w-full" onClick={() => void start()} disabled={!lobby?.canStart || !leader || starting}>{starting ? 'Начинаем…' : leader ? 'Начать расследование' : 'Ожидаем ведущего'}<Icon name="arrow" /></button>
-            {!lobby?.canStart && <p className="muted text-xs mt-3">Нужно игроков: {lobby?.minPlayers ?? 'уточняется'}</p>}
-            <button className="text-button mt-4" onClick={onExit}>Выйти из сессии</button>
-          </div> : <form onSubmit={submit}>
-            <label className="field-label" htmlFor="judge-name">Как вас представить?</label>
-            <input id="judge-name" value={name} onChange={e => setName(e.target.value)} maxLength={32} required placeholder="Ваше имя" autoComplete="nickname" disabled={busy} />
-            <label className="field-label mt-4" htmlFor="session-token">Токен сессии <span>от организатора</span></label>
-            <input id="session-token" type="password" value={token} onChange={e => setToken(e.target.value)} required placeholder="Введите токен" autoComplete="off" disabled={busy} />
-            <button className="primary w-full mt-6" disabled={busy || !name.trim() || !token}>{busy ? 'Подключаемся…' : 'Занять место'}<Icon name="arrow" /></button>
-            <p className="entry-hint"><Icon name="lock" size={13} /> Токен используется только для входа в сессию</p>
-            {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_PREVIEW === 'true') && <button type="button" className="preview-button" disabled={busy} onClick={() => void onConnect(name.trim() || 'Наблюдатель', '', true)}>Сначала осмотреть интерфейс <span>↗</span></button>}
-            {busy && <button type="button" className="text-button mt-3" onClick={onExit}>Отменить подключение</button>}
-          </form>}
-        </div>
-      </section>
-    </div>
-    <footer className="lobby-footer"><span>ПРАВДА КРОЕТСЯ В ДЕТАЛЯХ.</span><span>5 раундов <i /> одна общая история <i /> ваше решение</span><span>МЫШЬ + КЛАВИАТУРА ↗</span></footer>
-  </main>;
+  const [name,setName]=useState(''), [token,setToken]=useState(''), [starting,setStarting]=useState(false);
+  const rules=useRef<HTMLDialogElement>(null);
+  const {connection,lobby,playerId,preview}=useGameStore(); const client=useClient();
+  const connected=connection==='ready', busy=!['offline','ready'].includes(connection), leader=lobby?.players[0]?.id===playerId;
+  useEffect(()=>{window.scrollTo(0,0);},[connected]);
+  const submit=(e:FormEvent)=>{e.preventDefault();void onConnect(name.trim(),token,false);setToken('');};
+  const start=async()=>{setStarting(true);await command(client,C2S.START_GAME,undefined);setStarting(false);};
+  return <div className="home-shell"><div className="container"><header className="header"><Brand onClick={()=>{if(connected)onExit();}}/><nav className="header-nav" aria-label="Навигация">{!connected&&<a href="#join" className="btn ghost">Войти в лобби <Icon name="arrow"/></a>}</nav></header>
+  {!connected?<main><section className="hero"><div className="hero-copy"><h1>Вы узнаете тех,<br/>кто дружит<br/>по-настоящему?</h1><p>Десять участников расскажут о себе и своих знакомых. Пока настоящие друзья вспоминают общие истории, актёры пытаются убедить вас, что тоже были их частью.</p><div className="facts">{[['10','участников в студии'],['3','пары друзей'],['4','актёра среди них'],['5','раундов игры']].map(([n,t])=><div className="fact" key={t}><b>{n}</b><span>{t}</span></div>)}</div><HomeArt/></div>
+  <form className="join-card" id="join" onSubmit={submit}><h2>Соберите своё жюри</h2><p>Зайдите в комнату, чтобы вместе с другими игроками разобраться в историях участников.</p><label className="field" htmlFor="judge-name">Ваше имя</label><input className="input" id="judge-name" value={name} onChange={e=>setName(e.target.value)} maxLength={32} required autoComplete="nickname" placeholder="Как вас представить остальным" disabled={busy}/><label className="field" htmlFor="session-token">Код комнаты</label><input className="input" id="session-token" type="password" value={token} onChange={e=>setToken(e.target.value)} required autoComplete="off" placeholder="Введите код организатора" disabled={busy}/><p className="form-note">Попросите код у того, кто собирает компанию для игры.</p><button className="btn block" disabled={busy||!name.trim()||!token}>{busy?'Подключаемся…':'Войти в лобби'}<Icon name="arrow"/></button>
+  <button className="btn ghost block create-room" type="button" disabled title="Создание комнат пока доступно организатору на сервере">Создать лобби</button><p className="footnote">Комнату создаёт организатор игры.</p>
+  {(import.meta.env.DEV||import.meta.env.VITE_ENABLE_PREVIEW==='true')&&<p className="footnote"><button type="button" className="text-button" disabled={busy} onClick={()=>void onConnect(name.trim()||'Наблюдатель','',true)}>Посмотреть лобби без подключения</button></p>}{busy&&<button type="button" className="text-button mt-3" onClick={onExit}>Отменить подключение</button>}</form></section>
+  <section className="how"><div className="section-head"><h2>Постепенно вы соберёте свою версию.</h2><p>У каждого судьи будут свои заметки и догадки.</p></div><div className="steps">{[['Слушайте истории участников','Сравнивайте знакомые детали и замечайте моменты, в которых чужие воспоминания перестают сходиться.'],['Проверяйте свои догадки','Записывайте наблюдения в личный блокнот и задавайте вопросы, которые помогут разобраться в противоречиях.'],['Найдите настоящих друзей','Составляйте пары по своим наблюдениям, чтобы в финале узнать, насколько точно вы поняли, кто с кем дружит.']].map(([t,p],i)=><article className="step" key={t}><span className="step-number">0{i+1}</span><div><h3>{t}</h3><p>{p}</p></div></article>)}</div></section></main>:
+  <main><section className="lobby"><button className="back" onClick={onExit}>← Вернуться на главную</button><div className="lobby-title"><div><h1>Теперь можно занять<br/>своё место в студии.</h1></div><div className="room-code">{preview?'Локальный осмотр':'Ваша комната'}<b>{preview?'ПРЕВЬЮ':lobby?.sessionId}</b></div></div><div className="lobby-grid"><div className="people"><div className="people-head"><span>Игроки в комнате</span><span>{lobby?.players.length??0} в комнате</span></div>{lobby?.players.map((p,i)=><div className="player" key={p.id}><span className="avatar">{initials(p.name)}</span><div><div className="player-name">{p.name}{p.id===playerId&&<span className="muted"> · Вы</span>}</div><div className="player-role">{i===0?'Ведущий комнаты':'Судья'}</div></div><span className="player-ready"><i/>{p.connected?'В комнате':'Нет связи'}</span></div>)}</div><aside className="launch"><h2>Компания готова к игре?</h2><p>Вы окажетесь в общей студии, где участники начнут знакомиться с жюри и рассказывать свои истории.</p><button className="btn block" onClick={()=>void start()} disabled={!lobby?.canStart||!leader||starting}>{starting?'Начинаем…':leader?'Начать игру':'Ожидаем ведущего'}<Icon name="arrow"/></button>{!lobby?.canStart&&<p className="subtle">Нужно игроков: {lobby?.minPlayers??'уточняется'}</p>}<div className="room-detail"><Icon name="lock"/><span>В комнату входят по коду,<br/>которым делится организатор.</span></div></aside></div>{preview&&<p className="demo-caption">Осмотр интерфейса без сервера и AI. Раунды длятся по 30 секунд, очки не начисляются.</p>}</section></main>}
+  <footer className="footer"><span>Угадай друзей © 2026</span><button onClick={()=>rules.current?.showModal()}>Прочитать правила игры</button></footer></div><dialog className="rules-dialog" ref={rules}><h2>Доверяйте деталям, которые сходятся.</h2><p>В студии находятся десять участников: три пары друзей и четыре актёра. Слушайте истории и собирайте наблюдения в личном блокноте.</p><p>После второго, третьего и четвёртого раундов можно подтвердить пару. В четвёртом раунде каждый судья может задать два вопроса разным участникам. В финале откроются настоящие связи и результаты жюри.</p><button className="btn" onClick={()=>rules.current?.close()}>Вернуться к компании</button></dialog></div>;
 }

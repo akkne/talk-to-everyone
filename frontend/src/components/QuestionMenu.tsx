@@ -18,7 +18,10 @@ export function QuestionMenu({ onClose }: { onClose: () => void }) {
     useGameStore.setState({ questionPending: true });
     timer.current = setTimeout(() => useGameStore.setState({ questionPending: false, error: 'Ответ на вопрос задерживается. Лимит проверяет сервер; перед повтором проверьте ленту реплик.' }), NET.LLM_TIMEOUT_MS + 2000);
     if (!await command(client, C2S.ASK_QUESTION, { targetNpc: selected, text })) useGameStore.setState({ questionPending: false });
-    else setDrafts(current => ({ ...current, [selected]: '' }));
+    else {
+      if (!useGameStore.getState().questionPending) clearTimeout(timer.current);
+      setDrafts(current => ({ ...current, [selected]: '' }));
+    }
   };
   return <section className="question-panel" role="dialog" aria-label="Допрос"><header><div><span className="eyebrow">РАУНД 04 / ДОПРОС</span><h2>Спросите о деталях.</h2></div><button className="icon-button" onClick={onClose} aria-label="Закрыть допрос"><Icon name="close" /></button></header><p className="muted">Два вопроса двум разным участникам.<br />{state.remaining === null ? 'После входа остаток уточнит сервер при запросе.' : `Осталось вопросов: ${state.remaining} из 2`}</p>
     <div className="question-grid">{state.npcs.map(npc => <button key={npc.id} className={selected === npc.id ? 'active' : ''} disabled={state.askedTo.includes(npc.id) || state.questionPending || state.remaining === 0} onClick={() => setSelected(npc.id)}><span style={{ background: npc.color }}>{String(npc.index + 1).padStart(2, '0')}</span>{entries[npc.id]?.details.displayName || `Участник ${npc.index + 1}`}{state.askedTo.includes(npc.id) && <Icon name="check" size={14} />}</button>)}</div>

@@ -1,3 +1,4 @@
+import { previewScene } from '../scene/world';
 import { C2S, GAME, S2C } from '../shared/contract';
 import { lockedRound, UI } from '../shared/config';
 import type { Board, Commands, EventHandler, GameClient, NpcDetails, NpcMeta } from '../shared/types';
@@ -34,14 +35,13 @@ export class PreviewClient implements GameClient {
   async connect(_token: string, name: string) {
     this.alive = true;
     this.emit(S2C.AUTH_OK, { playerId: 'preview', sessionId: 'preview', role: 'leader' });
-    this.emit(S2C.STATE_SNAPSHOT, { sessionId: 'preview', me: 'preview', started: false,
+    this.emit(S2C.STATE_SNAPSHOT, { sessionId: 'preview', me: 'preview', started: false, scene: previewScene, seats: [],
       round: { n: 0, phase: 'lobby', endsAt: 0 }, players: [{ id: 'preview', yaw: 0, pitch: 0, connected: true }],
       npcs: this.npcs, worldSizeBytes: DETAIL_BYTES * GAME.NPC_COUNT, board: this.copyBoard(), score: { preview: 0 } });
     this.emit(S2C.LOBBY_STATE, { sessionId: 'preview', players: [{ id: 'preview', name, connected: true }], minPlayers: 1, canStart: true, started: false });
     this.status('ready');
   }
   async disconnect() { this.alive = false; this.timers.forEach(clearTimeout); this.timers = []; this.status('offline'); }
-  setCamera(_yaw: number, _pitch: number) { /* This mode deliberately has no remote players. */ }
   async send<K extends keyof Commands>(method: K, payload: Commands[K]) {
     if (!this.alive) throw new Error('Preview closed');
     if (method === C2S.START_GAME && !this.started) {
@@ -53,7 +53,7 @@ export class PreviewClient implements GameClient {
     }
     if (method === C2S.PING) { this.emit(S2C.PONG, payload as Commands[typeof C2S.PING]); return; }
     if (method === C2S.ASK_QUESTION) { this.ask(payload as Commands[typeof C2S.ASK_QUESTION]); return; }
-    if ([C2S.SEND_CAMERA, C2S.RELEASE_CHUNK, C2S.AUTH, C2S.START_GAME].includes(method as never)) return;
+    if ([C2S.SEND_POSE, C2S.RELEASE_CHUNK, C2S.AUTH, C2S.START_GAME].includes(method as never)) return;
     if (this.round < 1 || this.round >= 5) { this.reject(method, 'Доска доступна во время расследования.'); return; }
     this.editBoard(method, payload);
   }

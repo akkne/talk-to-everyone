@@ -29,6 +29,7 @@ export default function App() {
   const exit = async () => { await activeClient.current.disconnect(); resetGame(); resetCache(); setQuestions(false); };
   useEffect(() => () => { void activeClient.current.disconnect(); }, []);
   useEffect(() => { setQuestions(round.n === 4); }, [round.n]);
+  useEffect(() => { window.scrollTo(0, 0); }, [phase]);
   useEffect(() => { if ((boardOpen || questions) && document.pointerLockElement) document.exitPointerLock(); }, [boardOpen, questions]);
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -43,7 +44,7 @@ export default function App() {
   }, [phase, boardOpen]);
   return <ClientContext.Provider value={client}>
     {phase === 'lobby' ? <Lobby onConnect={connect} onExit={() => void exit()} /> : phase === 'reveal' ? <Reveal onExit={() => void exit()} /> : <div className="game-page">
-      <div className="scene-area"><Scene /></div><HUD onExit={() => void exit()} onQuestions={() => setQuestions(true)} /><Chat />
+      <div className="scene-area"><Scene controlsBlocked={questions} /></div><HUD onExit={() => void exit()} onQuestions={() => setQuestions(true)} /><Chat />
       {questions && round.n === 4 && !boardOpen && <QuestionMenu onClose={() => setQuestions(false)} />}
       {boardOpen && <Board />}
     </div>}
