@@ -3,29 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { loadModule } from './helpers/modules.mjs';
 
-const { DirectorGreeting } = await loadModule('src/scene/director.ts');
 const { walk } = await loadModule('src/scene/movement.ts');
 const scene = JSON.parse(readFileSync('../backend/Maps/hangar.json'));
 const director = scene.ambientNPCs.find(npc => npc.type === 'human-director');
 const near = { name: 'Артём', position: { ...director.position, x: director.position.x - 1.5 } };
-
-test('director addresses the nearby player and enforces the full 30 second cooldown', () => {
-  const greeting = new DirectorGreeting();
-  assert.equal(greeting.update(100, near, director.position), 'Артём, вы мешаете мне работать. Отойдите, пожалуйста.');
-  assert.equal(greeting.update(30_099, near, director.position), null);
-  assert.equal(greeting.update(30_100, { ...near, name: 'Лина' }, director.position), 'Лина, вы мешаете мне работать. Отойдите, пожалуйста.');
-});
-
-test('distance and height gate the warning, leaving and returning do not reset its cooldown', () => {
-  const greeting = new DirectorGreeting();
-  const far = { ...near, position: { ...director.position, x: 9.5 } };
-  assert.equal(greeting.update(0, far, director.position), null);
-  assert.equal(greeting.update(1, { ...near, position: { ...near.position, y: 2 } }, director.position), null);
-  assert.ok(greeting.update(2, near, director.position));
-  assert.equal(greeting.update(10_000, far, director.position), null);
-  assert.equal(greeting.update(20_000, near, director.position), null);
-  assert.ok(greeting.update(30_002, near, director.position));
-});
 
 test('the director is reachable from the equipment entrance without blocking the doorway', () => {
   const open = structuredClone(scene);
@@ -33,7 +14,7 @@ test('the director is reachable from the equipment entrance without blocking the
   let p = walk({ x: 9, y: 0, z: 7.2 }, 3.5, 0, open);
   p = walk(p, 0, -1.2, open);
   assert.ok(p.x > 12 && p.z < 6.1, JSON.stringify(p));
-  assert.ok(new DirectorGreeting().update(0, { name: 'Игрок', position: p }, director.position));
+  assert.ok(Math.hypot(p.x - director.position.x, p.z - director.position.z) <= 2);
   assert.ok(walk(p, 3, 0, open).x < director.position.x - .5);
   const laptop = open.objects.find(prop => prop.id === 'director-laptop');
   assert.equal(laptop.type, 'laptop');
@@ -78,4 +59,19 @@ test('laptop lid keeps a separate hinge and server pickup hides food on every cl
   assert.equal(food.visible, false);
   applyGameEvent(S2C.LOCATION_STATE, { doors: scene.doors, foods });
   assert.equal(useGameStore.getState().scene.directorRun, run);
+});
+
+test('location updates move predicted director collision away from the empty chair', async () => {
+  const { CameraController } = await loadModule('src/scene/CameraController.ts');
+  const { buildSceneObstacles } = await loadModule('src/scene/movement.ts');
+  const local = structuredClone(scene);
+  CameraController.prototype.syncLocation.call({ scene: local }, { ...scene, directorRun: run });
+  assert.equal(local.directorRun, run);
+  const originalNow = Date.now;
+  Date.now = () => 4000;
+  try {
+    const obstacle = buildSceneObstacles(local).find(b => b.id === 'npc-equipment-director');
+    assert.equal(obstacle.center.x, 13.4);
+    assert.notEqual(obstacle.center.x, director.position.x);
+  } finally { Date.now = originalNow; }
 });

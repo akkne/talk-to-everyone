@@ -59,7 +59,8 @@ public sealed class LocationScene
             if (room[key]!.AsArray().Any(b => (string?)b!["id"] != "npc-equipment-director" && Hits(p,b!))) return true;
         if (Director.Run is { } run) {
             var pos = DirectorRoutine.Sample(run, JsonData.Now - run.StartedAt).Position;
-            if (Math.Abs(p.Y-pos.Y)<1.8 && Math.Pow(p.X-pos.X,2)+Math.Pow(p.Z-pos.Z,2)<.49) return true;
+            var dx = Math.Max(Math.Abs(p.X-pos.X)-.4, 0); var dz = Math.Max(Math.Abs(p.Z-pos.Z)-.4, 0);
+            if (p.Y < pos.Y+1.4-.01 && p.Y+1.8 > pos.Y && dx*dx+dz*dz < .09-1e-8) return true;
         } else if (room["obstacles"]!.AsArray().Any(b => (string?)b!["id"] == "npc-equipment-director" && Hits(p,b))) return true;
         if (Items("objects").Any(o => o!["collider"] is JsonNode b && Hits(p,b))) return true;
         if (Items("doors").Any(d => (!DoorMoving(d!) || (bool?)d!["collidableWhileMoving"] != false) && Hits(p, DoorBounds(d!)))) return true;

@@ -88,14 +88,14 @@ public sealed class DirectorRoutine
     }
     private static double Distance(Vec3 a, Vec3 b) => Math.Sqrt(Math.Pow(a.X-b.X,2) + Math.Pow(a.Z-b.Z,2));
     public static DirectorStep Sample(DirectorRun run, double elapsed) {
-        var from = run.Steps[0];
+        var previousStep = run.Steps[0];
         foreach (var to in run.Steps.Skip(1)) {
             if (elapsed < to.AtMs) {
-                var t = Math.Clamp((elapsed-from.AtMs)/(to.AtMs-from.AtMs),0,1);
-                return from with { Position = new(from.Position.X+(to.Position.X-from.Position.X)*t, from.Position.Y, from.Position.Z+(to.Position.Z-from.Position.Z)*t) };
+                var t = Math.Clamp((elapsed-previousStep.AtMs)/(to.AtMs-previousStep.AtMs),0,1);
+                return previousStep with { Position = new(previousStep.Position.X+(to.Position.X-previousStep.Position.X)*t, previousStep.Position.Y, previousStep.Position.Z+(to.Position.Z-previousStep.Position.Z)*t) };
             }
-            from = to;
+            previousStep = to;
         }
-        return from;
+        return previousStep;
     }
 }

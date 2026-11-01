@@ -125,7 +125,7 @@ export class CameraController {
     this.position = walk(this.position, dx, dz, this.scene, dynamicObstacles);
     this.apply();
   }
-  syncLocation(spec: SceneSpec) { this.scene.doors=spec.doors;this.scene.foods=spec.foods; }
+  syncLocation(spec: SceneSpec) { this.scene.doors=spec.doors;this.scene.foods=spec.foods;this.scene.directorRun=spec.directorRun; }
   private async interact(actionIndex: number) {
     if(this.pending || this.jumpElapsed !== null)return;
     const item = this.seat ? null : nearestInteraction(this.scene,this.position);
