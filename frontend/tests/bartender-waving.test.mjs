@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { loadModule } from './helpers/modules.mjs';
 
 const { Npc } = await loadModule('src/scene/Npc.ts');
@@ -192,4 +193,66 @@ test('BartenderWaveController: any jury member approach triggers wave, even if a
     actor.dispose();
   }
 });
+
+test('club map integration: bartender Mark is present in club scenes and waves on jury approach', () => {
+  // Test with backend loft_bar_scene.json (the server club map)
+  const loftSpec = JSON.parse(readFileSync('../backend/Maps/loft_bar_scene.json', 'utf8'));
+  const mark = loftSpec.functionalNPCs?.find(n => n.id === 'bartender-mark');
+  assert.ok(mark, 'Bartender Mark exists in loft_bar_scene.json functionalNPCs');
+  assert.equal(mark.type, 'functional-service-npc');
+  assert.ok(mark.position && typeof mark.position.x === 'number');
+
+  // Test with frontend public/scenes/club.json
+  const clubSpec = JSON.parse(readFileSync('public/scenes/club.json', 'utf8'));
+  const clubMark = clubSpec.functionalNPCs?.find(n => n.id === 'bartender-mark');
+  assert.ok(clubMark, 'Bartender Mark exists in public/scenes/club.json functionalNPCs');
+
+  const actor = createNpc(mark.id, mark.name);
+  try {
+    const controller = new BartenderWaveController(actor, mark.position, 4000);
+
+    // Initial state: local jury at spawn point (e.g. x = 0, z = 0, dist ~9.8m)
+    let now = 1000;
+    const localJury = { id: 'me', position: { x: 0, y: 0, z: 0 } };
+    controller.update(now, [localJury]);
+    actor.update(now);
+    assert.equal(controller.isWaving(now), false);
+
+    // Local jury walks to the bar counter (-7.5, 0, -1.0 -> dist = 2.3m <= 3.6m)
+    now = 2000;
+    localJury.position = { x: -7.5, y: 0, z: -1.0 };
+    controller.update(now, [localJury]);
+    actor.update(now);
+    assert.equal(controller.isWaving(now), true, 'Bartender begins waving when local player approaches bar');
+    assert.equal(actor.isWaving(now), true);
+
+    // Mid-animation at 3.5s in
+    now = 4500;
+    controller.update(now, [localJury]);
+    actor.update(now);
+    assert.equal(controller.isWaving(now), true);
+
+    // Animation ends at 4.0s (now = 6000)
+    now = 6001;
+    controller.update(now, [localJury]);
+    actor.update(now);
+    assert.equal(controller.isWaving(now), false, 'Bartender ceases waving after 4 seconds');
+
+    // Staying ordered drink at counter: bartender remains calm
+    now = 10000;
+    controller.update(now, [localJury]);
+    actor.update(now);
+    assert.equal(controller.isWaving(now), false);
+
+    // Another jury member ('judge-2') approaches to (-8.0, 0, -1.0)
+    const remoteJury = { id: 'judge-2', position: { x: -8.0, y: 0, z: -1.0 } };
+    now = 11000;
+    controller.update(now, [localJury, remoteJury]);
+    actor.update(now);
+    assert.equal(controller.isWaving(now), true, 'Bartender waves for the new jury member arriving at bar');
+  } finally {
+    actor.dispose();
+  }
+});
+
 

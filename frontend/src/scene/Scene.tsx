@@ -12,6 +12,7 @@ import { Npc } from './Npc';
 import { NpcLod } from './lod';
 import { npcLabel } from '../shared/npcLabel';
 import { LoftSoundtrack } from './LoftSoundtrack';
+import { BartenderWaveController, type JuryEntity } from './BartenderWaveController';
 
 /** <summary>One visible canvas; subscription callbacks bridge Zustand to the imperative three.js scene and 3D spatial voice audio.</summary> */
 export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }) {
@@ -55,6 +56,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const npcs = new Map<string, Npc>();
     const judges = new Map<string, Npc>();
     const loftCharacters: Npc[] = [];
+    let bartenderController: BartenderWaveController | null = null;
     for (const character of [...(spec.functionalNPCs ?? []), ...(spec.ambientNPCs ?? [])]) {
       const position = character.position ?? character.spawnPosition;
       if (!position) continue;
@@ -72,6 +74,9 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         actor.group.position.set(position.x, position.y, position.z);
         actor.group.rotation.y = character.yaw ?? 0;
         scene.add(actor.group); loftCharacters.push(actor);
+        if (character.id === 'bartender-mark' || character.type === 'functional-service-npc' || character.id.includes('bartender')) {
+          bartenderController = new BartenderWaveController(actor, position);
+        }
       }
     }
     const lod = new NpcLod(camera, npcs, client);
@@ -242,13 +247,22 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       tickDialogue(now);
       npcs.forEach(npc => npc.update(now));
       judges.forEach(judge => judge.update(now));
-      loftCharacters.forEach(character => character.update(now));
+      // loft characters updated below after jury positions are resolved
       const fan = scene.getObjectByName('loft-ceiling-fan');
       if (fan && state.scene?.fanOn) fan.rotation.y += .14;
       lod.update(now, state.connection === 'ready');
 
       const me = state.players.find(p => p.id === state.playerId);
       const others = state.players.filter(p => p.id !== state.playerId && p.connected);
+      if (bartenderController) {
+        const mePos = { x: camera.position.x, y: me?.pose.position.y ?? 0, z: camera.position.z };
+        const juryList: JuryEntity[] = [
+          { id: state.playerId ?? 'local-me', position: mePos },
+          ...others.map(p => ({ id: p.id, position: p.pose.position })),
+        ];
+        bartenderController.update(now, juryList);
+      }
+      loftCharacters.forEach(character => character.update(now));
       voiceChannel.updateSpatialPositions(
         {
           position: { x: camera.position.x, y: me?.pose.position.y ?? 0, z: camera.position.z },
