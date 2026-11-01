@@ -30,10 +30,34 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
   for (const part of spec.room.platforms) {
     addBox(part.center.x, part.center.y, part.center.z, part.size.x, part.size.y, part.size.z, platformMat);
     const top = part.center.y + part.size.y / 2;
-    addBox(part.center.x, top - 0.055, part.center.z + part.size.z / 2 + 0.015, part.size.x, 0.11, 0.04, edgeMat);
+    // Back edge trim runs along the back wall
     addBox(part.center.x, top - 0.055, part.center.z - part.size.z / 2 - 0.015, part.size.x, 0.11, 0.04, edgeMat);
+
+    // Front edge trim: do not place trim across ramp openings onto the platform
+    const frontZ = part.center.z + part.size.z / 2 + 0.015;
+    const intersectingRamps = spec.room.ramps.filter(r =>
+      Math.abs(r.to.z - (part.center.z + part.size.z / 2)) <= 0.8 || Math.abs(r.from.z - (part.center.z + part.size.z / 2)) <= 0.8
+    );
+    if (!intersectingRamps.length) {
+      addBox(part.center.x, top - 0.055, frontZ, part.size.x, 0.11, 0.04, edgeMat);
+    } else {
+      const minRampX = Math.min(...intersectingRamps.map(r => (r.to.x + r.from.x) / 2));
+      const maxRampX = Math.max(...intersectingRamps.map(r => (r.to.x + r.from.x) / 2));
+      const rampW = intersectingRamps[0]?.width ?? 1.3;
+      const leftBoundary = minRampX + rampW / 2;
+      const rightBoundary = maxRampX - rampW / 2;
+      if (rightBoundary > leftBoundary) {
+        const centerSpan = (leftBoundary + rightBoundary) / 2;
+        const widthSpan = rightBoundary - leftBoundary;
+        addBox(centerSpan, top - 0.055, frontZ, widthSpan, 0.11, 0.04, edgeMat);
+      }
+    }
   }
-  for (const part of spec.room.obstacles) addBox(part.center.x, part.center.y, part.center.z, part.size.x, part.size.y, part.size.z, material('#d4dfda'));
+  for (const part of spec.room.obstacles) {
+    // Avoid drawing raw gray boxes over chairs, NPCs or player models that have their own 3D meshes
+    if (part.id.startsWith('chair-') || part.id.startsWith('npc-') || part.id.startsWith('player-')) continue;
+    addBox(part.center.x, part.center.y, part.center.z, part.size.x, part.size.y, part.size.z, material('#d4dfda'));
+  }
   for (const ramp of spec.room.ramps) {
     const dx = ramp.to.x - ramp.from.x, dy = ramp.to.y - ramp.from.y, dz = ramp.to.z - ramp.from.z;
     const length = Math.hypot(dx, dz);

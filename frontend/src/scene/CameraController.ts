@@ -5,7 +5,7 @@ import { createId } from '../shared/id';
 import { C2S } from '../shared/contract';
 import { walk, WALK_SPEED } from './movement';
 import { jumpHeight, landingDip, JUMP_DURATION, LANDING_DURATION } from './jump';
-import type { SceneSpec, SeatSpec } from './world';
+import type { Box, SceneSpec, SeatSpec } from './world';
 
 /** Camera and keyboard controls. The server confirms every pose. */
 export class CameraController {
@@ -15,6 +15,7 @@ export class CameraController {
   private mode: Pose['mode'] = 'walking';
   private seat: SeatSpec | null = null;
   private occupied = new Set<string>();
+  private otherPlayers: { id: string; position: Vec3; mode: 'walking' | 'seated' }[] = [];
   private pending = false;
   private enabled = false;
   private keys = new Set<string>();
@@ -79,6 +80,9 @@ export class CameraController {
   differsFrom(pose: Pose) {
     return Math.hypot(this.position.x - pose.position.x, this.position.y - pose.position.y, this.position.z - pose.position.z) > 0.5 || this.mode !== pose.mode;
   }
+  setOtherPlayers(players: { id: string; position: Vec3; mode: 'walking' | 'seated' }[]) {
+    this.otherPlayers = players;
+  }
   update(now: number) {
     const dt = this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.05) : 0; this.lastFrame = now;
     this.onHint(!this.enabled ? '' : this.seat ? 'E — встать' : `WASD — ходьба · Space — прыжок · Мышь — обзор${this.nearestSeat() ? ' · E — сесть' : ''}`);
@@ -102,7 +106,12 @@ export class CameraController {
     this.walkRight.setFromMatrixColumn(this.camera.matrixWorld, 0).setY(0).normalize();
     const dx = (forward * this.walkForward.x + side * this.walkRight.x) * scale;
     const dz = (forward * this.walkForward.z + side * this.walkRight.z) * scale;
-    this.position = walk(this.position, dx, dz, this.scene);
+    const dynamicObstacles: Box[] = this.otherPlayers.map(p => ({
+      id: `player-${p.id}`,
+      center: { x: p.position.x, y: p.position.y + (p.mode === 'seated' ? 0.6 : 0.9), z: p.position.z },
+      size: p.mode === 'seated' ? { x: 0.65, y: 1.2, z: 0.65 } : { x: 0.6, y: 1.8, z: 0.6 },
+    }));
+    this.position = walk(this.position, dx, dz, this.scene, dynamicObstacles);
     this.apply();
   }
   private nearestSeat() {

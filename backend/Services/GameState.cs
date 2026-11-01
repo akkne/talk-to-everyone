@@ -15,7 +15,15 @@ public static class GameLogic
             platforms = new[] { new { id = "upper", center = new Vec3(0, 1.35, -4.5), size = new Vec3(14, 0.3, 2.5) } },
             ramps = new[] { new { id = "left-ramp", from = new Vec3(-6.5, 0, 0), to = new Vec3(-6.5, 1.5, -4), width = 1.3 },
                 new { id = "right-ramp", from = new Vec3(6.5, 0, 0), to = new Vec3(6.5, 1.5, -4), width = 1.3 } },
-            obstacles = Array.Empty<object>(), walls = new[] {
+            obstacles = Enumerable.Range(1, 8).Select(n => (object)new {
+                id = $"chair-seat-{n}",
+                center = new Vec3((n - 4.5) * 1.6, 0.5, 3.5),
+                size = new Vec3(0.75, 1.0, 0.72)
+            }).Concat(Enumerable.Range(1, 10).Select(n => (object)new {
+                id = $"npc-anchor-{n}",
+                center = new Vec3((n <= 5 ? n - 3 : n - 8) * 2.1 + (n <= 5 ? 0 : 0.45), (n <= 5 ? 0 : 1.5) + 0.9, n <= 5 ? -2.5 : -5),
+                size = new Vec3(0.7, 1.8, 0.7)
+            })).ToArray(), walls = new[] {
                 new { id = "back", center = new Vec3(0, 3, -7), size = new Vec3(18, 6, 0.3) },
                 new { id = "front", center = new Vec3(0, 3, 7), size = new Vec3(18, 6, 0.3) },
                 new { id = "left", center = new Vec3(-9, 3, 0), size = new Vec3(0.3, 6, 14) },
