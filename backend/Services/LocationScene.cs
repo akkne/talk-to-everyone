@@ -27,15 +27,29 @@ public sealed class LocationScene
     public static bool DoorMoving(JsonNode door) => door["transition"] is JsonNode motion && JsonData.Now < (long)motion["startedAt"]! + ((double?)door["animationDurationMs"] ?? 900);
     public static JsonObject DoorBounds(JsonNode door, bool swept = false)
     {
-        var center = Point(door["center"]!); var size = Point(door["size"]!); var slide = Point(door["slide"]!);
-        // Keep the travel corridor clear until the moving panel has finished.
-        bool reserve = swept || DoorMoving(door);
-        var progress = reserve ? .5 : ((bool)door["open"]! ? 1d : 0d);
+        var center=Point(door["center"]!);var size=Point(door["size"]!);var slide=Point(door["slide"]!);
+        bool reserve=swept||DoorMoving(door);int samples=reserve?180:0;
+        double minX=double.PositiveInfinity,minY=minX,minZ=minX,maxX=double.NegativeInfinity,maxY=maxX,maxZ=maxX;
+        for(int i=0;i<=samples;i++)
+        {
+            var progress=samples>0?(double)i/samples:((bool)door["open"]!?1d:0d);
+            double x=center.X+slide.X*progress,y=center.Y+slide.Y*progress,z=center.Z+slide.Z*progress,angle=0;
+            if(door["hinge"] is JsonNode hinge && door["openAngleDegrees"] != null)
+            {
+                var pivot=Point(hinge);angle=N(door,"openAngleDegrees")*Math.PI/180*progress;
+                var dx=center.X-pivot.X;var dz=center.Z-pivot.Z;
+                x=pivot.X+dx*Math.Cos(angle)+dz*Math.Sin(angle);y=center.Y;z=pivot.Z-dx*Math.Sin(angle)+dz*Math.Cos(angle);
+            }
+            var w=Math.Abs(Math.Cos(angle))*size.X+Math.Abs(Math.Sin(angle))*size.Z;
+            var d=Math.Abs(Math.Sin(angle))*size.X+Math.Abs(Math.Cos(angle))*size.Z;
+            minX=Math.Min(minX,x-w/2);maxX=Math.Max(maxX,x+w/2);minY=Math.Min(minY,y-size.Y/2);maxY=Math.Max(maxY,y+size.Y/2);minZ=Math.Min(minZ,z-d/2);maxZ=Math.Max(maxZ,z+d/2);
+        }
         return new JsonObject {
-            ["center"] = new JsonObject { ["x"] = center.X + slide.X * progress, ["y"] = center.Y + slide.Y * progress, ["z"] = center.Z + slide.Z * progress },
-            ["size"] = new JsonObject { ["x"] = size.X + (reserve ? Math.Abs(slide.X) : 0), ["y"] = size.Y + (reserve ? Math.Abs(slide.Y) : 0), ["z"] = size.Z + (reserve ? Math.Abs(slide.Z) : 0) }
+            ["center"]=new JsonObject{["x"]=(minX+maxX)/2,["y"]=(minY+maxY)/2,["z"]=(minZ+maxZ)/2},
+            ["size"]=new JsonObject{["x"]=maxX-minX,["y"]=maxY-minY,["z"]=maxZ-minZ}
         };
     }
+
     public bool SolidAt(Vec3 p)
     {
         var room = Data["room"]!;

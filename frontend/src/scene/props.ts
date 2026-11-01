@@ -1,4 +1,4 @@
-import { doorProgress } from './doors';
+import { doorProgress, doorPose } from './doors';
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { PropSpec, SceneSpec } from './world';
@@ -96,6 +96,8 @@ export function animateLocationDoors(scene:T.Scene,spec:SceneSpec){
  for(const door of spec.doors??[]){
   const mesh=scene.getObjectByName(door.id);if(!mesh)continue;
   const progress=doorProgress(door,now);
-  mesh.position.set(door.center.x+door.slide.x*progress,door.center.y+door.slide.y*progress,door.center.z+door.slide.z*progress);
+  const pose=doorPose(door,progress);
+  mesh.position.set(pose.x,pose.y,pose.z);
+  mesh.rotation.y=pose.angle;
  }
 }

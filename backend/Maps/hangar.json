@@ -1,5 +1,5 @@
 {
-  "version": "5",
+  "version": "6",
   "name": "Ангар / Studio 01",
   "theme": "studio",
   "room": {
@@ -2615,9 +2615,15 @@
       "slide": {
         "x": 0,
         "y": 0,
-        "z": 2.6
+        "z": 0
       },
-      "animationDurationMs": 900
+      "animationDurationMs": 900,
+      "hinge": {
+        "x": 11,
+        "y": 1.55,
+        "z": 8.4
+      },
+      "openAngleDegrees": -160
     }
   ],
   "foods": [
