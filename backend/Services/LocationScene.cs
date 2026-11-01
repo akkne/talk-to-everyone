@@ -57,7 +57,7 @@ public sealed class LocationScene
         foreach (var key in new[]{"walls","obstacles"})
             if (room[key]!.AsArray().Any(b => Hits(p,b!))) return true;
         if (Items("objects").Any(o => o!["collider"] is JsonNode b && Hits(p,b))) return true;
-        if (Items("doors").Any(d => Hits(p, DoorBounds(d!)))) return true;
+        if (Items("doors").Any(d => (!DoorMoving(d!) || (bool?)d!["collidableWhileMoving"] != false) && Hits(p, DoorBounds(d!)))) return true;
         return false;
     }
     public bool ValidHeight(Vec3 p)

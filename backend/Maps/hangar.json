@@ -1,5 +1,5 @@
 {
-  "version": "6",
+  "version": "7",
   "name": "Ангар / Studio 01",
   "theme": "studio",
   "room": {
@@ -2623,7 +2623,8 @@
         "y": 1.55,
         "z": 8.4
       },
-      "openAngleDegrees": -160
+      "openAngleDegrees": -160,
+      "collidableWhileMoving": false
     }
   ],
   "foods": [

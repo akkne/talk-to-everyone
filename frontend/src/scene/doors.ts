@@ -18,6 +18,10 @@ export function doorPose(door: DoorSpec, progress: number) {
     z: door.center.z + door.slide.z * progress, angle: 0 };
 }
 
+export function doorMoving(door: DoorSpec, now = Date.now()): boolean {
+  return !!door.transition && now < door.transition.startedAt + (door.animationDurationMs ?? 900);
+}
+
 export function doorBounds(door: DoorSpec, now = Date.now()): Box {
   const moving = door.transition && now < door.transition.startedAt + (door.animationDurationMs ?? 900);
   let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;

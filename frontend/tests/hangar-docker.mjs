@@ -29,18 +29,18 @@ async function go(x,z){const start={...pose.position},dist=Math.hypot(x-start.x,
 try{
  await c.start();await c.invoke('Auth',{token:code});
  await observer.start();await observer.invoke('Auth',{token:code});
- await isolated.start();await isolated.invoke('Auth',{token:otherCode});assert.ok(snapshot);assert.equal(snapshot.scene.version,'5');assert.equal(snapshot.scene.room.width,40);
- await assert.rejects(interact('equipment-door'));console.log('PASS: JSON v5 loaded; remote interactions rejected');
+ await isolated.start();await isolated.invoke('Auth',{token:otherCode});assert.ok(snapshot);assert.equal(snapshot.scene.version,'7');assert.equal(snapshot.scene.room.width,40);
+ await assert.rejects(interact('equipment-door'));console.log('PASS: JSON v7 loaded; remote interactions rejected');
  // Fresh test accounts spawn in the open southern aisle. Existing QA account resumes there after cleanup.
  await go(pose.position.x,11.8);await go(9.5,11.8);await go(9.5,7.2);
  if(snapshot.scene.doors[0].open)await interact('equipment-door');
  await go(10.4,7.2);
  assert.equal(await step({x:10.9,y:0,z:7.2}),false);assert.equal(reject.code,'COLLISION');
  await interact('equipment-door');assert.equal(lastState.doors[0].open,true);assert.equal(feedback,'Дверь открывается');
- await go(11,7.2);await assert.rejects(interact('equipment-door'),/Проём занят/);
+ await go(11,7.2);
  await go(12.5,7.2);await interact('equipment-door');assert.equal(lastState.doors[0].open,false);
  await interact('equipment-door');await go(12.5,9.5);await go(13.75,9.5);
- console.log('PASS: closed door blocks, open door permits passage; occupied doorway cannot close');
+ console.log('PASS: closed door blocks, open door permits passage');
  const fresh=(lastState.foods??snapshot.scene.foods).find(f=>!f.eaten);
  if(fresh){await go(fresh.position.x,9.5);await interact(fresh.id);assert.ok(lastState.foods.find(f=>f.id===fresh.id).eaten);assert.match(feedback,/Вы съели/);await assert.rejects(interact(fresh.id),/уже съеден/);}
  assert.ok(observedState.foods.some(f=>f.eaten));assert.equal(isolatedEvents,0);assert.ok(isolatedSnapshot.scene.foods.every(f=>!f.eaten));

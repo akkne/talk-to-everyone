@@ -62,7 +62,7 @@ public sealed partial class GameHub
                 if(LocationScene.DoorMoving(door))throw new HubException("Дождитесь остановки двери.");
                 bool open=(bool)door["open"]!;
                 var travel=LocationScene.DoorBounds(door,true);
-                if((await db.Players.Where(p=>p.Connected && p.SessionId==me.SessionId).ToListAsync()).Any(p=>LocationScene.Hits(JsonData.Read<PoseData>(p.PoseJson).Position,travel)))throw new HubException("Проём занят. Отойдите от двери.");
+                if((bool?)door["collidableWhileMoving"] != false && (await db.Players.Where(p=>p.Connected && p.SessionId==me.SessionId).ToListAsync()).Any(p=>LocationScene.Hits(JsonData.Read<PoseData>(p.PoseJson).Position,travel)))throw new HubException("Проём занят. Отойдите от двери.");
                 door["transition"]=new System.Text.Json.Nodes.JsonObject { ["startedAt"]=JsonData.Now, ["from"]=open?1:0, ["to"]=open?0:1 };
                 door["open"]=!open;message=open?"Дверь закрывается":"Дверь открывается";
             }
