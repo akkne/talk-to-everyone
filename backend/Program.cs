@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Prometheus;
-using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")) &&
@@ -23,27 +22,7 @@ var connection = builder.Configuration["DATABASE_URL"]
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Host=localhost;Port=5432;Database=talk_to_everyone;Username=postgres;Password=postgres";
 
-var redisConn = builder.Configuration["REDIS_URL"]
-    ?? builder.Configuration.GetConnectionString("Redis")
-    ?? "localhost:6379";
-
 builder.Services.AddDbContext<GameDb>(options => options.UseNpgsql(connection));
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-{
-    try
-    {
-        var options = ConfigurationOptions.Parse(redisConn);
-        options.AbortOnConnectFail = false;
-        options.ConnectTimeout = 2000;
-        return ConnectionMultiplexer.Connect(options);
-    }
-    catch
-    {
-        return null!;
-    }
-});
-builder.Services.AddSingleton<IGameRedisStore, RedisGameStore>();
-
 builder.Services.AddSignalR().AddJsonProtocol(options =>
     options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 builder.Services.AddSingleton<GameGate>();
@@ -55,6 +34,7 @@ builder.Services.AddSessionControls();
 builder.Services.AddSingleton<RoundDirector>();
 builder.Services.AddHttpClient<LlmClient>();
 builder.Services.AddHostedService<RoundClock>();
+builder.Services.AddHostedService<DirectorClock>();
 builder.Services.AddHostedService<LobbyCleanup>();
 builder.Services.AddHostedService<GameMetricsSnapshotService>();
 
@@ -225,7 +205,7 @@ app.MapGet("/api/auth/me", async (ClaimsPrincipal principal, GameDb db, Cancella
     return Results.Ok(new { id = user.Id, login = user.Login, name = user.Name, avatar = JsonData.Read<AvatarData>(user.AvatarJson) });
 }).RequireAuthorization();
 
-app.MapPost("/api/user/avatar", async (AvatarData avatar, ClaimsPrincipal principal, GameDb db, IGameRedisStore redisStore, IHubContext<GameHub> hub, GameGate gate, CancellationToken ct) =>
+app.MapPost("/api/user/avatar", async (AvatarData avatar, ClaimsPrincipal principal, GameDb db, IHubContext<GameHub> hub, GameGate gate, CancellationToken ct) =>
 {
     var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? principal.FindFirst("sub")?.Value;
     if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
@@ -251,8 +231,7 @@ app.MapPost("/api/user/avatar", async (AvatarData avatar, ClaimsPrincipal princi
         foreach (var session in sessionIds)
         {
             var playersInSession = await db.Players.AsNoTracking().Where(p => p.SessionId == session).ToListAsync(ct);
-            var poses = await redisStore.GetPlayerPosesAsync(session);
-            await hub.Clients.Group(session).SendAsync("PlayersTick", new { players = playersInSession.Select(p => GameLogic.PlayerView(p, poses.GetValueOrDefault(p.Id))).ToArray(), serverTime = JsonData.Now }, ct);
+            await hub.Clients.Group(session).SendAsync("PlayersTick", new { players = playersInSession.Select(GameLogic.PlayerView).ToArray(), serverTime = JsonData.Now }, ct);
             var s = await db.Sessions.SingleOrDefaultAsync(x => x.Id == session, ct);
             if (s != null)
             {

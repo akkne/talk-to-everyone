@@ -21,7 +21,7 @@ public static class LobbyDirectory
 
     public static void Joined(string sessionId) => pending.TryRemove(sessionId, out _);
 
-    public static async Task RemoveAbandoned(GameDb db, IGameRedisStore? redisStore = null)
+    public static async Task RemoveAbandoned(GameDb db)
     {
         foreach (var (sessionId, createdAt) in pending.ToArray())
         {
@@ -31,26 +31,24 @@ public static class LobbyDirectory
                 Joined(sessionId);
                 continue;
             }
-            await Delete(db, redisStore, sessionId);
+            await Delete(db, sessionId);
         }
     }
 
-    public static async Task Delete(GameDb db, IGameRedisStore? redisStore, string sessionId)
+    public static async Task Delete(GameDb db, string sessionId)
     {
         pending.TryRemove(sessionId, out _);
         LocationScene.Drop(sessionId);
-        if (redisStore != null)
-        {
-            await redisStore.ClearSessionGameStateAsync(sessionId);
-        }
+        await db.Messages.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
+        await db.ConversationEvents.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
+        await db.Choices.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
+        await db.Npcs.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
         await db.Players.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
         await db.Sessions.Where(x => x.Id == sessionId).ExecuteDeleteAsync();
     }
-
-    public static Task Delete(GameDb db, string sessionId) => Delete(db, null, sessionId);
 }
 
-public sealed class LobbyCleanup(IServiceScopeFactory scopes, GameGate gate, IGameRedisStore redisStore) : BackgroundService
+public sealed class LobbyCleanup(IServiceScopeFactory scopes, GameGate gate) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -61,7 +59,7 @@ public sealed class LobbyCleanup(IServiceScopeFactory scopes, GameGate gate, IGa
             try
             {
                 using var scope = scopes.CreateScope();
-                await LobbyDirectory.RemoveAbandoned(scope.ServiceProvider.GetRequiredService<GameDb>(), redisStore);
+                await LobbyDirectory.RemoveAbandoned(scope.ServiceProvider.GetRequiredService<GameDb>());
             }
             finally { gate.Lock.Release(); }
         }

@@ -15,10 +15,10 @@ public sealed partial class GameHub
             var me = await Authorized();
             if (me == null) return;
             if (request == null || !ValidRequestId(request.RequestId)) throw new HubException("Некорректный запрос.");
-            if (await redisStore.HasSeenCommandAsync(me.SessionId, me.Id, "Interact", request.RequestId)) return;
+            if (Seen(me, "Interact", request.RequestId)) return;
 
             var location = await Location(me);
-            var pose = await redisStore.GetPlayerPoseAsync(me.SessionId, me.Id) ?? JsonData.Read<PoseData>(me.PoseJson);
+            var pose = JsonData.Read<PoseData>(me.PoseJson);
             if (pose.Mode != "walking") throw new HubException("Сначала встаньте.");
 
             var interaction = location.Items("interactiveObjects").FirstOrDefault(item => (string?)item!["id"] == request.Id);
@@ -48,9 +48,8 @@ public sealed partial class GameHub
                     else
                     {
                         var open = (bool)entrance["open"]!;
-                        var activePlayers = await db.Players.Where(p => p.Connected && p.SessionId == me.SessionId).ToListAsync();
-                        var poses = await redisStore.GetPlayerPosesAsync(me.SessionId);
-                        if (open && activePlayers.Any(p => LocationScene.Hits((poses.TryGetValue(p.Id, out var playerPose) ? playerPose : JsonData.Read<PoseData>(p.PoseJson)).Position, entrance)))
+                        if (open && (await db.Players.Where(p => p.Connected && p.SessionId == me.SessionId).ToListAsync())
+                            .Any(p => LocationScene.Hits(JsonData.Read<PoseData>(p.PoseJson).Position, entrance)))
                             throw new HubException("Проём занят. Отойдите от двери.");
                         entrance["open"] = !open;
                         message = open ? "Дверь закрыта." : "Дверь открыта.";
@@ -63,9 +62,7 @@ public sealed partial class GameHub
                 if(LocationScene.DoorMoving(door))throw new HubException("Дождитесь остановки двери.");
                 bool open=(bool)door["open"]!;
                 var travel=LocationScene.DoorBounds(door,true);
-                var activePlayers = await db.Players.Where(p=>p.Connected && p.SessionId==me.SessionId).ToListAsync();
-                var poses = await redisStore.GetPlayerPosesAsync(me.SessionId);
-                if((bool?)door["collidableWhileMoving"] != false && activePlayers.Any(p=>LocationScene.Hits((poses.TryGetValue(p.Id, out var playerPose) ? playerPose : JsonData.Read<PoseData>(p.PoseJson)).Position,travel)))throw new HubException("Проём занят. Отойдите от двери.");
+                if((bool?)door["collidableWhileMoving"] != false && (await db.Players.Where(p=>p.Connected && p.SessionId==me.SessionId).ToListAsync()).Any(p=>LocationScene.Hits(JsonData.Read<PoseData>(p.PoseJson).Position,travel)))throw new HubException("Проём занят. Отойдите от двери.");
                 door["transition"]=new System.Text.Json.Nodes.JsonObject { ["startedAt"]=JsonData.Now, ["from"]=open?1:0, ["to"]=open?0:1 };
                 door["open"]=!open;message=open?"Дверь закрывается":"Дверь открывается";
             }
@@ -79,7 +76,7 @@ public sealed partial class GameHub
                     : $"Вы взяли: {(string?)food["label"]}";
             }
 
-            await redisStore.RememberCommandAsync(me.SessionId, me.Id, "Interact", request.RequestId);
+            Remember(me, "Interact", request.RequestId);
             await db.SaveChangesAsync();
             await Clients.Group(me.SessionId).SendAsync("LocationState", new
             {

@@ -16,19 +16,6 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./backend
@@ -37,8 +24,6 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       ollama-pull:
         condition: service_completed_successfully
@@ -50,7 +35,6 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://0.0.0.0:5000
       DATABASE_URL: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-talk_to_everyone};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
-      REDIS_URL: ${REDIS_URL:-redis:6379}
       GAME_ROUND_SECONDS: ${GAME_ROUND_SECONDS:-120}
       GAME_CHOICE_SECONDS: ${GAME_CHOICE_SECONDS:-45}
       CADDY_DOMAIN: ${CADDY_DOMAIN:-}
@@ -174,7 +158,6 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   caddy_data:
   caddy_config:
   ollama_data:

@@ -38,22 +38,19 @@ public static class Voting
         foreach (var player in await db.Players.Where(p => p.SessionId == session.Id && p.Connected && p.ConnectionId != null).ToListAsync())
             await clients.Client(player.ConnectionId!).SendAsync("VotingState", View(session, player.Id));
     }
-    public static async Task Start(GameDb db, IGameRedisStore redisStore, IHubClients<IClientProxy> clients, GameSession session, GameSettings settings)
+    public static async Task Start(GameDb db, IHubClients<IClientProxy> clients, GameSession session, GameSettings settings)
     {
         var data = JsonData.Read<VotingData>(session.VotingJson);
         data.Stage = 1; data.Ballots.Clear();
         data.Electorate = await db.Players.Where(p => p.SessionId == session.Id && p.Connected).Select(p => p.Id).ToListAsync();
-        var npcs = await redisStore.GetNpcsAsync(session.Id);
-        data.Candidates = AllPairs(npcs.Where(n => !data.Eliminated.Contains(n.Id)));
+        data.Candidates = AllPairs(await db.Npcs.Where(n => n.SessionId == session.Id && !data.Eliminated.Contains(n.Id)).ToListAsync());
         session.RoundPhase = "choice"; session.EndsAt = JsonData.Now + settings.ChoiceSeconds * 1000L;
         session.VotingJson = JsonData.Write(data); await db.SaveChangesAsync();
         await clients.Group(session.Id).SendAsync("RoundStarted", GameLogic.RoundView(session));
         await Broadcast(db, clients, session);
     }
-    public static Task Start(GameDb db, IHubClients<IClientProxy> clients, GameSession session, GameSettings settings)
-        => Start(db, new RedisGameStore(), clients, session, settings);
-
-    public static async Task<bool> Advance(GameDb db, IGameRedisStore redisStore, IHubClients<IClientProxy> clients, GameSession session, GameSettings settings)
+    // Called under GameGate by the clock or immediately after the last ballot.
+    public static async Task<bool> Advance(GameDb db, IHubClients<IClientProxy> clients, GameSession session, GameSettings settings)
     {
         var data = JsonData.Read<VotingData>(session.VotingJson);
         if (session.RoundPhase != "choice" || data.Stage == 0) return false;
@@ -65,54 +62,47 @@ public static class Voting
         if (data.Stage == 1 && nominations.Count > 1)
         {
             data.Stage = 2; data.Candidates = nominations; data.Ballots.Clear();
+            // Disconnected jurors may rejoin; their absence cannot block the timer.
             session.EndsAt = JsonData.Now + settings.ChoiceSeconds * 1000L;
             session.VotingJson = JsonData.Write(data); await db.SaveChangesAsync();
             await Broadcast(db, clients, session); return false;
         }
         var pair = PickWinner(data);
-        var npcs = await redisStore.GetNpcsAsync(session.Id);
-        var winnerNpcs = npcs.Where(n => pair.Contains(n.Id)).ToList();
-        data.TeamScore += Points(winnerNpcs.Single(n => n.Id == pair[0]), winnerNpcs.Single(n => n.Id == pair[1]), session.Round);
+        var npcs = await db.Npcs.Where(n => n.SessionId == session.Id && pair.Contains(n.Id)).ToListAsync();
+        data.TeamScore += Points(npcs.Single(n => n.Id == pair[0]), npcs.Single(n => n.Id == pair[1]), session.Round);
         data.Eliminated.AddRange(pair); data.Stage = 0; data.Ballots.Clear(); data.Candidates.Clear(); data.Electorate.Clear();
         session.VotingJson = JsonData.Write(data);
         session.RoundPhase = "resolved"; session.EndsAt = JsonData.Now;
-        var players = await db.Players.Where(p => p.SessionId == session.Id).ToListAsync();
-        foreach (var player in players)
+        foreach (var player in await db.Players.Where(p => p.SessionId == session.Id).ToListAsync())
         {
             player.Score = data.TeamScore;
-            var board = await redisStore.GetPlayerBoardAsync(session.Id, player.Id) ?? JsonData.Read<BoardData>(player.BoardJson);
+            var board = JsonData.Read<BoardData>(player.BoardJson);
             PruneBoard(board, data.Eliminated);
-            await redisStore.SetPlayerBoardAsync(session.Id, player.Id, board);
             player.BoardJson = JsonData.Write(board);
-
-            var questions = await redisStore.GetPlayerQuestionsAsync(session.Id, player.Id) ?? JsonData.Read<QuestionData>(player.QuestionsJson);
+            var questions = JsonData.Read<QuestionData>(player.QuestionsJson);
             questions.AskedTo.RemoveAll(data.Eliminated.Contains);
-            await redisStore.SetPlayerQuestionsAsync(session.Id, player.Id, questions);
             player.QuestionsJson = JsonData.Write(questions);
         }
-        await redisStore.RemoveMessagesByNpcIdsAsync(session.Id, data.Eliminated);
-        await redisStore.RemoveChoicesByNpcIdsAsync(session.Id, data.Eliminated);
+        db.Messages.RemoveRange(await db.Messages.Where(m => m.SessionId == session.Id && data.Eliminated.Contains(m.NpcId)).ToListAsync());
+        // Retire legacy individual choices too; only the team result is retained.
+        db.Choices.RemoveRange(await db.Choices.Where(c => c.SessionId == session.Id && (data.Eliminated.Contains(c.A!) || data.Eliminated.Contains(c.B!))).ToListAsync());
         await db.SaveChangesAsync();
         await clients.Group(session.Id).SendAsync("NpcsRemoved", new { ids = pair, teamScore = data.TeamScore });
-        await clients.Group(session.Id).SendAsync("ScoreUpdate", new { players = GameLogic.Scoreboard(players) });
-        foreach (var player in players.Where(p => p.Connected && p.ConnectionId != null))
+        await clients.Group(session.Id).SendAsync("ScoreUpdate", new { players = GameLogic.Scoreboard(await db.Players.Where(p => p.SessionId == session.Id).ToListAsync()) });
+        foreach (var player in await db.Players.Where(p => p.SessionId == session.Id && p.Connected && p.ConnectionId != null).ToListAsync())
         {
-            var b = await redisStore.GetPlayerBoardAsync(session.Id, player.Id) ?? JsonData.Read<BoardData>(player.BoardJson);
-            var q = await redisStore.GetPlayerQuestionsAsync(session.Id, player.Id) ?? JsonData.Read<QuestionData>(player.QuestionsJson);
-            await clients.Client(player.ConnectionId!).SendAsync("BoardSnapshot", new { board = b, requestId = "" });
-            await clients.Client(player.ConnectionId!).SendAsync("QuestionState", new { questions = q });
+            await clients.Client(player.ConnectionId!).SendAsync("BoardSnapshot", new { board = JsonData.Read<BoardData>(player.BoardJson), requestId = "" });
+            await clients.Client(player.ConnectionId!).SendAsync("QuestionState", new { questions = JsonData.Read<QuestionData>(player.QuestionsJson) });
         }
         await Broadcast(db, clients, session);
         return true;
     }
-    public static Task<bool> Advance(GameDb db, IHubClients<IClientProxy> clients, GameSession session, GameSettings settings)
-        => Advance(db, new RedisGameStore(), clients, session, settings);
 
-    private static void PruneBoard(BoardData b, List<string> eliminated)
+    public static void PruneBoard(BoardData board, List<string> removed)
     {
-        b.Pairs.RemoveAll(pair => pair.Any(eliminated.Contains));
-        b.Liars.RemoveAll(eliminated.Contains);
-        foreach (var key in b.Locks.Keys.Where(k => k.Split(':').Any(eliminated.Contains)).ToList()) b.Locks.Remove(key);
-        foreach (var npc in eliminated) b.Notes.Remove(npc);
+        board.Pairs.RemoveAll(p => p.Any(removed.Contains)); board.Liars.RemoveAll(removed.Contains);
+        foreach (var key in board.Notes.Keys.Where(removed.Contains).ToArray()) board.Notes.Remove(key);
+        foreach (var key in board.Locks.Keys.Where(k => k.Split(':').Any(removed.Contains)).ToArray()) board.Locks.Remove(key);
+        foreach (var key in board.Submitted.Where(p => p.Value?.Any(removed.Contains) == true).Select(p => p.Key).ToArray()) board.Submitted.Remove(key);
     }
 }

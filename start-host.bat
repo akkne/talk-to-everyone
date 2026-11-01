@@ -40,8 +40,8 @@ set HAS_DOCKER=%errorlevel%
 
 if %HAS_DOTNET% equ 0 if %HAS_NPM% equ 0 (
     if %HAS_DOCKER% equ 0 (
-        echo [0/2] Проверка/запуск баз данных PostgreSQL и Redis в Docker...
-        docker compose up -d postgres redis
+        echo [0/2] Проверка/запуск базы PostgreSQL в Docker...
+        docker compose up -d postgres
     )
     echo [1/2] Запуск игрового сервера Backend ^(порт 5000^)...
     set ASPNETCORE_URLS=http://0.0.0.0:5000
@@ -52,7 +52,7 @@ if %HAS_DOTNET% equ 0 if %HAS_NPM% equ 0 (
     start "TalkToEveryone Frontend" cmd /k "cd /d "%~dp0frontend" && npm install && npm run dev -- --host 0.0.0.0"
 ) else (
     if %HAS_DOCKER% equ 0 (
-        echo Запуск всех сервисов ^(PostgreSQL + Redis + Backend + Frontend^) через Docker Compose...
+        echo Запуск всех сервисов ^(PostgreSQL + Backend + Frontend^) через Docker Compose...
         docker compose up --build
     ) else (
         echo [ОШИБКА] На этом компьютере не найдены ни Docker, ни .NET SDK / Node.js.

@@ -151,8 +151,6 @@ public sealed class EscapeMenuAndPauseTests
         var services = new ServiceCollection();
         var databaseName = Guid.NewGuid().ToString();
         services.AddDbContext<GameDb>(o => o.UseInMemoryDatabase(databaseName));
-        var redisStore = new RedisGameStore();
-        services.AddSingleton<IGameRedisStore>(redisStore);
         using var provider = services.BuildServiceProvider();
         GameSession session;
         using (var scope = provider.CreateScope())
@@ -168,7 +166,7 @@ public sealed class EscapeMenuAndPauseTests
             db.Sessions.Add(session);
             var speaker = LlmEmotionTests.Speaker; var partner = LlmEmotionTests.Partner;
             speaker.SessionId = session.Id; partner.SessionId = session.Id;
-            await redisStore.SaveNpcsAsync(session.Id, [speaker, partner]);
+            db.Npcs.AddRange(speaker, partner);
             await db.SaveChangesAsync();
         }
 
@@ -185,8 +183,7 @@ public sealed class EscapeMenuAndPauseTests
             new GameSettings(),
             LlmEmotionTests.Client(transport),
             NullLogger<RoundDirector>.Instance,
-            pauseRegistry,
-            redisStore);
+            pauseRegistry);
 
         try
         {
@@ -216,8 +213,6 @@ public sealed class EscapeMenuAndPauseTests
         var services = new ServiceCollection();
         var databaseName = Guid.NewGuid().ToString();
         services.AddDbContext<GameDb>(o => o.UseInMemoryDatabase(databaseName));
-        var redisStore = new RedisGameStore();
-        services.AddSingleton<IGameRedisStore>(redisStore);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GameDb>();
@@ -257,7 +252,7 @@ public sealed class EscapeMenuAndPauseTests
         db.Players.AddRange(host, judge);
         var speaker = LlmEmotionTests.Speaker; var partner = LlmEmotionTests.Partner;
             speaker.SessionId = session.Id; partner.SessionId = session.Id;
-            await redisStore.SaveNpcsAsync(session.Id, [speaker, partner]);
+            db.Npcs.AddRange(speaker, partner);
         await db.SaveChangesAsync();
 
         var telemetry = new ParticipantTelemetryRegistry(new PlayerActivityCatalog());
@@ -274,12 +269,10 @@ public sealed class EscapeMenuAndPauseTests
             settings,
             LlmEmotionTests.Client(new ModelTransport("neutral")),
             NullLogger<RoundDirector>.Instance,
-            pauseRegistry,
-            redisStore);
+            pauseRegistry);
 
         var hub = new GameHub(
             db,
-            redisStore,
             gate,
             settings,
             new MapCatalog(Path.Combine(AppContext.BaseDirectory, "Maps")),

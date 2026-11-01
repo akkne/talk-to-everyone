@@ -48,6 +48,89 @@ namespace Backend.Migrations
                     b.ToTable("AvatarAssets");
                 });
 
+            modelBuilder.Entity("Backend.GameMessage", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<long>("At")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Emotion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("InReplyTo")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsQuestion")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NpcId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlayerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "At");
+
+                    b.ToTable("Messages");
+                });
+
+            modelBuilder.Entity("Backend.GameNpc", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Lore")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Persona")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("RelatedNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("Npcs");
+                });
+
             modelBuilder.Entity("Backend.GamePlayer", b =>
                 {
                     b.Property<string>("Id")
@@ -161,6 +244,91 @@ namespace Backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Sessions");
+                });
+
+            modelBuilder.Entity("Backend.NpcConversationEvent", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("GameId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsQuestion")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlayerId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SpeakerNpcId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TargetNpcId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("GameId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("ConversationEvents");
+                });
+
+            modelBuilder.Entity("Backend.PairChoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("A")
+                        .HasColumnType("text");
+
+                    b.Property<string>("B")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlayerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "PlayerId", "Round")
+                        .IsUnique();
+
+                    b.ToTable("Choices");
                 });
 
             modelBuilder.Entity("Backend.UserAccount", b =>
