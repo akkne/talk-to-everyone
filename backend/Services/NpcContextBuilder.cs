@@ -13,7 +13,9 @@ public sealed class NpcContextBuilder
     {
         if (events.Count == 0) return "Публичных реплик пока нет.";
         var relatedId = roster.FirstOrDefault(n => n.Number == speaker.RelatedNumber)?.Id;
-        var ordered = events.OrderBy(e => e.Sequence).ToArray();
+        var ordered = events.Where(e => !e.IsQuestion || !NpcSpeechPolicy.IsRomanceTopic(e.Text))
+            .OrderBy(e => e.Sequence).ToArray();
+        if (ordered.Length == 0) return "Публичных реплик по теме дружбы пока нет.";
         var selected = ordered.TakeLast(RecentEvents)
             .Concat(ordered.Where(e => e.SpeakerNpcId == speaker.Id).TakeLast(PersonalEvents))
             .Concat(ordered.Where(e => e.SpeakerNpcId == relatedId).TakeLast(RelatedEvents))

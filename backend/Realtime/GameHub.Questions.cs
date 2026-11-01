@@ -93,6 +93,7 @@ public sealed partial class GameHub
             var questions = JsonData.Read<QuestionData>(me.QuestionsJson); questions.Pending = false;
             me.QuestionsJson = JsonData.Write(questions);
             var current = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
+            await db.Entry(current).ReloadAsync();
             if (current.GameId != gameId || current.Phase != "playing" || current.Round != 4 ||
                 JsonData.Read<VotingData>(current.VotingJson).Eliminated.Contains(npc!.Id))
             {

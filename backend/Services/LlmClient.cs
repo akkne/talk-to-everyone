@@ -22,6 +22,10 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
     private int TimeoutSeconds =>
         int.TryParse(config["Ollama:TimeoutSeconds"] ?? config["OLLAMA__TIMEOUTSECONDS"], out var s) ? Math.Clamp(s, 5, 120) : 90;
 
+    private int ContextTokens =>
+        int.TryParse(config["OLLAMA_CONTEXT_TOKENS"] ?? config["Ollama:ContextTokens"], out var value)
+            ? Math.Clamp(value, 2048, 16384) : 8192;
+
     public async Task<object> GetOllamaStatusAsync(CancellationToken ct = default)
     {
         var (baseUrl, model, models) = await ProbeOllamaAsync(ct);
@@ -80,7 +84,10 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         roster ??= [npc];
         events ??= FromMessages(history);
         var systemPrompt = promptComposer.System(npc, roster);
-        var userPrompt = promptComposer.Turn(npc, 4, "interrogation", contextBuilder.Build(npc, roster, events), question);
+        var safeQuestion = NpcSpeechPolicy.IsRomanceTopic(question)
+            ? "Игрок спросил о теме вне правил игры. Кратко верни разговор к дружбе и общим событиям, не повторяя формулировку вопроса."
+            : question;
+        var userPrompt = promptComposer.Turn(npc, 4, "interrogation", contextBuilder.Build(npc, roster, events), safeQuestion);
         return await CompleteMeasuredAsync("question", npc, roster, events, systemPrompt, userPrompt, ct);
     }
 
@@ -181,7 +188,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                     options = new
                     {
                         temperature = 0.75,
-                        num_ctx = 4096,
+                        num_ctx = ContextTokens,
                         num_predict = 150
                     }
                 };

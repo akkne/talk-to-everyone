@@ -9,7 +9,7 @@ public sealed class NpcPromptComposer
         var related = roster.FirstOrDefault(n => n.Number == npc.RelatedNumber);
         var secret = npc.Role == "friend"
             ? $"Твой настоящий друг: {related?.Name ?? "неизвестен"}, слот {npc.RelatedNumber}. Ваша общая история: {npc.Lore}"
-            : $"Ты актёр. Твоя цель: {related?.Name ?? "неизвестна"}, слот {npc.RelatedNumber}. Ты не знаешь её настоящих секретов. Твоя тактика: {npc.Lore}";
+            : $"Ты актёр. Твоя цель: {related?.Name ?? "неизвестна"}, слот {npc.RelatedNumber}. Ты не знаешь настоящих секретов цели. Твоя тактика: {npc.Lore}";
         return $"Ты участник шоу о дружбе, тебя зовут {npc.Name}, твой слот №{npc.Number}. " +
             $"Характер и речь: {npc.Persona}. {secret}\n" +
             "Говори только от первого лица о себе: «я», «мы с другом». Не называй себя по имени в третьем лице. " +
