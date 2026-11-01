@@ -17,8 +17,9 @@ public sealed class GameDb(DbContextOptions<GameDb> options) : DbContext(options
         model.Entity<UserAccount>().HasKey(x => x.Id);
         model.Entity<UserAccount>().HasIndex(x => x.Login).IsUnique();
         model.Entity<GameSession>().HasKey(x => x.Id);
+        model.Entity<GameSession>().HasIndex(x => x.RoomCode).IsUnique();
         model.Entity<GamePlayer>().HasKey(x => x.Id);
-        model.Entity<GamePlayer>().HasIndex(x => x.TokenHash).IsUnique();
+        model.Entity<GamePlayer>().HasIndex(x => new { x.SessionId, x.TokenHash }).IsUnique();
         model.Entity<GamePlayer>().HasIndex(x => new { x.SessionId, x.Name }).IsUnique();
         model.Entity<GameNpc>().HasKey(x => x.Id);
         model.Entity<GameNpc>().HasIndex(x => new { x.SessionId, x.Number }).IsUnique();

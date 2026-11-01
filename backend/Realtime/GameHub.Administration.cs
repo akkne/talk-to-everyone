@@ -20,9 +20,9 @@ public sealed partial class GameHub
                 return;
             }
 
-            var session = await db.Sessions.AsNoTracking().SingleAsync();
+            var session = await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == me.SessionId);
             telemetry.RecordDiagnostics(me, session, request, JsonData.Now);
-            await BroadcastParticipants();
+            await BroadcastParticipants(me.SessionId);
         }
         finally
         {
@@ -57,7 +57,7 @@ public sealed partial class GameHub
                 return;
             }
 
-            var session = await db.Sessions.SingleAsync();
+            var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
             if (session.Phase != "playing")
             {
                 await ActionReject("SetGamePause", "WRONG_PHASE", request.RequestId);
@@ -82,8 +82,8 @@ public sealed partial class GameHub
                 pauseView.Paused,
                 me.Id);
 
-            await Clients.All.SendAsync("GamePauseChanged", pauseView);
-            await Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate));
+            await Clients.Group(me.SessionId).SendAsync("GamePauseChanged", pauseView);
+            await Clients.Group(me.SessionId).SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate));
             if (session.RoundPhase == "choice")
             {
                 await Voting.Broadcast(db, Clients, session);
@@ -95,11 +95,11 @@ public sealed partial class GameHub
         }
     }
 
-    private async Task BroadcastParticipants()
+    private async Task BroadcastParticipants(string sessionId)
     {
-        var players = await db.Players.AsNoTracking().ToListAsync();
-        var session = await db.Sessions.AsNoTracking().SingleAsync();
+        var players = await db.Players.AsNoTracking().Where(p => p.SessionId == sessionId).ToListAsync();
+        var session = await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == sessionId);
         var participants = telemetry.BuildSnapshot(players, session);
-        await Clients.All.SendAsync("ParticipantsUpdated", new { participants });
+        await Clients.Group(sessionId).SendAsync("ParticipantsUpdated", new { participants });
     }
 }

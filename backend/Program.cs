@@ -25,11 +25,14 @@ builder.Services.AddSignalR().AddJsonProtocol(options =>
     options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 builder.Services.AddSingleton<GameGate>();
 builder.Services.AddSingleton<GameSettings>();
+builder.Services.AddSingleton<MapCatalog>();
+builder.Services.AddSingleton<SessionPauseRegistry>();
 builder.Services.AddSingleton<JwtAuthService>();
 builder.Services.AddSessionControls();
 builder.Services.AddSingleton<RoundDirector>();
 builder.Services.AddHttpClient<LlmClient>();
 builder.Services.AddHostedService<RoundClock>();
+builder.Services.AddHostedService<LobbyCleanup>();
 
 var jwtService = new JwtAuthService(builder.Configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -83,6 +86,22 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 app.MapGet("/health/db", async (GameDb db, CancellationToken ct) =>
     await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok" }) : Results.StatusCode(503)).AllowAnonymous();
 app.MapGet("/api/game-info", GameRules.InfoAsync).AllowAnonymous();
+app.MapGet("/api/maps", (MapCatalog maps) => Results.Ok(maps.List())).AllowAnonymous();
+app.MapGet("/api/lobbies", async (GameDb db) => Results.Ok(await db.Sessions.AsNoTracking()
+    .Select(s => new { code = s.RoomCode, mapId = s.MapId, started = s.Phase == "playing", playerCount = db.Players.Count(p => p.SessionId == s.Id && p.Connected) })
+    .Where(s => s.playerCount > 0).OrderBy(s => s.code).ToListAsync())).AllowAnonymous();
+app.MapPost("/api/lobbies", async (ClaimsPrincipal principal, GameDb db, GameGate gate) =>
+{
+    var ownerId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? principal.FindFirst("sub")?.Value;
+    if (string.IsNullOrWhiteSpace(ownerId)) return Results.Unauthorized();
+    await gate.Lock.WaitAsync();
+    try
+    {
+        var session = await LobbyDirectory.Create(db, ownerId);
+        return Results.Ok(new { code = session.RoomCode });
+    }
+    finally { gate.Lock.Release(); }
+}).RequireAuthorization();
 app.MapGet("/health/ollama", async (LlmClient llm, CancellationToken ct) =>
     Results.Ok(await llm.GetOllamaStatusAsync(ct))).RequireAuthorization();
 
@@ -168,7 +187,7 @@ app.MapGet("/api/auth/me", async (ClaimsPrincipal principal, GameDb db, Cancella
     return Results.Ok(new { id = user.Id, login = user.Login, name = user.Name });
 }).RequireAuthorization();
 
-app.MapGet("/api/host-info", async (HttpContext ctx, GameSettings settings, LlmClient llm, CancellationToken ct) =>
+app.MapGet("/api/host-info", async (HttpContext ctx, LlmClient llm, CancellationToken ct) =>
 {
     var remoteIp = ctx.Connection.RemoteIpAddress;
     var isLoopback = remoteIp == null || IPAddress.IsLoopback(remoteIp);
@@ -184,8 +203,6 @@ app.MapGet("/api/host-info", async (HttpContext ctx, GameSettings settings, LlmC
     return Results.Ok(new
     {
         isHostMachine = isLoopback,
-        roomCode = settings.PublicRoomCode,
-        hostCode = settings.PublicHostCode,
         endpoints,
         ollama
     });

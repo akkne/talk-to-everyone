@@ -164,11 +164,14 @@ public sealed class EscapeMenuAndPauseTests
                 EndsAt = DateTimeOffset.UtcNow.AddMinutes(3).ToUnixTimeMilliseconds()
             };
             db.Sessions.Add(session);
-            db.Npcs.AddRange(LlmEmotionTests.Speaker, LlmEmotionTests.Partner);
+            var speaker = LlmEmotionTests.Speaker; var partner = LlmEmotionTests.Partner;
+            speaker.SessionId = session.Id; partner.SessionId = session.Id;
+            db.Npcs.AddRange(speaker, partner);
             await db.SaveChangesAsync();
         }
 
-        var pauseGate = new SessionPauseGate();
+        var pauseRegistry = new SessionPauseRegistry();
+        var pauseGate = pauseRegistry.For(session.Id);
         pauseGate.ApplyPause(session, true, "host-1", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
         var events = new RecordingProxy();
@@ -180,11 +183,11 @@ public sealed class EscapeMenuAndPauseTests
             new GameSettings(),
             LlmEmotionTests.Client(transport),
             NullLogger<RoundDirector>.Instance,
-            pauseGate);
+            pauseRegistry);
 
         try
         {
-            director.TriggerRound(1, "presentation");
+            director.TriggerRound(session.Id, 1, "presentation");
             await Task.Delay(1500);
             Assert.False(events.Events.Reader.TryRead(out _));
 
@@ -197,7 +200,7 @@ public sealed class EscapeMenuAndPauseTests
         }
         finally
         {
-            director.CancelCurrentRound();
+            director.CancelCurrentRound(session.Id);
         }
     }
 
@@ -247,11 +250,14 @@ public sealed class EscapeMenuAndPauseTests
 
         db.Sessions.Add(session);
         db.Players.AddRange(host, judge);
-        db.Npcs.AddRange(LlmEmotionTests.Speaker, LlmEmotionTests.Partner);
+        var speaker = LlmEmotionTests.Speaker; var partner = LlmEmotionTests.Partner;
+            speaker.SessionId = session.Id; partner.SessionId = session.Id;
+            db.Npcs.AddRange(speaker, partner);
         await db.SaveChangesAsync();
 
         var telemetry = new ParticipantTelemetryRegistry(new PlayerActivityCatalog());
-        var pauseGate = new SessionPauseGate();
+        var pauseRegistry = new SessionPauseRegistry();
+        var pauseGate = pauseRegistry.For(session.Id);
         var gate = new GameGate();
         var settings = new GameSettings();
         var allProxy = new RecordingProxy();
@@ -263,16 +269,17 @@ public sealed class EscapeMenuAndPauseTests
             settings,
             LlmEmotionTests.Client(new ModelTransport("neutral")),
             NullLogger<RoundDirector>.Instance,
-            pauseGate);
+            pauseRegistry);
 
         var hub = new GameHub(
             db,
             gate,
             settings,
+            new MapCatalog(Path.Combine(AppContext.BaseDirectory, "Maps")),
             LlmEmotionTests.Client(new ModelTransport("neutral")),
             director,
             telemetry,
-            pauseGate,
+            pauseRegistry,
             NullLogger<GameHub>.Instance)
         {
             Clients = new TestHubCallerClients(allProxy, callerProxy),

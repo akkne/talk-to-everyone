@@ -91,11 +91,12 @@ public sealed class VoiceChatTests
         };
 
         db.Sessions.Add(session);
+        judgeA.SessionId = session.Id; judgeB.SessionId = session.Id;
         db.Players.AddRange(judgeA, judgeB);
         await db.SaveChangesAsync();
 
         var telemetry = new ParticipantTelemetryRegistry(new PlayerActivityCatalog());
-        var pauseGate = new SessionPauseGate();
+        var pauseRegistry = new SessionPauseRegistry();
         var voiceCoordinator = new VoiceRoomCoordinator();
         var gate = new GameGate();
         var settings = new GameSettings();
@@ -108,16 +109,17 @@ public sealed class VoiceChatTests
             settings,
             LlmEmotionTests.Client(new ModelTransport("neutral")),
             NullLogger<RoundDirector>.Instance,
-            pauseGate);
+            pauseRegistry);
 
         var hub = new GameHub(
             db,
             gate,
             settings,
+            new MapCatalog(Path.Combine(AppContext.BaseDirectory, "Maps")),
             LlmEmotionTests.Client(new ModelTransport("neutral")),
             director,
             telemetry,
-            pauseGate,
+            pauseRegistry,
             NullLogger<GameHub>.Instance,
             voiceCoordinator)
         {

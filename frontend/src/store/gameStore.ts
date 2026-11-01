@@ -89,8 +89,8 @@ const handlers: Handlers = {
   })),
   [S2C.AUTH_OK]: p => set({ playerId: p.playerId, sessionId: p.sessionId, role: p.role }),
   [S2C.AUTH_ERR]: p => set({ error: p.message, connection: 'offline' }),
-  [S2C.LOBBY_STATE]: p => set(s => ({ lobby: p, role: p.leaderId === s.playerId ? 'leader' : s.role })),
-  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: namedNpcs(p.npcs), reveal: null, scoreboard: [], chat: [], dialogue: emptyDialogue(), thinkingNpc: null, voting: null, teamScore: 0, paused: false, pausedRemainingMs: 0, pausedBy: null }),
+  [S2C.LOBBY_STATE]: p => set(s => ({ lobby: p, role: p.leaderId === s.playerId ? 'leader' : 'judge' })),
+  [S2C.GAME_STARTED]: p => set({ phase: 'playing', scene: p.scene, rounds: p.rounds, npcs: namedNpcs(p.npcs), reveal: null, scoreboard: [], chat: [], dialogue: emptyDialogue(), thinkingNpc: null, voting: null, teamScore: 0, paused: false, pausedRemainingMs: 0, pausedBy: null }),
   [S2C.ROUND_STARTED]: p => set(s => ({
     ...(s.round?.n !== p.n || s.round?.phase !== p.phase ? finishDialogue(s) : {}),
     round: p,

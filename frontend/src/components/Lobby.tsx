@@ -6,12 +6,11 @@ import { command, useClient } from '../core/client';
 import { Icon } from './Icon';
 import { Brand, initials } from './Brand';
 import { HomeArt } from './HomeArt';
+import type { LobbySummary, MapOption } from '../shared/types';
 
 interface HostEndpoint { ip: string; label: string; url: string }
 interface HostInfo {
   isHostMachine: boolean;
-  roomCode: string;
-  hostCode: string;
   endpoints: HostEndpoint[];
   ollama?: { connected: boolean; baseUrl: string; model: string; availableModels: string[] };
 }
@@ -24,6 +23,11 @@ export function Lobby({ onConnect, onExit }: Props) {
   const [regName, setRegName] = useState('');
   const [token, setToken] = useState(''), [starting, setStarting] = useState(false);
   const [hostInfo, setHostInfo] = useState<HostInfo | null>(null);
+  const [rooms, setRooms] = useState<LobbySummary[]>([]);
+  const [maps, setMaps] = useState<MapOption[]>([]);
+  const [showRooms, setShowRooms] = useState(false);
+  const [showMaps, setShowMaps] = useState(false);
+  const [roomError, setRoomError] = useState('');
   const [copied, setCopied] = useState('');
   const rules = useRef<HTMLDialogElement>(null);
   const { connection, lobby, playerId, gameInfo, gameInfoError } = useGameStore();
@@ -50,11 +54,25 @@ export function Lobby({ onConnect, onExit }: Props) {
       .then((data: HostInfo | null) => {
         if (data) {
           setHostInfo(data);
-          setToken(prev => prev || data.roomCode || '1234');
         }
       })
       .catch(() => {});
   }, [connected, jwt, user]);
+
+  useEffect(() => {
+    fetch('/api/maps').then(r => r.ok ? r.json() : []).then((data: MapOption[]) => setMaps(data)).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!showRooms || connected) return;
+    const refresh = () => fetch('/api/lobbies').then(r => {
+      if (!r.ok) throw new Error('Не удалось загрузить список лобби.');
+      return r.json() as Promise<LobbySummary[]>;
+    }).then(data => { setRooms(data); setRoomError(''); }).catch(() => setRoomError('Не удалось загрузить список лобби.'));
+    void refresh();
+    const timer = setInterval(() => void refresh(), 5000);
+    return () => clearInterval(timer);
+  }, [showRooms, connected]);
+  const selectedMap = maps.find(map => map.id === lobby?.mapId);
 
   const submitAuth = async (e: FormEvent) => {
     e.preventDefault();
@@ -75,13 +93,21 @@ export function Lobby({ onConnect, onExit }: Props) {
   const submitJoin = (e: FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    const joinToken = token.trim() || hostInfo?.roomCode || '1234';
-    void onConnect(joinToken);
+    void onConnect(token.trim());
   };
-  const createAsHost = () => {
-    if (!user || busy) return;
-    const leaderToken = hostInfo?.hostCode || 'host';
-    void onConnect(leaderToken);
+  const createAsHost = async () => {
+    if (!user || busy || !jwt) return;
+    setRoomError('');
+    try {
+      const response = await fetch('/api/lobbies', { method: 'POST', headers: { Authorization: `Bearer ${jwt}` } });
+      if (!response.ok) throw new Error('Не удалось создать лобби.');
+      const data = await response.json() as { code: string };
+      setToken(data.code);
+      await onConnect(data.code);
+    } catch { setRoomError('Не удалось создать лобби. Попробуйте ещё раз.'); }
+  };
+  const selectMap = async (mapId: string) => {
+    if (await command(client, C2S.SELECT_MAP, mapId)) setShowMaps(false);
   };
   const start = async () => { setStarting(true); await command(client, C2S.START_GAME, undefined); setStarting(false); };
   const copyText = (value: string, label: string) => {
@@ -95,6 +121,7 @@ export function Lobby({ onConnect, onExit }: Props) {
     : [['10', 'участников в студии'], ['3', 'пары друзей'], ['4', 'актёра среди них'], ['5', 'раундов игры']];
 
   return <div className="home-shell"><div className="container"><header className="header"><Brand onClick={() => { if (connected) onExit(); }} /><nav className="header-nav" aria-label="Навигация">
+    {!connected && <button type="button" className="btn ghost" onClick={() => { setShowRooms(value => !value); if (!showRooms) requestAnimationFrame(() => document.getElementById('lobby-list')?.scrollIntoView({ behavior: 'smooth' })); }}>{showRooms ? "Скрыть лобби" : "Список лобби"}</button>}
     {user ? <>
       <span className="pill" title={`Логин: ${user.login}`}>{user.name}</span>
       <button type="button" className="btn ghost" onClick={handleLogout}>Выйти из аккаунта</button>
@@ -147,10 +174,10 @@ export function Lobby({ onConnect, onExit }: Props) {
           <h2>Соберите своё жюри (LAN)</h2>
           <p>Вы вошли как <b>{user.name}</b>. Вводить имя повторно не требуется — просто присоединитесь к команде.</p>
           <label className="field" htmlFor="session-token">Код комнаты</label>
-          <input className="input" id="session-token" type="text" value={token} onChange={e => setToken(e.target.value)} required autoComplete="off" placeholder="Например: 1234" disabled={busy} />
-          <p className="form-note">Код по умолчанию для игроков: <b>{hostInfo?.roomCode || '1234'}</b></p>
+          <input className="input" id="session-token" type="text" value={token} onChange={e => setToken(e.target.value)} required autoComplete="off" placeholder="Код из 4 цифр" maxLength={4} inputMode="numeric" pattern="[0-9]{4}" disabled={busy} />
+          {roomError && <p className="form-note" role="alert">{roomError}</p>}
           <button className="btn block" disabled={busy || !token.trim()}>{busy ? 'Подключаемся…' : 'Присоединиться к команде'}<Icon name="arrow" /></button>
-          <button className="btn ghost block create-room" type="button" style={{ marginTop: '10px' }} disabled={busy} onClick={createAsHost} title="Войти как ведущий (хост) комнаты">Создать лобби (Хост)</button>
+          <button className="btn ghost block create-room" type="button" style={{ marginTop: '10px' }} disabled={busy} onClick={createAsHost} title="Войти как ведущий (хост) комнаты">Создать лобби</button>
           {hostInfo?.ollama && <p className="footnote" style={{ marginTop: '0.5rem' }}>
             Ollama: <b>{hostInfo.ollama.connected ? `Подключена (${hostInfo.ollama.model})` : 'Модель недоступна'}</b>
           </p>}
@@ -158,11 +185,13 @@ export function Lobby({ onConnect, onExit }: Props) {
         </form>
       )}
     </section>
+      {showRooms && <section className="lobby-list" id="lobby-list" aria-label="Список лобби"><div className="section-head"><h2>Доступные лобби</h2><p>Выберите комнату или введите её код выше.</p></div>{roomError && <p role="alert">{roomError}</p>}{rooms.length === 0 ? <p>Сейчас нет активных лобби.</p> : <div className="lobby-list-grid">{rooms.map(room => <article className="lobby-list-card" key={room.code}><div><strong>Лобби {room.code}</strong><span>{maps.find(map => map.id === room.mapId)?.name ?? room.mapId} · {room.playerCount}/8 игроков · {room.started ? "Игра идёт" : "Ожидает игроков"}</span></div><button type="button" className="btn ghost" onClick={() => { setToken(room.code); if (user) void onConnect(room.code); else document.getElementById("join")?.scrollIntoView({ behavior: "smooth" }); }}>{user ? "Войти" : "Войти в аккаунт"}</button></article>)}</div>}</section>}
       <section className="how"><div className="section-head"><h2>Постепенно вы соберёте свою версию.</h2><p>У каждого судьи будут свои заметки и догадки.</p></div><div className="steps">{[['Слушайте истории участников', 'Сравнивайте знакомые детали и замечайте моменты, в которых чужие воспоминания перестают сходиться.'], ['Проверяйте свои догадки', 'Записывайте наблюдения в личный блокнот и задавайте вопросы, которые помогут разобраться в противоречиях.'], ['Найдите настоящих друзей', 'Составляйте пары по своим наблюдениям, чтобы в финале узнать, насколько точно вы поняли, кто с кем дружит.']].map(([t, p], i) => <article className="step" key={t}><span className="step-number">0{i + 1}</span><div><h3>{t}</h3><p>{p}</p></div></article>)}</div></section></main> :
-      <main><section className="lobby"><button className="back" onClick={onExit}>← Вернуться на главную</button><div className="lobby-title"><div><h1>Теперь можно занять<br />своё место в студии.</h1></div><div className="room-code" onClick={() => copyText(hostInfo?.roomCode || '1234', 'code')} style={{ cursor: 'pointer' }} title="Нажмите, чтобы скопировать код комнаты">Код для друзей<b>{hostInfo?.roomCode || '1234'}</b>{copied === 'code' && <small style={{ display: 'block', fontSize: '0.75rem' }}>Скопировано!</small>}</div></div>
+      <main><section className="lobby"><button className="back" onClick={onExit}>← Вернуться на главную</button><div className="lobby-title"><div><h1>Теперь можно занять<br />своё место в студии.</h1></div><div className="room-code" onClick={() => copyText(lobby?.roomCode || '', 'code')} style={{ cursor: 'pointer' }} title="Нажмите, чтобы скопировать код комнаты">Код для друзей<b>{lobby?.roomCode || '…'}</b>{copied === 'code' && <small style={{ display: 'block', fontSize: '0.75rem' }}>Скопировано!</small>}</div></div>
         <div className="lobby-grid"><div className="people"><div className="people-head"><span>Игроки в комнате</span><span>{lobby?.players.filter(p => p.connected).length ?? 0} онлайн (всего {lobby?.players.length ?? 0})</span></div>{lobby?.players.map(p => <div className="player" key={p.id}><span className="avatar">{initials(p.name)}</span><div><div className="player-name">{p.name}{p.id === playerId && <span className="muted"> · Вы</span>}</div><div className="player-role">{p.id === lobby.leaderId ? 'Ведущий комнаты (Хост)' : 'Судья'}</div></div><span className="player-ready"><i />{p.connected ? 'В комнате' : 'Нет связи'}</span></div>)}</div>
-          <aside className="launch"><h2>Компания готова к игре?</h2><p>Вы окажетесь в общей студии, где участники начнут знакомиться с жюри и рассказывать свои истории.</p>
-            <button className="btn block" onClick={() => void start()} disabled={!lobby?.canStart || !leader || starting}>{starting ? 'Начинаем…' : leader ? 'Начать игру' : 'Ожидаем ведущего'}<Icon name="arrow" /></button>
+          <aside className="launch"><h2>Компания готова к игре?</h2><div className="map-picker"><span>Карта: <b>{selectedMap?.name ?? lobby?.mapId ?? "Hangar"}</b></span>{leader && <button className="btn ghost" type="button" onClick={() => setShowMaps(value => !value)}>Выбрать карту</button>}{showMaps && leader && <div className="map-options">{maps.map(map => <button key={map.id} type="button" className={map.id === lobby?.mapId ? "map-option selected" : "map-option"} onClick={() => void selectMap(map.id)}>{map.name}{!map.available && <small>Скоро</small>}</button>)}</div>}</div><p>Вы окажетесь в общей студии, где участники начнут знакомиться с жюри и рассказывать свои истории.</p>
+            <button className="btn block" onClick={() => void start()} disabled={!lobby?.canStart || !leader || starting || !selectedMap?.available}>{starting ? 'Начинаем…' : leader ? 'Начать игру' : 'Ожидаем ведущего'}<Icon name="arrow" /></button>
+            {selectedMap && !selectedMap.available && <p className="subtle">Карта пока недоступна для игры. Выберите Hangar.</p>}
             {!lobby?.canStart && <p className="subtle">Нужно игроков: {lobby?.minPlayers ?? '1'}</p>}
             {hostInfo?.endpoints && hostInfo.endpoints.length > 0 && (
               <div className="room-detail" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.4rem' }}>

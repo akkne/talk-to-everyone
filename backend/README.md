@@ -6,12 +6,11 @@
 
 ```bash
 export DATABASE_URL='Host=localhost;Database=game;Username=game;Password=...'
-export GAME_TOKENS='leader:<токен-от-16-символов>,judge:<другой-токен-от-16-символов>'
-export GAME_ORIGINS='http://localhost:5173'
+export JWT_SECRET='<случайный-ключ-не-короче-32-байт>'
 dotnet run --project backend/Backend.csproj
 ```
 
-Сервер применяет миграции при запуске. Проверки: `/health`, `/health/db`, авторизованный `/health/ollama`. Hub: `/hubs/game`. Docker Compose запускает Ollama и скачивает модель автоматически. При ручном запуске задайте `OLLAMA_BASE_URL` и `OLLAMA_MODEL` либо используйте локальную Ollama на `localhost:11434` с моделью `qwen2.5:3b-instruct`. Для облачной модели задайте `LLM_ENDPOINT` (полный URL OpenAI-compatible chat completions), `LLM_MODEL`, `LLM_API_KEY`. Если модель недоступна, вопрос возвращает `QuestionFailed`, а реплики раунда не подменяются шаблонным текстом. Длительность раунда и окна выбора: `GAME_ROUND_SECONDS`, `GAME_CHOICE_SECONDS`.
+Сервер применяет миграции при запуске. Авторизованный пользователь создаёт комнату через `POST /api/lobbies` и входит в Hub `/hubs/game` с её кодом. `GET /api/lobbies` возвращает список комнат, `GET /api/maps` — список карт из файлов `Maps/`. Проверки: `/health`, `/health/db`, авторизованный `/health/ollama`. Hub: `/hubs/game`. Docker Compose запускает Ollama и скачивает модель автоматически. При ручном запуске задайте `OLLAMA_BASE_URL` и `OLLAMA_MODEL` либо используйте локальную Ollama на `localhost:11434` с моделью `qwen2.5:3b-instruct`. Для облачной модели задайте `LLM_ENDPOINT` (полный URL OpenAI-compatible chat completions), `LLM_MODEL`, `LLM_API_KEY`. Если модель недоступна, вопрос возвращает `QuestionFailed`, а реплики раунда не подменяются шаблонным текстом. Длительность раунда и окна выбора: `GAME_ROUND_SECONDS`, `GAME_CHOICE_SECONDS`.
 
 [Контракт](docs/backend.md) · [Роадмап](docs/roadmap.md)
 

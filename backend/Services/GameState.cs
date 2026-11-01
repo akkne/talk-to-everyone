@@ -9,33 +9,6 @@ public static class GameLogic
 {
     public const int PlayerSeatCount = 4;
     public static double SeatX(int seat) => (seat - (PlayerSeatCount + 1) / 2.0) * 1.6;
-    public static readonly object Scene = new
-    {
-        version = "1", room = new
-        {
-            width = 18, depth = 14, height = 6,
-            platforms = new[] { new { id = "upper", center = new Vec3(0, 1.35, -4.5), size = new Vec3(14, 0.3, 2.5) } },
-            ramps = new[] { new { id = "left-ramp", from = new Vec3(-6.5, 0, 0), to = new Vec3(-6.5, 1.5, -4), width = 1.3 },
-                new { id = "right-ramp", from = new Vec3(6.5, 0, 0), to = new Vec3(6.5, 1.5, -4), width = 1.3 } },
-            obstacles = Enumerable.Range(1, 8).Select(n => (object)new {
-                id = $"chair-seat-{n}",
-                center = new Vec3((n - 4.5) * 1.6, 0.5, 3.5),
-                size = new Vec3(0.75, 1.0, 0.72)
-            }).Concat(Enumerable.Range(1, 10).Select(n => (object)new {
-                id = $"npc-anchor-{n}",
-                center = new Vec3((n <= 5 ? n - 3 : n - 8) * 2.1 + (n <= 5 ? 0 : 0.45), (n <= 5 ? 0 : 1.5) + 0.9, n <= 5 ? -2.5 : -5),
-                size = new Vec3(0.7, 1.8, 0.7)
-            })).ToArray(), walls = new[] {
-                new { id = "back", center = new Vec3(0, 3, -7), size = new Vec3(18, 6, 0.3) },
-                new { id = "front", center = new Vec3(0, 3, 7), size = new Vec3(18, 6, 0.3) },
-                new { id = "left", center = new Vec3(-9, 3, 0), size = new Vec3(0.3, 6, 14) },
-                new { id = "right", center = new Vec3(9, 3, 0), size = new Vec3(0.3, 6, 14) } }
-        },
-        npcStands = Enumerable.Range(1, 10).Select(n => new { id = $"anchor-{n}", position = new Vec3((n <= 5 ? n - 3 : n - 8) * 2.1 + (n <= 5 ? 0 : 0.45), n <= 5 ? 0 : 1.5, n <= 5 ? -2.5 : -5), yaw = 0, level = n <= 5 ? 0 : 1 }).ToArray(),
-        playerSeats = Enumerable.Range(1, PlayerSeatCount).Select(n => new { id = $"seat-{n}", position = new Vec3(SeatX(n), 0, 3.5), yaw = 0, exit = new Vec3(SeatX(n), 0, 5) }).ToArray(),
-        spawnPoints = new[] { new Vec3(0, 0, 5) }
-    };
-
     public static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     public static string PairKey(string a, string b) => string.CompareOrdinal(a, b) < 0 ? $"{a}:{b}" : $"{b}:{a}";
     public static object PlayerView(GamePlayer p) => new { id = p.Id, name = p.Name, connected = p.Connected, pose = JsonData.Read<PoseData>(p.PoseJson) };
@@ -69,7 +42,7 @@ public static class GameLogic
     }).ToArray();
     public static object Lobby(IEnumerable<GamePlayer> players, GameSession session) => new
     {
-        sessionId = session.Id, players = players.Select(p => new { id = p.Id, name = p.Name, connected = p.Connected }).ToArray(),
+        sessionId = session.Id, roomCode = session.RoomCode, mapId = session.MapId, players = players.Select(p => new { id = p.Id, name = p.Name, connected = p.Connected }).ToArray(),
         leaderId = players.FirstOrDefault(p => p.Role == "leader" && p.Connected)?.Id ?? players.FirstOrDefault(p => p.Role == "leader")?.Id,
         minPlayers = 1,
         canStart = (session.Phase == "lobby" || session.Phase == "finished") && players.Any(p => p.Role == "leader" && p.Connected),
@@ -80,16 +53,17 @@ public static class GameLogic
         GameDb db,
         GamePlayer me,
         GameSettings settings,
+        MapCatalog maps,
         IParticipantTelemetryRegistry? telemetry = null,
         ISessionPauseGate? pauseGate = null)
     {
-        var session = await db.Sessions.SingleAsync();
-        var players = await db.Players.AsNoTracking().ToListAsync();
+        var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
+        var players = await db.Players.AsNoTracking().Where(p => p.SessionId == me.SessionId).ToListAsync();
         var voting = JsonData.Read<VotingData>(session.VotingJson);
         var npcs = await db.Npcs.AsNoTracking()
-            .Where(n => session.Phase == "finished" || !voting.Eliminated.Contains(n.Id))
+            .Where(n => n.SessionId == me.SessionId && (session.Phase == "finished" || !voting.Eliminated.Contains(n.Id)))
             .OrderBy(n => n.Number).ToListAsync();
-        var chat = await db.Messages.AsNoTracking().Where(m => !m.IsQuestion && !voting.Eliminated.Contains(m.NpcId)).OrderBy(m => m.At).Select(m => new
+        var chat = await db.Messages.AsNoTracking().Where(m => m.SessionId == me.SessionId && !m.IsQuestion && !voting.Eliminated.Contains(m.NpcId)).OrderBy(m => m.At).Select(m => new
         { m.Id, npc = m.NpcId, m.Text, m.InReplyTo, m.Emotion, m.At }).ToListAsync();
         var scoreboard = session.Phase == "finished" ? Scoreboard(players) : null;
         var pause = pauseGate?.CurrentView(session, JsonData.Now) ?? new GamePauseView(false, 0L, session.EndsAt, null);
@@ -97,11 +71,11 @@ public static class GameLogic
         return new
         {
             sessionId = session.Id, me = new { id = me.Id, role = me.Role }, phase = session.Phase,
-            round = session.Phase == "lobby" ? null : RoundView(session, pauseGate), rounds = RoundSpecs(settings.RoundSeconds), scene = Scene,
+            round = session.Phase == "lobby" ? null : RoundView(session, pauseGate), rounds = RoundSpecs(settings.RoundSeconds), scene = maps.Scene(session.MapId),
             gameInfo = await GameRules.InfoAsync(db, settings),
             players = players.Select(PlayerView).ToArray(), npcs = npcs.Select(NpcView).ToArray(), seats = Seats(players),
             board = JsonData.Read<BoardData>(me.BoardJson), questions = JsonData.Read<QuestionData>(me.QuestionsJson), chat,
-            worldSizeBytes = Encoding.UTF8.GetByteCount(JsonData.Write(Scene))
+            worldSizeBytes = Encoding.UTF8.GetByteCount(JsonData.Write(maps.Scene(session.MapId)))
                 + npcs.Sum(n => Encoding.UTF8.GetByteCount(JsonData.Write(NpcView(n)))
                     + Encoding.UTF8.GetByteCount(JsonData.Write(Details(n)))),
             score = players.ToDictionary(p => p.Id, _ => voting.TeamScore), scoreboard, teamScore = voting.TeamScore,
@@ -135,17 +109,16 @@ public static class GameLogic
     public static object[] Scoreboard(List<GamePlayer> players) => players.OrderByDescending(p => p.Score)
         .Select(p => (object)new { id = p.Id, score = p.Score, title = p.Score >= 500 ? "Гений дедукции" : "Судья" }).ToArray();
 
-    public static async Task Finish(GameDb db, IHubContext<GameHub> hub)
+    public static async Task Finish(GameDb db, IHubContext<GameHub> hub, GameSession session)
     {
-        var session = await db.Sessions.SingleAsync();
-        var players = await db.Players.ToListAsync();
+        var players = await db.Players.Where(p => p.SessionId == session.Id).ToListAsync();
         var voting = JsonData.Read<VotingData>(session.VotingJson);
-        var npcs = await db.Npcs.AsNoTracking().OrderBy(n => n.Number).ToListAsync();
+        var npcs = await db.Npcs.AsNoTracking().Where(n => n.SessionId == session.Id).OrderBy(n => n.Number).ToListAsync();
         foreach (var player in players) player.Score = voting.TeamScore;
         session.Phase = "finished"; session.Round = 5; session.RoundPhase = "reveal"; session.EndsAt = 0;
         await db.SaveChangesAsync();
         var scoreboard = Scoreboard(players);
-        await hub.Clients.All.SendAsync("GameEnded", new { reveal = Reveal(npcs), scoreboard, npcs = npcs.Select(NpcView).ToArray() });
-        await hub.Clients.All.SendAsync("ScoreUpdate", new { players = scoreboard });
+        await hub.Clients.Group(session.Id).SendAsync("GameEnded", new { reveal = Reveal(npcs), scoreboard, npcs = npcs.Select(NpcView).ToArray() });
+        await hub.Clients.Group(session.Id).SendAsync("ScoreUpdate", new { players = scoreboard });
     }
 }

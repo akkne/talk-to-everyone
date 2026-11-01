@@ -2,6 +2,7 @@ export const HUB = '/hubs/game';
 export const C2S = {
   AUTH: 'Auth',
   START_GAME: 'StartGame',
+  SELECT_MAP: 'SelectMap',
   RESET_GAME: 'ResetGame',
   SKIP_ROUND: 'SkipRound',
   SEND_POSE: 'SendPose',

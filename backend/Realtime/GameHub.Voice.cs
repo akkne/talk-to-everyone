@@ -31,7 +31,7 @@ public sealed partial class GameHub
 
             var target = await db.Players
                 .AsNoTracking()
-                .SingleOrDefaultAsync(p => p.Id == envelope.TargetPlayerId && p.Connected);
+                .SingleOrDefaultAsync(p => p.SessionId == me.SessionId && p.Id == envelope.TargetPlayerId && p.Connected);
 
             if (target == null || string.IsNullOrWhiteSpace(target.ConnectionId))
             {
@@ -68,13 +68,13 @@ public sealed partial class GameHub
             var view = voiceRoom.SetSpeaking(me.Id, request.Speaking, now);
             telemetry.UpdateSpeaking(me.Id, request.Speaking, now);
 
-            await Clients.All.SendAsync("VoiceSpeakingUpdated", new
+            await Clients.Group(me.SessionId).SendAsync("VoiceSpeakingUpdated", new
             {
                 playerId = view.PlayerId,
                 speaking = view.Speaking,
                 at = view.UpdatedAt
             });
-            await BroadcastParticipants();
+            await BroadcastParticipants(me.SessionId);
         }
         finally
         {
