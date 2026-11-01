@@ -166,9 +166,7 @@
 .final-shell .secondary:hover{background:#e5edf3}
 @media(max-width:700px){.final-header{height:72px;padding:0 18px}.final-header>span{display:none}.final-shell .reveal-page{padding:32px 18px 56px}.final-shell .reveal-score{align-items:flex-start;flex-direction:column;gap:18px;padding:20px}.reveal-team-achievement{min-height:0;padding:16px 0 0;border-left:0;border-top:1px solid var(--line);width:100%}.final-shell .reveal-grid section{padding:18px}.final-shell .reveal-page>div:last-child{flex-wrap:wrap}}
 
-.hangar-tour{position:fixed;inset:0;background:#f4f2ee}.hangar-tour-bar{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;background:#fffffff0;border:1px solid #dcdedb;border-radius:8px;color:#253746;font-size:13px}.hangar-tour .movement-hint{background:#fffffff0;color:#253746;border-color:#dcdedb;max-width:90vw}@media(max-width:600px){.hangar-tour-bar{font-size:11px;align-items:flex-start}.hangar-tour-bar span{max-width:45%}}
 
-.hangar-tour-bar .secondary{background:#fff;color:#0a66c2;border:1px solid #dcdedb;font-family:inherit;border-radius:6px}
 /* Lobby directory and map selection follow the home page controls. */
 .home-shell .lobby-list{padding:24px 0 48px;border-top:1px solid var(--line)}
 .home-shell .lobby-list .section-head{margin-bottom:18px}

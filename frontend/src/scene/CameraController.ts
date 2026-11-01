@@ -6,7 +6,7 @@ import { C2S } from '../shared/contract';
 import { nearestInteraction } from './interactions';
 import { walk, WALK_SPEED } from './movement';
 import { jumpHeight, landingDip, JUMP_DURATION, LANDING_DURATION } from './jump';
-import type { Box, SceneSpec, SeatSpec } from './world';
+import { sceneSeats, type Box, type SceneSpec, type SeatSpec } from './world';
 
 /** Camera and keyboard controls. The server confirms every pose. */
 export class CameraController {
@@ -79,7 +79,7 @@ export class CameraController {
   syncPose(pose: Pose) {
     this.jumpElapsed = null; this.jumpOffset = 0; this.landingElapsed = LANDING_DURATION;
     this.position = { ...pose.position }; this.mode = pose.mode; this.yaw = pose.yaw; this.pitch = pose.pitch;
-    this.seat = this.scene.playerSeats.find(s => s.id === pose.seatId) ?? null;
+    this.seat = sceneSeats(this.scene).find(s => s.id === pose.seatId) ?? null;
     this.client.syncPose(pose); this.apply();
   }
   differsFrom(pose: Pose) {
@@ -90,7 +90,8 @@ export class CameraController {
   }
   update(now: number) {
     const dt = this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.05) : 0; this.lastFrame = now;
-    this.onHint(!this.enabled ? '' : now < this.feedbackUntil ? this.feedback : this.seat ? 'E — встать' : nearestInteraction(this.scene,this.position)?.hint ?? `WASD — ходьба · Space — прыжок · Мышь — обзор${this.nearestSeat() ? ' · E — сесть' : ''}`);
+    const nearbySeat = this.nearestSeat();
+    this.onHint(!this.enabled ? '' : now < this.feedbackUntil ? this.feedback : this.seat ? 'E — встать' : nearestInteraction(this.scene,this.position)?.hint ?? `WASD — ходьба · Space — прыжок · Мышь — обзор${nearbySeat ? ` · E — сесть${nearbySeat.label ? ` (${nearbySeat.label})` : ''}` : ''}`);
     if (this.mode !== 'walking' || !dt) return;
     // Finish a jump even if focus is lost or a panel opens mid-air.
     const animating = this.jumpElapsed !== null || this.landingElapsed < LANDING_DURATION;
@@ -130,7 +131,7 @@ export class CameraController {
     finally {this.pending=false;}
   }
   private nearestSeat() {
-    return this.scene.playerSeats.filter(s => !this.occupied.has(s.id))
+    return sceneSeats(this.scene).filter(s => !this.occupied.has(s.id))
       .map(seat => ({ seat, distance: Math.hypot(seat.position.x - this.position.x, seat.position.y - this.position.y, seat.position.z - this.position.z) }))
       .filter(item => item.distance <= 1.5).sort((a, b) => a.distance - b.distance)[0]?.seat;
   }

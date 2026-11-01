@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useCacheStore } from '../store/cacheStore';
 import { useVoiceSettingsStore, VoiceSettingsPolicy } from '../store/voiceSettingsStore';
+import { sceneSeats } from '../scene/world';
 import { C2S } from '../shared/contract';
 import { command, useClient } from '../core/client';
 import { createId } from '../shared/id';
@@ -47,7 +48,7 @@ export function HUD({
   const me = state.players.find(p => p.id === state.playerId);
   const nearestSeat =
     me?.pose.mode === 'walking'
-      ? state.scene?.playerSeats
+      ? (state.scene ? sceneSeats(state.scene) : [])
           .filter(seat => !state.seats.some(s => s.id === seat.id && s.occupiedBy))
           .map(seat => ({
             seat,
@@ -173,7 +174,7 @@ export function HUD({
               disabled={state.connection !== 'ready'}
               onClick={() => void command(client, C2S.SIT_DOWN, { requestId: createId(), seatId: nearestSeat.id })}
             >
-              Сесть
+              {nearestSeat.label ? `Сесть: ${nearestSeat.label}` : 'Сесть'}
             </button>
           )}
           {state.round?.phase === 'interrogation' && (

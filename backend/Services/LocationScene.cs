@@ -12,7 +12,7 @@ public sealed class LocationScene
     public LocationScene(JsonElement source) { Data = JsonNode.Parse(source.GetRawText())!.AsObject(); }
     public JsonObject Data { get; }
 
-    public JsonArray Seats => Data["playerSeats"]!.AsArray();
+    public IEnumerable<JsonNode?> Seats => Data["playerSeats"]!.AsArray().Concat(Data["furnitureSeats"] as JsonArray ?? new JsonArray());
     public JsonArray Items(string key) => (Data[key] ??= new JsonArray()).AsArray();
     public static Vec3 Point(JsonNode n) => new(N(n,"x"), N(n,"y"), N(n,"z"));
     public static double N(JsonNode n, string key) => n[key]!.GetValue<double>();

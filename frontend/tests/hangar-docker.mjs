@@ -29,8 +29,8 @@ async function go(x,z){const start={...pose.position},dist=Math.hypot(x-start.x,
 try{
  await c.start();await c.invoke('Auth',{token:code});
  await observer.start();await observer.invoke('Auth',{token:code});
- await isolated.start();await isolated.invoke('Auth',{token:otherCode});assert.ok(snapshot);assert.equal(snapshot.scene.version,'3');assert.equal(snapshot.scene.room.width,40);
- await assert.rejects(interact('equipment-door'));console.log('PASS: JSON v3 loaded; remote interactions rejected');
+ await isolated.start();await isolated.invoke('Auth',{token:otherCode});assert.ok(snapshot);assert.equal(snapshot.scene.version,'4');assert.equal(snapshot.scene.room.width,40);
+ await assert.rejects(interact('equipment-door'));console.log('PASS: JSON v4 loaded; remote interactions rejected');
  // Fresh test accounts spawn in the open southern aisle. Existing QA account resumes there after cleanup.
  await go(pose.position.x,11.8);await go(9.5,11.8);await go(9.5,7.2);
  if(snapshot.scene.doors[0].open)await interact('equipment-door');

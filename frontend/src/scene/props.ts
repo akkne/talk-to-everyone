@@ -53,6 +53,15 @@ export function createProp(p:PropSpec){
 }
 export function addLocationProps(scene:T.Scene,spec:SceneSpec){
  for(const p of spec.objects??[])scene.add(createProp(p));
+ // Parent mounted equipment to its support using the relationship stored in the map file.
+ for(const p of spec.objects??[]){
+  if(!p.attachment)continue;
+  const object=scene.getObjectByName(p.id),support=scene.getObjectByName(p.attachment.objectId);
+  if(!object||!support||object===support)continue;
+  support.add(object);
+  const offset=p.attachment.localPosition;
+  object.position.set(offset.x,offset.y,offset.z);
+ }
  for(const d of spec.doors??[]){const g=new T.Group();g.name=d.id;g.add(new T.Mesh(new T.BoxGeometry(d.size.x,d.size.y,d.size.z),mat('#3c6579')));for(const x of [-1,1]){const handle=new T.Mesh(new T.BoxGeometry(.09,.35,.06),mat('#dce2db'));handle.position.set(x*(d.size.x/2+.04),0,-d.size.z*.32);g.add(handle);}scene.add(g);}
  for(const f of spec.foods??[]){const g=new T.Group();g.name=f.id;g.position.set(f.position.x,f.position.y,f.position.z);const add=(geom:T.BufferGeometry,c:string,y=0)=>{const m=new T.Mesh(geom,mat(c));m.position.y=y;g.add(m);return m;};add(new T.CylinderGeometry(.23,.23,.025,20),'#f2eee2',-.04);
  if(f.type==='apple'){add(new T.SphereGeometry(.14,16,12),'#d14a36',.12);add(new T.CylinderGeometry(.018,.018,.12,6),'#594636',.28);}else if(f.type==='pizza'){const m=add(new T.CylinderGeometry(.22,.22,.055,3),'#edbc61',.03);m.rotation.y=.5;for(let i=0;i<3;i++){const q=add(new T.CylinderGeometry(.038,.038,.012,10),'#b84633',.065);q.position.x=(i-1)*.06;q.position.z=.02;}}else if(f.type==='donut'){const m=add(new T.TorusGeometry(.12,.055,8,20),'#e199aa',.045);m.rotation.x=Math.PI/2;}else{add(new T.BoxGeometry(.3,.08,.23),'#d4a15e',.04);add(new T.BoxGeometry(.31,.025,.24),'#4e9b55',.09);add(new T.BoxGeometry(.3,.08,.23),'#f0c489',.14);}scene.add(g);}
