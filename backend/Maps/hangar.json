@@ -2649,7 +2649,8 @@
         "y": 0.43,
         "z": 0.48
       },
-      "collidable": false
+      "collidable": false,
+      "screenImage": "/images/director-screen.png"
     }
   ],
   "doors": [
