@@ -5,6 +5,13 @@ import { loadModule } from './helpers/modules.mjs';
 const { Npc } = await loadModule('src/scene/Npc.ts');
 const { AvatarRig, characterLook, NPC_SEAT } = await loadModule('src/scene/AvatarRig.ts');
 const { expressionPose } = await loadModule('src/scene/expression.ts');
+const {
+  BartenderWaveController,
+  TRIGGER_DISTANCE,
+  RESET_DISTANCE,
+  MODEL_LENGTH,
+  DEFAULT_WAVE_DURATION_MS,
+} = await loadModule('src/scene/BartenderWaveController.ts');
 
 function createNpc(id = 'bartender-mark', name = 'Марк') {
   globalThis.document = {
@@ -92,3 +99,97 @@ test('Npc: wave lifecycle starts, animates right arm with smooth easing, and sto
     actor.dispose();
   }
 });
+
+test('BartenderWaveController: distance thresholds match 2 model lengths exactly (3.6m)', () => {
+  assert.equal(MODEL_LENGTH, 1.8);
+  assert.equal(TRIGGER_DISTANCE, 3.6);
+  assert.ok(RESET_DISTANCE > TRIGGER_DISTANCE);
+  assert.ok(DEFAULT_WAVE_DURATION_MS >= 3000 && DEFAULT_WAVE_DURATION_MS <= 5000);
+});
+
+test('BartenderWaveController: player approach closer than 2 model lengths triggers 3-5s wave, then stops', () => {
+  const actor = createNpc();
+  try {
+    const bartenderPos = { x: -9.8, y: 0, z: -1.0 };
+    const controller = new BartenderWaveController(actor, bartenderPos, 4000);
+
+    // 1. Player is far away (distance = 5.0m > 3.6m)
+    const farPlayer = { id: 'player-1', position: { x: -9.8 + 5.0, y: 0, z: -1.0 } };
+    controller.update(1000, [farPlayer]);
+    actor.update(1000);
+    assert.equal(controller.isWaving(1000), false, 'Should not wave when player is far');
+    assert.equal(actor.isWaving(1000), false);
+
+    // 2. Player approaches to 3.0m (<= 3.6m, closer than 2 model lengths)
+    const closePlayer = { id: 'player-1', position: { x: -9.8 + 3.0, y: 0, z: -1.0 } };
+    controller.update(2000, [closePlayer]);
+    actor.update(2000);
+    assert.equal(controller.isWaving(2000), true, 'Bartender starts waving on approach');
+    assert.equal(actor.isWaving(2000), true);
+
+    // 3. Mid-wave (3500ms -> 1.5s after start)
+    controller.update(3500, [closePlayer]);
+    actor.update(3500);
+    assert.equal(controller.isWaving(3500), true, 'Still waving at 1.5s');
+
+    // 4. Wave finishes after 4.0s (at 6001ms -> 4.001s after start)
+    controller.update(6001, [closePlayer]);
+    actor.update(6001);
+    assert.equal(controller.isWaving(6001), false, 'Bartender stops waving after 4 seconds');
+    assert.equal(actor.isWaving(6001), false);
+
+    // 5. Player STAYS close (still at 3.0m): bartender should NOT start waving again!
+    controller.update(7000, [closePlayer]);
+    actor.update(7000);
+    assert.equal(controller.isWaving(7000), false, 'Should remain stopped while player stays inside radius');
+    assert.equal(actor.isWaving(7000), false);
+
+    // 6. Player steps back outside (> 3.9m reset distance, e.g. at 5.0m)
+    controller.update(8000, [farPlayer]);
+    actor.update(8000);
+    assert.equal(controller.isWaving(8000), false);
+
+    // 7. Player approaches AGAIN to 2.0m: triggers new wave!
+    const reApproachedPlayer = { id: 'player-1', position: { x: -9.8 + 2.0, y: 0, z: -1.0 } };
+    controller.update(9000, [reApproachedPlayer]);
+    actor.update(9000);
+    assert.equal(controller.isWaving(9000), true, 'Re-approach after leaving triggers waving again');
+    assert.equal(actor.isWaving(9000), true);
+  } finally {
+    actor.dispose();
+  }
+});
+
+test('BartenderWaveController: any jury member approach triggers wave, even if another jury is already nearby', () => {
+  const actor = createNpc();
+  try {
+    const bartenderPos = { x: -9.8, y: 0, z: -1.0 };
+    const controller = new BartenderWaveController(actor, bartenderPos, 3500);
+
+    // Jury 1 approaches and finishes waving
+    const jury1 = { id: 'judge-alice', position: { x: -9.8 + 2.5, y: 0, z: -1.0 } };
+    controller.update(1000, [jury1]);
+    actor.update(1000);
+    assert.equal(controller.isWaving(1000), true);
+
+    // Fast forward to after Jury 1 wave ends (1000 + 3500 = 4500)
+    controller.update(4600, [jury1]);
+    actor.update(4600);
+    assert.equal(controller.isWaving(4600), false, 'Finished waving for Jury 1');
+
+    // Jury 2 was far away at x = 0 (dist ~9.8m)
+    const jury2Far = { id: 'judge-bob', position: { x: 0, y: 0, z: -1.0 } };
+    controller.update(4700, [jury1, jury2Far]);
+    assert.equal(controller.isWaving(4700), false);
+
+    // Jury 2 approaches closer than 2 models (dist = 1.5m <= 3.6m) while Jury 1 is still standing there
+    const jury2Close = { id: 'judge-bob', position: { x: -9.8 + 1.5, y: 0, z: -1.0 } };
+    controller.update(5000, [jury1, jury2Close]);
+    actor.update(5000);
+    assert.equal(controller.isWaving(5000), true, 'Approach of second jury triggers a new wave');
+    assert.equal(actor.isWaving(5000), true);
+  } finally {
+    actor.dispose();
+  }
+});
+
