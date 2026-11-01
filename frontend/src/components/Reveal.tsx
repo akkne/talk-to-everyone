@@ -7,7 +7,7 @@ import { npcLabel } from '../shared/npcLabel';
 
 /** Show the complete server-provided roster and results after the match. */
 export function Reveal({ onExit }: { onExit: () => void }) {
-  const { reveal, teamScore, playerId, players, npcs, scoreboard } = useGameStore();
+  const { reveal, teamScore, npcs, scoreboard } = useGameStore();
   const client = useClient();
   const label = (id: string) => {
     const person = npcs.find(n => n.id === id);
@@ -24,7 +24,10 @@ export function Reveal({ onExit }: { onExit: () => void }) {
       <div className="eyebrow">ИТОГИ РАССЛЕДОВАНИЯ</div>
       <h1>Теперь всё<br /><em>сходится.</em></h1>
       <p className="muted">Убедительная история ещё не делает человека другом.</p>
-      <div className="reveal-score"><b>{teamScore}</b><span>общих очков<br />{scoreboard.find(p => p.id === playerId)?.title ?? 'Ожидаем итоговый титул от сервера'}</span></div>
+      <div className="reveal-score">
+        <div className="reveal-team-score"><b>{teamScore}</b><span>общих очков</span></div>
+        <div className="reveal-team-achievement"><span>Общее достижение команды</span><strong>{scoreboard[0]?.title ?? 'Ожидаем итоговый титул от сервера'}</strong></div>
+      </div>
 
       {!reveal ? <div className="reveal-wait">Ожидаем итог от сервера.</div> : <div className="reveal-grid">
         <section>
@@ -41,15 +44,6 @@ export function Reveal({ onExit }: { onExit: () => void }) {
           <p className="reveal-lesson">Проверяйте общие детали, задавайте уточняющие вопросы и замечайте противоречия. Уверенность — не доказательство.</p>
         </section>
       </div>}
-
-      {scoreboard.length > 0 && <section className="reveal-achievements">
-        <h2>Достижения игроков</h2>
-        <div className="reveal-player-list">{scoreboard.map(result => <div className="reveal-player" key={result.id}>
-          <strong>{players.find(p => p.id === result.id)?.name ?? 'Игрок'}{result.id === playerId ? ' (вы)' : ''}</strong>
-          <span>{result.title}</span>
-          <b>{result.score} очков</b>
-        </div>)}</div>
-      </section>}
 
       <div className="flex gap-4 mt-4">
         <button className="primary" onClick={() => void backToLobby()}>Новая игра (в лобби)<Icon name="arrow" /></button>
