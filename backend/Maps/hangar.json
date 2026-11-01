@@ -1,5 +1,5 @@
 {
-  "version": "3",
+  "version": "7",
   "name": "Ангар / Studio 01",
   "theme": "studio",
   "room": {
@@ -265,13 +265,13 @@
     {
       "id": "seat-1",
       "position": {
-        "x": -5.95,
+        "x": -2.4,
         "y": 0,
         "z": 6
       },
       "yaw": 0,
       "exit": {
-        "x": -5.95,
+        "x": -2.4,
         "y": 0,
         "z": 7.5
       }
@@ -279,13 +279,13 @@
     {
       "id": "seat-2",
       "position": {
-        "x": -4.25,
+        "x": -0.8,
         "y": 0,
         "z": 6
       },
       "yaw": 0,
       "exit": {
-        "x": -4.25,
+        "x": -0.8,
         "y": 0,
         "z": 7.5
       }
@@ -293,13 +293,13 @@
     {
       "id": "seat-3",
       "position": {
-        "x": -2.55,
+        "x": 0.8,
         "y": 0,
         "z": 6
       },
       "yaw": 0,
       "exit": {
-        "x": -2.55,
+        "x": 0.8,
         "y": 0,
         "z": 7.5
       }
@@ -307,69 +307,13 @@
     {
       "id": "seat-4",
       "position": {
-        "x": -0.85,
+        "x": 2.4,
         "y": 0,
         "z": 6
       },
       "yaw": 0,
       "exit": {
-        "x": -0.85,
-        "y": 0,
-        "z": 7.5
-      }
-    },
-    {
-      "id": "seat-5",
-      "position": {
-        "x": 0.85,
-        "y": 0,
-        "z": 6
-      },
-      "yaw": 0,
-      "exit": {
-        "x": 0.85,
-        "y": 0,
-        "z": 7.5
-      }
-    },
-    {
-      "id": "seat-6",
-      "position": {
-        "x": 2.55,
-        "y": 0,
-        "z": 6
-      },
-      "yaw": 0,
-      "exit": {
-        "x": 2.55,
-        "y": 0,
-        "z": 7.5
-      }
-    },
-    {
-      "id": "seat-7",
-      "position": {
-        "x": 4.25,
-        "y": 0,
-        "z": 6
-      },
-      "yaw": 0,
-      "exit": {
-        "x": 4.25,
-        "y": 0,
-        "z": 7.5
-      }
-    },
-    {
-      "id": "seat-8",
-      "position": {
-        "x": 5.95,
-        "y": 0,
-        "z": 6
-      },
-      "yaw": 0,
-      "exit": {
-        "x": 5.95,
+        "x": 2.4,
         "y": 0,
         "z": 7.5
       }
@@ -509,7 +453,7 @@
       "type": "spotlight",
       "position": {
         "x": -12,
-        "y": 9.8,
+        "y": 10.3,
         "z": -12
       },
       "size": {
@@ -518,14 +462,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss--12",
+        "localPosition": {
+          "x": -12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light--6--12",
       "type": "spotlight",
       "position": {
         "x": -6,
-        "y": 9.8,
+        "y": 10.3,
         "z": -12
       },
       "size": {
@@ -534,14 +486,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss--12",
+        "localPosition": {
+          "x": -6,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-0--12",
       "type": "spotlight",
       "position": {
         "x": 0,
-        "y": 9.8,
+        "y": 10.3,
         "z": -12
       },
       "size": {
@@ -550,30 +510,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
-    },
-    {
-      "id": "hung-light-6--12",
-      "type": "spotlight",
-      "position": {
-        "x": 6,
-        "y": 9.8,
-        "z": -12
-      },
-      "size": {
-        "x": 0.7,
-        "y": 0.9,
-        "z": 1
-      },
-      "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss--12",
+        "localPosition": {
+          "x": 0,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-12--12",
       "type": "spotlight",
       "position": {
         "x": 12,
-        "y": 9.8,
+        "y": 10.3,
         "z": -12
       },
       "size": {
@@ -582,7 +534,15 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss--12",
+        "localPosition": {
+          "x": 12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "column--19--6",
@@ -658,7 +618,7 @@
       "type": "spotlight",
       "position": {
         "x": -12,
-        "y": 9.8,
+        "y": 10.3,
         "z": -6
       },
       "size": {
@@ -667,14 +627,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss--6",
+        "localPosition": {
+          "x": -12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light--6--6",
       "type": "spotlight",
       "position": {
         "x": -6,
-        "y": 9.8,
+        "y": 10.3,
         "z": -6
       },
       "size": {
@@ -683,14 +651,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss--6",
+        "localPosition": {
+          "x": -6,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-0--6",
       "type": "spotlight",
       "position": {
         "x": 0,
-        "y": 9.8,
+        "y": 10.3,
         "z": -6
       },
       "size": {
@@ -699,30 +675,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
-    },
-    {
-      "id": "hung-light-6--6",
-      "type": "spotlight",
-      "position": {
-        "x": 6,
-        "y": 9.8,
-        "z": -6
-      },
-      "size": {
-        "x": 0.7,
-        "y": 0.9,
-        "z": 1
-      },
-      "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss--6",
+        "localPosition": {
+          "x": 0,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-12--6",
       "type": "spotlight",
       "position": {
         "x": 12,
-        "y": 9.8,
+        "y": 10.3,
         "z": -6
       },
       "size": {
@@ -731,7 +699,15 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss--6",
+        "localPosition": {
+          "x": 12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "column--19-0",
@@ -807,7 +783,7 @@
       "type": "spotlight",
       "position": {
         "x": -12,
-        "y": 9.8,
+        "y": 10.3,
         "z": 0
       },
       "size": {
@@ -816,14 +792,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-0",
+        "localPosition": {
+          "x": -12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light--6-0",
       "type": "spotlight",
       "position": {
         "x": -6,
-        "y": 9.8,
+        "y": 10.3,
         "z": 0
       },
       "size": {
@@ -832,14 +816,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-0",
+        "localPosition": {
+          "x": -6,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-0-0",
       "type": "spotlight",
       "position": {
         "x": 0,
-        "y": 9.8,
+        "y": 10.3,
         "z": 0
       },
       "size": {
@@ -848,30 +840,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
-    },
-    {
-      "id": "hung-light-6-0",
-      "type": "spotlight",
-      "position": {
-        "x": 6,
-        "y": 9.8,
-        "z": 0
-      },
-      "size": {
-        "x": 0.7,
-        "y": 0.9,
-        "z": 1
-      },
-      "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-0",
+        "localPosition": {
+          "x": 0,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-12-0",
       "type": "spotlight",
       "position": {
         "x": 12,
-        "y": 9.8,
+        "y": 10.3,
         "z": 0
       },
       "size": {
@@ -880,7 +864,15 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-0",
+        "localPosition": {
+          "x": 12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "column--19-6",
@@ -956,7 +948,7 @@
       "type": "spotlight",
       "position": {
         "x": -12,
-        "y": 9.8,
+        "y": 10.3,
         "z": 6
       },
       "size": {
@@ -965,14 +957,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-6",
+        "localPosition": {
+          "x": -12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light--6-6",
       "type": "spotlight",
       "position": {
         "x": -6,
-        "y": 9.8,
+        "y": 10.3,
         "z": 6
       },
       "size": {
@@ -981,14 +981,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-6",
+        "localPosition": {
+          "x": -6,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-0-6",
       "type": "spotlight",
       "position": {
         "x": 0,
-        "y": 9.8,
+        "y": 10.3,
         "z": 6
       },
       "size": {
@@ -997,30 +1005,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
-    },
-    {
-      "id": "hung-light-6-6",
-      "type": "spotlight",
-      "position": {
-        "x": 6,
-        "y": 9.8,
-        "z": 6
-      },
-      "size": {
-        "x": 0.7,
-        "y": 0.9,
-        "z": 1
-      },
-      "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-6",
+        "localPosition": {
+          "x": 0,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-12-6",
       "type": "spotlight",
       "position": {
         "x": 12,
-        "y": 9.8,
+        "y": 10.3,
         "z": 6
       },
       "size": {
@@ -1029,7 +1029,15 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-6",
+        "localPosition": {
+          "x": 12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "column--19-12",
@@ -1105,7 +1113,7 @@
       "type": "spotlight",
       "position": {
         "x": -12,
-        "y": 9.8,
+        "y": 10.3,
         "z": 12
       },
       "size": {
@@ -1114,14 +1122,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-12",
+        "localPosition": {
+          "x": -12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light--6-12",
       "type": "spotlight",
       "position": {
         "x": -6,
-        "y": 9.8,
+        "y": 10.3,
         "z": 12
       },
       "size": {
@@ -1130,14 +1146,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-12",
+        "localPosition": {
+          "x": -6,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-0-12",
       "type": "spotlight",
       "position": {
         "x": 0,
-        "y": 9.8,
+        "y": 10.3,
         "z": 12
       },
       "size": {
@@ -1146,30 +1170,22 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
-    },
-    {
-      "id": "hung-light-6-12",
-      "type": "spotlight",
-      "position": {
-        "x": 6,
-        "y": 9.8,
-        "z": 12
-      },
-      "size": {
-        "x": 0.7,
-        "y": 0.9,
-        "z": 1
-      },
-      "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-12",
+        "localPosition": {
+          "x": 0,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "hung-light-12-12",
       "type": "spotlight",
       "position": {
         "x": 12,
-        "y": 9.8,
+        "y": 10.3,
         "z": 12
       },
       "size": {
@@ -1178,7 +1194,15 @@
         "z": 1
       },
       "color": "#fff1d2",
-      "collidable": false
+      "collidable": false,
+      "attachment": {
+        "objectId": "truss-12",
+        "localPosition": {
+          "x": 12,
+          "y": -0.5,
+          "z": 0
+        }
+      }
     },
     {
       "id": "backdrop--15",
@@ -2591,8 +2615,16 @@
       "slide": {
         "x": 0,
         "y": 0,
-        "z": 2.6
-      }
+        "z": 0
+      },
+      "animationDurationMs": 900,
+      "hinge": {
+        "x": 11,
+        "y": 1.55,
+        "z": 8.4
+      },
+      "openAngleDegrees": -160,
+      "collidableWhileMoving": false
     }
   ],
   "foods": [
@@ -2664,5 +2696,55 @@
     "floor": "#8c989c",
     "walls": "#b4bdc2",
     "ceiling": "#46535e"
-  }
+  },
+  "furnitureSeats": [
+    {
+      "id": "sofa-seat-1",
+      "furnitureId": "set-sofa",
+      "label": "Диван",
+      "position": {
+        "x": -14.1,
+        "y": 0,
+        "z": -9.1
+      },
+      "yaw": 0,
+      "exit": {
+        "x": -14.1,
+        "y": 0,
+        "z": -10.4
+      }
+    },
+    {
+      "id": "sofa-seat-2",
+      "furnitureId": "set-sofa",
+      "label": "Диван",
+      "position": {
+        "x": -13,
+        "y": 0,
+        "z": -9.1
+      },
+      "yaw": 0,
+      "exit": {
+        "x": -13,
+        "y": 0,
+        "z": -10.4
+      }
+    },
+    {
+      "id": "sofa-seat-3",
+      "furnitureId": "set-sofa",
+      "label": "Диван",
+      "position": {
+        "x": -11.9,
+        "y": 0,
+        "z": -9.1
+      },
+      "yaw": 0,
+      "exit": {
+        "x": -11.9,
+        "y": 0,
+        "z": -10.4
+      }
+    }
+  ]
 }

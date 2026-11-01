@@ -15,8 +15,8 @@ interface HostInfo {
   ollama?: { connected: boolean; baseUrl: string; model: string; availableModels: string[] };
 }
 
-interface Props { onConnect: (token: string) => Promise<void>; onExit: () => void; onTour: () => void }
-export function Lobby({ onConnect, onExit, onTour }: Props) {
+interface Props { onConnect: (token: string) => Promise<void>; onExit: () => void }
+export function Lobby({ onConnect, onExit }: Props) {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [loginInput, setLoginInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -191,7 +191,6 @@ export function Lobby({ onConnect, onExit, onTour }: Props) {
         <div className="lobby-grid"><div className="people"><div className="people-head"><span>Игроки в комнате</span><span>{lobby?.players.filter(p => p.connected).length ?? 0} онлайн (всего {lobby?.players.length ?? 0})</span></div>{lobby?.players.map(p => <div className="player" key={p.id}><span className="avatar">{initials(p.name)}</span><div><div className="player-name">{p.name}{p.id === playerId && <span className="muted"> · Вы</span>}</div><div className="player-role">{p.id === lobby.leaderId ? 'Ведущий комнаты (Хост)' : 'Судья'}</div></div><span className="player-ready"><i />{p.connected ? 'В комнате' : 'Нет связи'}</span></div>)}</div>
           <aside className="launch"><h2>Компания готова к игре?</h2><div className="map-picker"><span>Карта: <b>{selectedMap?.name ?? lobby?.mapId ?? "Hangar"}</b></span>{leader && <button className="btn ghost" type="button" onClick={() => setShowMaps(value => !value)}>Выбрать карту</button>}{showMaps && leader && <div className="map-options">{maps.map(map => <button key={map.id} type="button" className={map.id === lobby?.mapId ? "map-option selected" : "map-option"} onClick={() => void selectMap(map.id)}>{map.name}{!map.available && <small>Скоро</small>}</button>)}</div>}</div><p>Вы окажетесь в общей студии, где участники начнут знакомиться с жюри и рассказывать свои истории.</p>
             {leader && <button className="btn ghost block" type="button" onClick={() => useGameStore.setState({ escapeOpen: true })}>Управление участниками</button>}
-            <button className="btn ghost block" onClick={onTour} disabled={!selectedMap?.available}>Осмотреть ангар</button>
             <button className="btn block" onClick={() => void start()} disabled={!lobby?.canStart || !leader || starting || !selectedMap?.available}>{starting ? 'Начинаем…' : leader ? 'Начать игру' : 'Ожидаем ведущего'}<Icon name="arrow" /></button>
             {selectedMap && !selectedMap.available && <p className="subtle">Карта пока недоступна для игры. Выберите Hangar.</p>}
             {!lobby?.canStart && <p className="subtle">Нужно игроков: {lobby?.minPlayers ?? '1'}</p>}

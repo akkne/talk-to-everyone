@@ -1,3 +1,4 @@
+import { doorBounds, doorMoving } from './doors';
 import type { Box, Ramp, SceneSpec, Vec3 } from './world';
 export const WALK_SPEED = 2.5;
 export const PLAYER_RADIUS = .3;
@@ -33,7 +34,10 @@ export function buildSceneObstacles(scene: SceneSpec, extraObstacles: Box[] = []
   const obstacles: Box[] = [...(scene.room?.obstacles ?? [])];
 
   for (const p of scene.objects ?? []) if (p.collider) obstacles.push({ id:p.id, ...p.collider });
-  for (const d of scene.doors ?? []) if (!d.open) obstacles.push(d);
+  for (const d of scene.doors ?? []) {
+    if (d.collidableWhileMoving === false && doorMoving(d)) continue;
+    obstacles.push(doorBounds(d));
+  }
 
   // 1. Chairs (Player seats)
   if (scene.playerSeats) {

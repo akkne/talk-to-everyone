@@ -1,3 +1,4 @@
+import { doorProgress, doorPose } from './doors';
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { PropSpec, SceneSpec } from './world';
@@ -62,13 +63,22 @@ export function createProp(p:PropSpec){
 }
 export function addLocationProps(scene:T.Scene,spec:SceneSpec){
  for(const p of spec.objects??[])scene.add(createProp(p));
+ // Parent mounted equipment to its support using the relationship stored in the map file.
+ for(const p of spec.objects??[]){
+  if(!p.attachment)continue;
+  const object=scene.getObjectByName(p.id),support=scene.getObjectByName(p.attachment.objectId);
+  if(!object||!support||object===support)continue;
+  support.add(object);
+  const offset=p.attachment.localPosition;
+  object.position.set(offset.x,offset.y,offset.z);
+ }
  for(const d of spec.doors??[]){const g=new T.Group();g.name=d.id;g.add(new T.Mesh(new T.BoxGeometry(d.size.x,d.size.y,d.size.z),mat('#3c6579')));for(const x of [-1,1]){const handle=new T.Mesh(new T.BoxGeometry(.09,.35,.06),mat('#dce2db'));handle.position.set(x*(d.size.x/2+.04),0,-d.size.z*.32);g.add(handle);}if(spec.theme==='industrial-loft-bar'){const ring=new T.Mesh(new T.TorusGeometry(.35,.06,8,24),mat('#a8aaa0'));ring.position.set(0,.55,-d.size.z/2-.04);g.add(ring);const glass=new T.Mesh(new T.CircleGeometry(.29,24),mat('#364c57'));glass.position.set(0,.55,-d.size.z/2-.05);g.add(glass);const led=new T.Mesh(new T.SphereGeometry(.06,8,6),mat('#4eff87',true));led.position.set(.65,-.35,-d.size.z/2-.08);g.add(led);}scene.add(g);}
  for(const f of spec.foods??[]){const g=new T.Group();g.name=f.id;g.position.set(f.position.x,f.position.y,f.position.z);const add=(geom:T.BufferGeometry,c:string,y=0)=>{const m=new T.Mesh(geom,mat(c));m.position.y=y;g.add(m);return m;};add(new T.CylinderGeometry(.23,.23,.025,20),'#f2eee2',-.04);
  if(f.type==='apple'){add(new T.SphereGeometry(.14,16,12),'#d14a36',.12);add(new T.CylinderGeometry(.018,.018,.12,6),'#594636',.28);}else if(f.type==='pizza'){const m=add(new T.CylinderGeometry(.22,.22,.055,3),'#edbc61',.03);m.rotation.y=.5;for(let i=0;i<3;i++){const q=add(new T.CylinderGeometry(.038,.038,.012,10),'#b84633',.065);q.position.x=(i-1)*.06;q.position.z=.02;}}else if(f.type==='donut'){const m=add(new T.TorusGeometry(.12,.055,8,20),'#e199aa',.045);m.rotation.x=Math.PI/2;}else{add(new T.BoxGeometry(.3,.08,.23),'#d4a15e',.04);add(new T.BoxGeometry(.31,.025,.24),'#4e9b55',.09);add(new T.BoxGeometry(.3,.08,.23),'#f0c489',.14);}scene.add(g);}
 }
 
 export function syncLocationProps(scene:T.Scene,spec:SceneSpec){
- for(const d of spec.doors??[]){const mesh=scene.getObjectByName(d.id);if(mesh)mesh.position.set(d.center.x+(d.open?d.slide.x:0),d.center.y+(d.open?d.slide.y:0),d.center.z+(d.open?d.slide.z:0));}
+ animateLocationDoors(scene,spec);
  for(const f of spec.foods??[]){const mesh=scene.getObjectByName(f.id);if(mesh)mesh.visible=!f.eaten;}
 }
 
@@ -87,4 +97,16 @@ function batchProp(group:T.Group){
  });
  group.clear();if(preserved.length)group.add(...preserved);
  for(const {material,geometries} of batches.values()){const merged=mergeGeometries(geometries,false);if(merged)group.add(new T.Mesh(merged,material));for(const geometry of geometries)geometry.dispose();}
+}
+
+/** Evaluate the same timestamped motion used by server and client collisions on every frame. */
+export function animateLocationDoors(scene:T.Scene,spec:SceneSpec){
+ const now=Date.now();
+ for(const door of spec.doors??[]){
+  const mesh=scene.getObjectByName(door.id);if(!mesh)continue;
+  const progress=doorProgress(door,now);
+  const pose=doorPose(door,progress);
+  mesh.position.set(pose.x,pose.y,pose.z);
+  mesh.rotation.y=pose.angle;
+ }
 }
