@@ -58,7 +58,7 @@ public sealed partial class GameHub
             { await ActionReject("SitDown", "SEAT_TAKEN", request.RequestId); return; }
             pose.Position = seatPos; pose.Mode = "seated"; pose.SeatId = request.SeatId; pose.Yaw = 0; pose.JumpOffset = 0;
             me.PoseJson = JsonData.Write(pose); Remember(me, "SitDown", request.RequestId);
-            await db.SaveChangesAsync(); await BroadcastPlayers();
+            await db.SaveChangesAsync(); await BroadcastPlayers(); await BroadcastParticipants();
         }
         finally { gate.Lock.Release(); }
     }
@@ -75,7 +75,7 @@ public sealed partial class GameHub
             if (pose.Mode != "seated") { await ActionReject("StandUp", "WRONG_MODE", request.RequestId); return; }
             pose.Position = new Vec3(pose.Position.X, 0, 5); pose.Mode = "walking"; pose.SeatId = null;
             me.PoseJson = JsonData.Write(pose); Remember(me, "StandUp", request.RequestId);
-            await db.SaveChangesAsync(); await BroadcastPlayers();
+            await db.SaveChangesAsync(); await BroadcastPlayers(); await BroadcastParticipants();
         }
         finally { gate.Lock.Release(); }
     }

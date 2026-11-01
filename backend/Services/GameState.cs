@@ -31,7 +31,20 @@ public static class GameLogic
     public static object PlayerView(GamePlayer p) => new { id = p.Id, name = p.Name, connected = p.Connected, pose = JsonData.Read<PoseData>(p.PoseJson) };
     public static object NpcView(GameNpc n) => new { id = n.Id, number = n.Number, name = n.Name, color = n.Color, anchorId = $"anchor-{n.Number}", appearance = NpcAppearance.From(n) };
     public static object Details(GameNpc n) => new { displayName = n.Name, photoColor = n.Color, voiceHint = "neutral" };
-    public static object RoundView(GameSession s) => new { n = s.Round, phase = s.RoundPhase, endsAt = s.EndsAt, choiceEndsAt = s.RoundPhase == "choice" ? s.EndsAt : (long?)null };
+    public static object RoundView(GameSession s, ISessionPauseGate? pauseGate = null)
+    {
+        var pause = pauseGate?.CurrentView(s, JsonData.Now);
+        var effectiveEndsAt = pause is { Paused: true } ? pause.EndsAt : s.EndsAt;
+        return new
+        {
+            n = s.Round,
+            phase = s.RoundPhase,
+            endsAt = effectiveEndsAt,
+            choiceEndsAt = s.RoundPhase == "choice" ? effectiveEndsAt : (long?)null,
+            paused = pause?.Paused ?? false,
+            pausedRemainingMs = pause?.PausedRemainingMs ?? 0L
+        };
+    }
     public static object[] RoundSpecs(int durationSec) =>
     [
         new { n = 1, phase = "presentation", title = "Визитки", durationSec },
@@ -53,7 +66,12 @@ public static class GameLogic
         started = session.Phase == "playing"
     };
 
-    public static async Task<object> Snapshot(GameDb db, GamePlayer me, GameSettings settings)
+    public static async Task<object> Snapshot(
+        GameDb db,
+        GamePlayer me,
+        GameSettings settings,
+        IParticipantTelemetryRegistry? telemetry = null,
+        ISessionPauseGate? pauseGate = null)
     {
         var session = await db.Sessions.SingleAsync();
         var players = await db.Players.AsNoTracking().ToListAsync();
@@ -62,10 +80,12 @@ public static class GameLogic
         var chat = await db.Messages.AsNoTracking().Where(m => !m.IsQuestion && !voting.Eliminated.Contains(m.NpcId)).OrderBy(m => m.At).Select(m => new
         { m.Id, npc = m.NpcId, m.Text, m.InReplyTo, m.Emotion, m.At }).ToListAsync();
         var scoreboard = session.Phase == "finished" ? Scoreboard(players) : null;
+        var pause = pauseGate?.CurrentView(session, JsonData.Now) ?? new GamePauseView(false, 0L, session.EndsAt, null);
+        var participants = telemetry?.BuildSnapshot(players, session) ?? [];
         return new
         {
             sessionId = session.Id, me = new { id = me.Id, role = me.Role }, phase = session.Phase,
-            round = session.Phase == "lobby" ? null : RoundView(session), rounds = RoundSpecs(settings.RoundSeconds), scene = Scene,
+            round = session.Phase == "lobby" ? null : RoundView(session, pauseGate), rounds = RoundSpecs(settings.RoundSeconds), scene = Scene,
             gameInfo = await GameRules.InfoAsync(db, settings),
             players = players.Select(PlayerView).ToArray(), npcs = npcs.Select(NpcView).ToArray(), seats = Seats(players),
             board = JsonData.Read<BoardData>(me.BoardJson), questions = JsonData.Read<QuestionData>(me.QuestionsJson), chat,
@@ -74,7 +94,10 @@ public static class GameLogic
                     + Encoding.UTF8.GetByteCount(JsonData.Write(Details(n)))),
             score = players.ToDictionary(p => p.Id, _ => voting.TeamScore), scoreboard, teamScore = voting.TeamScore,
             voting = session.RoundPhase == "choice" ? Voting.View(session, me.Id) : null,
-            reveal = session.Phase == "finished" ? Reveal(npcs) : null
+            reveal = session.Phase == "finished" ? Reveal(npcs) : null,
+            paused = pause.Paused,
+            pausedRemainingMs = pause.PausedRemainingMs,
+            participants
         };
     }
 

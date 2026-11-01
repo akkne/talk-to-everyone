@@ -20,6 +20,11 @@ public sealed partial class GameHub
                 await Clients.Caller.SendAsync("QuestionOk", new { requestId = r.RequestId, questions = JsonData.Read<QuestionData>(me.QuestionsJson) });
                 return;
             }
+            if (pauseGate.IsPaused)
+            {
+                await Clients.Caller.SendAsync("QuestionReject", new { requestId = r.RequestId, code = "GAME_PAUSED", message = "Игра и боты поставлены на паузу хостом." });
+                return;
+            }
             var session = await db.Sessions.SingleAsync();
             var questions = JsonData.Read<QuestionData>(me.QuestionsJson);
             var code = session.Phase != "playing" || session.Round != 4 || session.RoundPhase != "interrogation" ? "WRONG_PHASE"
@@ -36,6 +41,7 @@ public sealed partial class GameHub
             await db.SaveChangesAsync();
             await Clients.Caller.SendAsync("QuestionOk", new { requestId = r.RequestId, questions });
             await Clients.All.SendAsync("NpcThinking", new { npc = npc.Id, questionId = r.RequestId });
+            await BroadcastParticipants();
         }
         finally { gate.Lock.Release(); }
 
