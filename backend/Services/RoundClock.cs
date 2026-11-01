@@ -10,10 +10,12 @@ public sealed class RoundDirector(
     GameSettings settings,
     LlmClient llm,
     ILogger<RoundDirector> log,
-    SessionPauseRegistry pauseRegistry)
+    SessionPauseRegistry pauseRegistry,
+    IGameRedisStore? redisStore = null)
 {
     private readonly Dictionary<string, (int Round, CancellationTokenSource Cts)> active = new();
     private readonly object sync = new();
+    private readonly IGameRedisStore store = redisStore ?? new RedisGameStore();
 
     public void CancelCurrentRound(string sessionId)
     {
@@ -58,7 +60,7 @@ public sealed class RoundDirector(
                 var session = await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == sessionId, ct);
                 if (session.Phase != "playing" || session.Round != round || session.RoundPhase == "choice") return;
                 var eliminated = JsonData.Read<VotingData>(session.VotingJson).Eliminated;
-                fullRoster = await db.Npcs.AsNoTracking().Where(n => n.SessionId == sessionId).OrderBy(n => n.Number).ToListAsync(ct);
+                fullRoster = (await store.GetNpcsAsync(sessionId)).OrderBy(n => n.Number).ToList();
                 activeNpcs = fullRoster.Where(n => !eliminated.Contains(n.Id)).ToList();
             }
 
@@ -85,8 +87,7 @@ public sealed class RoundDirector(
                         var session = await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == sessionId, ct);
                         if (session.Phase != "playing" || session.Round != round || session.RoundPhase == "choice") return;
                         gameId = session.GameId;
-                        var history = await db.ConversationEvents.AsNoTracking()
-                            .Where(e => e.GameId == session.GameId).OrderBy(e => e.Sequence).ToListAsync(ct);
+                        var history = await store.GetConversationEventsAsync(sessionId, session.GameId);
                         (speech, emotion) = await llm.GenerateRoundSpeech(npc, round, phase, fullRoster, [], ct, history);
                     }
                     finally
@@ -123,8 +124,8 @@ public sealed class RoundDirector(
                         IsQuestion = false,
                         At = JsonData.Now
                     };
-                    db.Messages.Add(line);
-                    NpcConversationLog.Append(db, session, speech, npc.Id);
+                    await store.AddMessageAsync(sessionId, line);
+                    NpcConversationLog.Append(store, session, speech, npc.Id);
                     await db.SaveChangesAsync(ct);
                     await hub.Clients.Group(sessionId).SendAsync("NpcSay", new
                     {
@@ -150,7 +151,7 @@ public sealed class RoundDirector(
         }
         catch (Exception ex)
         {
-            log.LogWarning(ex, "Error while running round {Round} speeches", round);
+            log.LogWarning(ex, "Round routine terminated for {SessionId}", sessionId);
         }
     }
 }
@@ -162,53 +163,96 @@ public sealed class RoundClock(
     GameSettings settings,
     RoundDirector director,
     SessionPauseRegistry pauseRegistry,
+    IGameRedisStore redisStore,
     ILogger<RoundClock> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
         while (await timer.WaitForNextTickAsync(ct))
         {
-            await gate.Lock.WaitAsync(ct);
             try
             {
-                using var scope = scopes.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<GameDb>();
-                foreach (var session in await db.Sessions.Where(s => s.Phase == "playing").ToListAsync(ct))
-                {
+                await TickAsync(ct);
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex)
+            {
+                log.LogError(ex, "Round clock tick failed");
+            }
+        }
+    }
+
+    private async Task TickAsync(CancellationToken ct)
+    {
+        await gate.Lock.WaitAsync(ct);
+        try
+        {
+            using var scope = scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<GameDb>();
+            var now = JsonData.Now;
+            var playing = await db.Sessions.Where(s => s.Phase == "playing").ToListAsync(ct);
+            foreach (var session in playing)
+            {
                 var pauseGate = pauseRegistry.For(session.Id);
                 if (pauseGate.IsPaused) continue;
-                if (session.Phase != "playing") continue;
+
                 if (session.RoundPhase == "choice")
                 {
-                    if (!await Voting.Advance(db, hub.Clients, session, settings)) continue;
+                    await Voting.Advance(db, redisStore, hub.Clients, session, settings);
                 }
-                else if (session.EndsAt > JsonData.Now)
+
+                if (session.EndsAt <= now)
                 {
-                    director.TriggerRound(session.Id, session.Round, session.RoundPhase);
-                    continue;
-                }
-                else if (session.RoundPhase != "resolved")
-                {
-                    director.CancelCurrentRound(session.Id);
-                    var choice = Voting.IsChoiceRound(session.Round);
-                    await hub.Clients.Group(session.Id).SendAsync("RoundEnded", new { n = session.Round, choiceEndsAt = choice ? JsonData.Now + settings.ChoiceSeconds * 1000L : (long?)null }, ct);
-                    if (choice) { await Voting.Start(db, hub.Clients, session, settings); continue; }
-                }
-                if (session.Round >= 5) { director.CancelCurrentRound(session.Id); await GameLogic.Finish(db, hub, session); continue; }
-                session.Round++;
-                session.RoundPhase = session.Round switch { 2 => "gossip", 3 => "blindspots", 4 => "interrogation", 5 => "debate", _ => "presentation" };
-                session.EndsAt = JsonData.Now + settings.RoundSeconds * 1000L;
-                await db.SaveChangesAsync(ct);
-                await hub.Clients.Group(session.Id).SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate), ct);
-                director.TriggerRound(session.Id, session.Round, session.RoundPhase);
+                    var nextRound = session.Round + 1;
+                    if (session.Round == 5 && session.RoundPhase != "choice")
+                    {
+                        await Voting.Start(db, redisStore, hub.Clients, session, settings);
+                    }
+                    else if (session.Round == 5 && session.RoundPhase == "choice")
+                    {
+                        await GameLogic.Finish(db, redisStore, hub, session);
+                    }
+                    else if (session.RoundPhase != "choice" && Voting.IsChoiceRound(session.Round))
+                    {
+                        await Voting.Start(db, redisStore, hub.Clients, session, settings);
+                    }
+                    else
+                    {
+                        director.CancelCurrentRound(session.Id);
+                        var phase = nextRound switch
+                        {
+                            2 => "gossip",
+                            3 => "blindspots",
+                            4 => "interrogation",
+                            5 => "debate",
+                            _ => "presentation"
+                        };
+                        session.Round = nextRound;
+                        session.RoundPhase = phase;
+                        session.EndsAt = now + settings.RoundSeconds * 1000L;
+                        if (nextRound == 4)
+                        {
+                            var players = await db.Players.Where(p => p.SessionId == session.Id).ToListAsync(ct);
+                            foreach (var p in players)
+                            {
+                                var q = new QuestionData();
+                                p.QuestionsJson = JsonData.Write(q);
+                                await redisStore.SetPlayerQuestionsAsync(session.Id, p.Id, q);
+                                if (p.Connected && p.ConnectionId != null)
+                                    await hub.Clients.Client(p.ConnectionId).SendAsync("QuestionState", new { questions = q }, ct);
+                            }
+                        }
+                        await db.SaveChangesAsync(ct);
+                        await hub.Clients.Group(session.Id).SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate), ct);
+                        director.TriggerRound(session.Id, nextRound, phase);
+                    }
                 }
             }
-            catch (Exception e) when (e is not OperationCanceledException)
-            {
-                log.LogError(e, "Round transition failed");
-            }
-            finally { gate.Lock.Release(); }
+        }
+        finally
+        {
+            gate.Lock.Release();
         }
     }
 }

@@ -31,19 +31,21 @@ public sealed class FinalRevealTests
         db.Sessions.Add(session);
         var me = new GamePlayer { Id = "player-a", Name = "Аня", SessionId = session.Id };
         db.Players.Add(me);
-        db.Npcs.AddRange(Enumerable.Range(1, 6).Select(number => new GameNpc
+        await db.SaveChangesAsync();
+
+        var redisStore = new RedisGameStore();
+        var npcs = Enumerable.Range(1, 6).Select(number => new GameNpc
         {
             Id = $"friend-{number}", SessionId = session.Id, Number = number, Name = $"Друг {number}", Role = "friend",
             RelatedNumber = number == 2 ? 0 : number % 2 == 0 ? number - 1 : number + 1
-        }));
-        db.Npcs.AddRange(Enumerable.Range(7, 4).Select(number => new GameNpc
+        }).Concat(Enumerable.Range(7, 4).Select(number => new GameNpc
         {
             Id = $"actor-{number}", SessionId = session.Id, Number = number, Name = $"Актёр {number}", Role = "actor"
-        }));
-        await db.SaveChangesAsync();
+        })).ToList();
+        await redisStore.SaveNpcsAsync(session.Id, npcs);
 
         var events = new RecordingProxy();
-        await GameLogic.Finish(db, new RecordingHub(events), session);
+        await GameLogic.Finish(db, redisStore, new RecordingHub(events), session);
         var ended = await events.Events.Reader.ReadAsync();
         Assert.Equal("GameEnded", ended.method);
         Assert.Equal(10, ended.payload.GetProperty("npcs").GetArrayLength());
@@ -54,7 +56,7 @@ public sealed class FinalRevealTests
         Assert.Equal("actor-7", ended.payload.GetProperty("reveal").GetProperty("actors")[0].GetString());
         Assert.Equal(300, ended.payload.GetProperty("scoreboard")[0].GetProperty("score").GetInt32());
 
-        var snapshot = JsonSerializer.SerializeToElement(await GameLogic.Snapshot(db, me, new GameSettings(), new MapCatalog(Path.Combine(AppContext.BaseDirectory, "Maps"))));
+        var snapshot = JsonSerializer.SerializeToElement(await GameLogic.Snapshot(db, redisStore, me, new GameSettings(), new MapCatalog(Path.Combine(AppContext.BaseDirectory, "Maps"))));
         Assert.Equal(10, snapshot.GetProperty("npcs").GetArrayLength());
         Assert.Equal(3, snapshot.GetProperty("reveal").GetProperty("trueFriends").GetArrayLength());
         Assert.Equal(4, snapshot.GetProperty("reveal").GetProperty("actors").GetArrayLength());

@@ -23,6 +23,7 @@ public sealed record KickPlayerRequest(string RequestId, string PlayerId);
 [Authorize]
 public sealed partial class GameHub(
     GameDb db,
+    IGameRedisStore redisStore,
     GameGate gate,
     GameSettings settings,
     MapCatalog maps,
@@ -36,6 +37,21 @@ public sealed partial class GameHub(
     private readonly IVoiceRoomCoordinator voiceRoom = voiceRoomCoordinator ?? new VoiceRoomCoordinator();
     private GamePlayer? Me => db.Players.SingleOrDefault(p => p.ConnectionId == Context.ConnectionId && p.Connected);
     private ISessionPauseGate pauseGate => pauseRegistry.For(Me?.SessionId ?? "");
+
+    public GameHub(
+        GameDb db,
+        GameGate gate,
+        GameSettings settings,
+        MapCatalog maps,
+        LlmClient llm,
+        RoundDirector director,
+        IParticipantTelemetryRegistry telemetry,
+        SessionPauseRegistry pauseRegistry,
+        ILogger<GameHub> log,
+        IVoiceRoomCoordinator? voiceRoomCoordinator = null)
+        : this(db, new RedisGameStore(), gate, settings, maps, llm, director, telemetry, pauseRegistry, log, voiceRoomCoordinator)
+    {
+    }
 
     public override async Task OnConnectedAsync()
     {
@@ -73,12 +89,12 @@ public sealed partial class GameHub(
                 {
                     director.CancelCurrentRound(me.SessionId);
                     pauseRegistry.Remove(me.SessionId);
-                    await LobbyDirectory.Delete(db, me.SessionId);
+                    await LobbyDirectory.Delete(db, redisStore, me.SessionId);
                     return;
                 }
                 if (session.Phase == "playing" && session.RoundPhase == "choice")
                 {
-                    await Voting.Advance(db, Clients, session, settings);
+                    await Voting.Advance(db, redisStore, Clients, session, settings);
                 }
                 if (wasSpeaking)
                 {
@@ -116,9 +132,11 @@ public sealed partial class GameHub(
     private async Task BroadcastPlayers(string sessionId)
     {
         var players = await db.Players.AsNoTracking().Where(p => p.SessionId == sessionId).ToListAsync();
-        await Clients.Group(sessionId).SendAsync("PlayersTick", new { players = players.Select(GameLogic.PlayerView).ToArray(), serverTime = JsonData.Now });
+        var poses = await redisStore.GetPlayerPosesAsync(sessionId);
         var session = await db.Sessions.SingleAsync(s => s.Id == sessionId);
-        await Clients.Group(sessionId).SendAsync("SeatState", new { seats = GameLogic.Seats(players, maps.Location(session.Id, session.MapId)) });
+        var location = maps.Location(session.Id, session.MapId);
+        await Clients.Group(sessionId).SendAsync("PlayersTick", new { players = players.Select(p => GameLogic.PlayerView(p, poses.GetValueOrDefault(p.Id))).ToArray(), serverTime = JsonData.Now });
+        await Clients.Group(sessionId).SendAsync("SeatState", new { seats = GameLogic.Seats(players, location, poses) });
     }
 
     private static bool ValidRequestId(string? id) => !string.IsNullOrWhiteSpace(id) && id.Length <= 64;
@@ -242,6 +260,10 @@ public sealed partial class GameHub(
                 };
                 db.Players.Add(me);
                 allPlayers.Add(me);
+
+                await redisStore.SetPlayerPoseAsync(session.Id, me.Id, initialPose);
+                await redisStore.SetPlayerBoardAsync(session.Id, me.Id, new BoardData());
+                await redisStore.SetPlayerQuestionsAsync(session.Id, me.Id, new QuestionData());
             }
 
             var activeLeader = allPlayers.FirstOrDefault(p => p.Id != me.Id && p.Role == "leader" && p.Connected);
@@ -264,7 +286,7 @@ public sealed partial class GameHub(
             GameMetrics.LobbyJoins.Inc();
 
             await Clients.Caller.SendAsync("AuthOk", new { playerId = me.Id, sessionId = session.Id, role = me.Role });
-            await Clients.Caller.SendAsync("StateSnapshot", await GameLogic.Snapshot(db, me, settings, maps, telemetry, pauseGate));
+            await Clients.Caller.SendAsync("StateSnapshot", await GameLogic.Snapshot(db, redisStore, me, settings, maps, telemetry, pauseGate));
             await BroadcastLobby(me.SessionId);
             await BroadcastPlayers(me.SessionId);
             await BroadcastParticipants(me.SessionId);
@@ -321,13 +343,10 @@ public sealed partial class GameHub(
             pauseGate.Reset();
             var roster = NpcDatabase.CreateRoster();
             foreach (var npc in roster) { npc.SessionId = me.SessionId; npc.Id = $"{npc.Id}-{me.SessionId}"; }
-            await using var transaction = await db.Database.BeginTransactionAsync();
-            db.Messages.RemoveRange(await db.Messages.Where(m => m.SessionId == me.SessionId).ToListAsync());
-            db.ConversationEvents.RemoveRange(await db.ConversationEvents.Where(e => e.SessionId == me.SessionId).ToListAsync());
-            db.Choices.RemoveRange(await db.Choices.Where(c => c.SessionId == me.SessionId).ToListAsync());
-            db.Npcs.RemoveRange(await db.Npcs.Where(n => n.SessionId == me.SessionId).ToListAsync());
-            await db.SaveChangesAsync();
-            db.Npcs.AddRange(roster);
+
+            await redisStore.ClearSessionGameStateAsync(me.SessionId);
+            await redisStore.SaveNpcsAsync(me.SessionId, roster);
+
             session.GameId = Guid.NewGuid().ToString("N");
             session.NextDialogueSequence = 0;
             session.VotingJson = JsonData.Write(new VotingData());
@@ -342,14 +361,19 @@ public sealed partial class GameHub(
                 p.BoardJson = JsonData.Write(new BoardData());
                 p.QuestionsJson = JsonData.Write(new QuestionData());
                 p.ProcessedJson = "[]";
-                p.PoseJson = JsonData.Write(new PoseData { Position = maps.Location(session.Id, session.MapId).Spawn(idx) });
+                var spawnPose = new PoseData { Position = maps.Location(session.Id, session.MapId).Spawn(idx) };
+                p.PoseJson = JsonData.Write(spawnPose);
+
+                await redisStore.SetPlayerPoseAsync(me.SessionId, p.Id, spawnPose);
+                await redisStore.SetPlayerBoardAsync(me.SessionId, p.Id, new BoardData());
+                await redisStore.SetPlayerQuestionsAsync(me.SessionId, p.Id, new QuestionData());
+                await redisStore.ClearSeenCommandsAsync(me.SessionId, p.Id);
                 idx++;
             }
 
             await db.SaveChangesAsync();
-            await transaction.CommitAsync();
             GameMetrics.GamesStarted.Inc();
-            var npcs = await db.Npcs.Where(n => n.SessionId == me.SessionId).OrderBy(n => n.Number).ToListAsync();
+            var npcs = (await redisStore.GetNpcsAsync(me.SessionId)).OrderBy(n => n.Number).ToList();
             var scene = maps.Location(session.Id, session.MapId).Data;
             await Clients.Group(me.SessionId).SendAsync("GameStarted", new { rounds = GameLogic.RoundSpecs(settings.RoundSeconds), npcs = npcs.Select(GameLogic.NpcView).ToArray(), sceneVersion = (string?)scene["version"], scene });
             await Clients.Group(me.SessionId).SendAsync("GamePauseChanged", pauseGate.CurrentView(session, JsonData.Now));
@@ -385,7 +409,9 @@ public sealed partial class GameHub(
             var idx = 0;
             foreach (var p in players)
             {
-                p.PoseJson = JsonData.Write(new PoseData { Position = maps.Location(session.Id, mapId).Spawn(idx) });
+                var spawn = new PoseData { Position = maps.Location(session.Id, mapId).Spawn(idx) };
+                p.PoseJson = JsonData.Write(spawn);
+                await redisStore.SetPlayerPoseAsync(session.Id, p.Id, spawn);
                 idx++;
             }
             await db.SaveChangesAsync();
@@ -402,76 +428,13 @@ public sealed partial class GameHub(
         try
         {
             var me = await Authorized(); if (me == null) return;
-            if (request == null || !ValidRequestId(request.RequestId))
-            { await ActionReject("SkipRound", "INVALID_REQUEST", request?.RequestId); return; }
             var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
-            if (me.Role != "leader" || session.Phase != "playing" || session.RoundPhase == "resolved")
-            { await ActionReject("SkipRound", "WRONG_PHASE", request.RequestId); return; }
-            if (Seen(me, "SkipRound", request.RequestId)) return;
-            if (pauseGate.IsPaused)
-            {
-                pauseGate.Reset();
-                await Clients.Group(me.SessionId).SendAsync("GamePauseChanged", pauseGate.CurrentView(session, JsonData.Now));
-            }
-            if (session.EndsAt <= JsonData.Now) return;
+            if (me.Role != "leader" || session.Phase != "playing") return;
+            if (request == null || !ValidRequestId(request.RequestId) || await redisStore.HasSeenCommandAsync(me.SessionId, me.Id, "SkipRound", request.RequestId)) return;
+            await redisStore.RememberCommandAsync(me.SessionId, me.Id, "SkipRound", request.RequestId);
             session.EndsAt = JsonData.Now;
-            Remember(me, "SkipRound", request.RequestId);
             await db.SaveChangesAsync();
             await Clients.Group(me.SessionId).SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate));
-            if (session.RoundPhase == "choice") await Voting.Broadcast(db, Clients, session);
-        }
-        finally { gate.Lock.Release(); }
-    }
-
-    public async Task ResetGame()
-    {
-        await gate.Lock.WaitAsync();
-        try
-        {
-            var me = await Authorized(); if (me == null) return;
-            var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
-            if (me.Role != "leader" && session.Phase != "finished") return;
-
-            pauseGate.Reset();
-            director.CancelCurrentRound(me.SessionId);
-            db.Messages.RemoveRange(await db.Messages.Where(m => m.SessionId == me.SessionId).ToListAsync());
-            db.ConversationEvents.RemoveRange(await db.ConversationEvents.Where(e => e.SessionId == me.SessionId).ToListAsync());
-            db.Choices.RemoveRange(await db.Choices.Where(c => c.SessionId == me.SessionId).ToListAsync());
-            var disconnected = await db.Players.Where(p => p.SessionId == me.SessionId && !p.Connected).ToListAsync();
-            db.Players.RemoveRange(disconnected);
-
-            LocationScene.Drop(session.Id);
-            session.Phase = "lobby";
-            session.Round = 0;
-            session.RoundPhase = "";
-            session.EndsAt = 0;
-            session.VotingJson = JsonData.Write(new VotingData());
-
-            var connectedPlayers = await db.Players.Where(p => p.SessionId == me.SessionId && p.Connected).ToListAsync();
-            var idx = 0;
-            foreach (var p in connectedPlayers)
-            {
-                p.Score = 0;
-                p.BoardJson = JsonData.Write(new BoardData());
-                p.QuestionsJson = JsonData.Write(new QuestionData());
-                p.ProcessedJson = "[]";
-                p.PoseJson = JsonData.Write(new PoseData { Position = maps.Location(session.Id, session.MapId).Spawn(idx) });
-                idx++;
-            }
-            if (connectedPlayers.Count > 0 && !connectedPlayers.Any(p => p.Role == "leader"))
-            {
-                connectedPlayers[0].Role = "leader";
-            }
-
-            await db.SaveChangesAsync();
-
-            foreach (var p in connectedPlayers.Where(p => p.ConnectionId != null))
-            {
-                await Clients.Client(p.ConnectionId!).SendAsync("StateSnapshot", await GameLogic.Snapshot(db, p, settings, maps, telemetry, pauseGate));
-            }
-            await BroadcastLobby(me.SessionId);
-            await BroadcastPlayers(me.SessionId);
-            await BroadcastParticipants(me.SessionId);
         }
         finally { gate.Lock.Release(); }
     }
@@ -479,15 +442,19 @@ public sealed partial class GameHub(
     public async Task RequestChunk(ChunkRequest request)
     {
         var me = await Authorized(); if (me == null) return;
-        if (request?.Ids == null || request.Ids.Length > 3 || request.Ids.Length == 0 || string.IsNullOrWhiteSpace(request.ReqId))
-        { await Clients.Caller.SendAsync("ServerError", new { code = "BAD_PAYLOAD", message = "Неверный запрос деталей." }); return; }
-        var eliminated = JsonData.Read<VotingData>((await db.Sessions.SingleAsync(s => s.Id == me.SessionId)).VotingJson).Eliminated;
-        var npcs = await db.Npcs.Where(n => n.SessionId == me.SessionId && request.Ids.Contains(n.Id) && !eliminated.Contains(n.Id)).ToListAsync();
-        await Clients.Caller.SendAsync("ChunkData", new { reqId = request.ReqId, npcs = npcs.Select(n => new
-        { id = n.Id, details = GameLogic.Details(n), sizeBytes = Encoding.UTF8.GetByteCount(JsonData.Write(GameLogic.Details(n))) }).ToArray() });
+        var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
+        var eliminated = JsonData.Read<VotingData>(session.VotingJson).Eliminated;
+        var allNpcs = await redisStore.GetNpcsAsync(me.SessionId);
+        var npcs = allNpcs.Where(n => request.Ids.Contains(n.Id) && !eliminated.Contains(n.Id)).ToList();
+        var details = npcs.ToDictionary(n => n.Id, GameLogic.Details);
+        await Clients.Caller.SendAsync("ChunkData", new { reqId = request.ReqId, details });
     }
 
-    public async Task ReleaseChunk(ReleaseRequest request) { _ = await Authorized(); }
-    public async Task Ping(PingRequest request)
-    { if (await Authorized() != null) await Clients.Caller.SendAsync("Pong", new { t = request.T, serverTime = JsonData.Now }); }
+    public async Task ReleaseChunk(ReleaseRequest request)
+    {
+        var me = await Authorized(); if (me == null) return;
+        await Clients.Caller.SendAsync("ChunkReleased", new { ids = request.Ids });
+    }
+
+    public Task Ping(PingRequest r) => Clients.Caller.SendAsync("Pong", new { t = r.T, serverTime = JsonData.Now });
 }

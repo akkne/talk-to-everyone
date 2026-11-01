@@ -12,19 +12,24 @@ public sealed partial class GameHub
         {
             var me = await Authorized(); if (me == null) return;
             if (!ValidRequestId(requestId)) { await BoardReject(op, "INVALID", requestId); return; }
-            if (Seen(me, op, requestId))
+            if (await redisStore.HasSeenCommandAsync(me.SessionId, me.Id, op, requestId))
             {
-                await Clients.Caller.SendAsync("BoardSnapshot", new { board = JsonData.Read<BoardData>(me.BoardJson), requestId });
+                var currentBoard = await redisStore.GetPlayerBoardAsync(me.SessionId, me.Id) ?? JsonData.Read<BoardData>(me.BoardJson);
+                await Clients.Caller.SendAsync("BoardSnapshot", new { board = currentBoard, requestId });
                 return;
             }
             var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
             if (session.Phase != "playing") { await BoardReject(op, "WRONG_PHASE", requestId); return; }
-            var board = JsonData.Read<BoardData>(me.BoardJson);
-            var active = await db.Npcs.Where(n => n.SessionId == me.SessionId).Select(n => n.Id).ToListAsync();
+            var board = await redisStore.GetPlayerBoardAsync(me.SessionId, me.Id) ?? JsonData.Read<BoardData>(me.BoardJson);
+            var npcs = await redisStore.GetNpcsAsync(me.SessionId);
+            var active = npcs.Select(n => n.Id).ToList();
             var removed = JsonData.Read<VotingData>(session.VotingJson).Eliminated;
             active.RemoveAll(removed.Contains);
             if (!change(board) || board.Pairs.SelectMany(p => p).Concat(board.Liars).Concat(board.Notes.Keys).Any(id => !active.Contains(id))) { await BoardReject(op, "INVALID", requestId); return; }
-            me.BoardJson = JsonData.Write(board); Remember(me, op, requestId); await db.SaveChangesAsync();
+            await redisStore.SetPlayerBoardAsync(me.SessionId, me.Id, board);
+            me.BoardJson = JsonData.Write(board);
+            await redisStore.RememberCommandAsync(me.SessionId, me.Id, op, requestId);
+            await db.SaveChangesAsync();
             await Clients.Caller.SendAsync("BoardSnapshot", new { board, requestId });
         }
         finally { gate.Lock.Release(); }
@@ -72,7 +77,7 @@ public sealed partial class GameHub
             var me = await Authorized(); if (me == null) return;
             if (r == null || !ValidRequestId(r.RequestId)) { await BoardReject("SubmitPair", "INVALID", r?.RequestId ?? ""); return; }
             var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
-            if (Seen(me, "SubmitPair", r.RequestId))
+            if (await redisStore.HasSeenCommandAsync(me.SessionId, me.Id, "SubmitPair", r.RequestId))
             { await Clients.Caller.SendAsync("VotingState", Voting.View(session, me.Id)); return; }
             if (pauseGate.IsPaused)
             {
@@ -87,11 +92,12 @@ public sealed partial class GameHub
                 !data.Candidates.Any(p => Voting.Key(p) == GameLogic.PairKey(r.A, r.B)))
             { await BoardReject("SubmitPair", "INVALID", r.RequestId); return; }
             data.Ballots[me.Id] = new[] { r.A, r.B }.Order().ToArray();
-            session.VotingJson = JsonData.Write(data); Remember(me, "SubmitPair", r.RequestId);
+            session.VotingJson = JsonData.Write(data);
+            await redisStore.RememberCommandAsync(me.SessionId, me.Id, "SubmitPair", r.RequestId);
             await db.SaveChangesAsync();
             await Voting.Broadcast(db, Clients, session);
             await BroadcastParticipants(me.SessionId);
-            await Voting.Advance(db, Clients, session, settings);
+            await Voting.Advance(db, redisStore, Clients, session, settings);
         }
         finally { gate.Lock.Release(); }
     }
