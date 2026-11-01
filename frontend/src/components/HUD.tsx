@@ -123,7 +123,7 @@ export function HUD({
             key={r.n}
             className={r.n === state.round?.n ? 'current' : r.n < (state.round?.n ?? 0) ? 'done' : ''}
           >
-            <span>{String(r.n).padStart(2, '0')}</span>
+            <span>{r.n}</span>
             <b>{r.title}</b>
           </div>
         ))}

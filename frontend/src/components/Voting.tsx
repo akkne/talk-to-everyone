@@ -52,7 +52,7 @@ export function Voting() {
         {voting.stage === 1 ? <div className="voting-people">{people.map(npc => {
           const active = first === npc.id || !!chosen?.includes(npc.id);
           return <button key={npc.id} type="button" className={`voting-person ${active ? 'selected' : ''}`} onClick={() => pick(npc.id)} disabled={disabled} aria-pressed={active} aria-label={label(npc.id)} style={{ '--person': npc.color } as CSSProperties}>
-            <span className="pin" aria-hidden="true" /><span className="portrait"><span className="photo-number">{String(npc.number).padStart(2, '0')}</span></span><strong>{npcLabel(npc)}</strong><small>{active ? '✓ выбрано' : 'выбрать'}</small>
+            <span className="pin" aria-hidden="true" /><span className="portrait"><span className="photo-number">{npc.number}</span></span><strong>{npcLabel(npc)}</strong><small>{active ? '✓ выбрано' : 'выбрать'}</small>
           </button>;
         })}</div> : <div className="voting-pairs">{voting.candidates.map(([a, b]) => {
           const key = [a, b].join(':'); return <button key={key} type="button" className={`voting-pair ${selected === key ? 'selected' : ''}`} onClick={() => setSelected(key)} disabled={disabled} aria-pressed={selected === key}>

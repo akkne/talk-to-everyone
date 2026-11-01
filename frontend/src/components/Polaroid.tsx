@@ -16,7 +16,7 @@ export function Polaroid({ npc, selected, assigned, liar, locked, note, disabled
   return <article data-npc={npc.id} className={`polaroid ${selected ? 'selected' : ''} ${liar ? 'liar' : ''} ${assigned ? 'assigned' : ''}`} style={{ '--tilt': `${(npc.number % 3 - 1) * 2}deg`, '--person': npc.color } as CSSProperties} onContextMenu={event => { event.preventDefault(); if (!disabled) setEditing(true); }}>
     <span className="pin" aria-hidden="true" />
     <button className="photo-select" onClick={onSelect} disabled={disabled || assigned} aria-pressed={selected} aria-label={`Выбрать ${npcLabel(npc)}`}>
-      <div className="portrait"><span className="photo-number">{String(npc.number).padStart(2, '0')}</span>{locked && <span className="photo-lock"><Icon name="lock" size={16} /></span>}{liar && <span className="actor-stamp">АКТЁР</span>}</div>
+      <div className="portrait"><span className="photo-number">{npc.number}</span>{locked && <span className="photo-lock"><Icon name="lock" size={16} /></span>}{liar && <span className="actor-stamp">АКТЁР</span>}</div>
       <strong>{npcLabel(npc)}</strong>
     </button>
     <div className="photo-actions"><button onClick={() => setEditing(!editing)} disabled={disabled} title="Заметка — также по правому клику">{note ? '✎ заметка' : '+ заметка'}</button><button onClick={onLiar} disabled={disabled || (assigned && !liar)}>{liar ? 'Снять метку' : 'Актёр?'}</button></div>

@@ -31,7 +31,7 @@ test('final event restores all 3 friend pairs and 4 actors after eliminations', 
 });
 
 test('NPC labels use the same number and name format', () => {
-  assert.equal(npcLabel(npcs[0]), '[01] Имя 1');
+  assert.equal(npcLabel(npcs[0]), '[1] Имя 1');
   assert.equal(npcLabel(npcs[9]), '[10] Имя 10');
 });
 
@@ -42,6 +42,6 @@ test('model nameplate includes both the number and the name', () => {
     measureText(value) { return { width: value.length * 12 }; },
   }) }) };
   const model = new Npc(npcs[0]);
-  try { assert.ok(drawn.includes('[01] Имя 1')); }
+  try { assert.ok(drawn.includes('[1] Имя 1')); }
   finally { model.dispose(); delete globalThis.document; }
 });
