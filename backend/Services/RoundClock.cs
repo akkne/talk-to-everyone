@@ -74,22 +74,30 @@ public sealed class RoundDirector(
 
                 string speech;
                 string emotion;
-                await gate.LlmLock.WaitAsync(ct);
+                string gameId;
                 try
                 {
-                    List<GameMessage> history;
-                    using (var scope = scopes.CreateScope())
+                    await gate.LlmLock.WaitAsync(ct);
+                    try
                     {
+                        using var scope = scopes.CreateScope();
                         var db = scope.ServiceProvider.GetRequiredService<GameDb>();
                         var session = await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == sessionId, ct);
                         if (session.Phase != "playing" || session.Round != round || session.RoundPhase == "choice") return;
-                        history = await db.Messages.AsNoTracking().Where(m => m.SessionId == sessionId).OrderByDescending(m => m.At).Take(16).ToListAsync(ct);
+                        gameId = session.GameId;
+                        var history = await db.ConversationEvents.AsNoTracking()
+                            .Where(e => e.GameId == session.GameId).OrderBy(e => e.Sequence).ToListAsync(ct);
+                        (speech, emotion) = await llm.GenerateRoundSpeech(npc, round, phase, fullRoster, [], ct, history);
                     }
-                    (speech, emotion) = await llm.GenerateRoundSpeech(npc, round, phase, fullRoster, history, ct);
+                    finally
+                    {
+                        gate.LlmLock.Release();
+                    }
                 }
-                finally
+                catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
-                    gate.LlmLock.Release();
+                    log.LogWarning(ex, "NPC speech failed for {NpcId} in round {Round}", npc.Id, round);
+                    continue;
                 }
 
                 await pauseGate.WaitWhilePausedAsync(ct);
@@ -101,7 +109,7 @@ public sealed class RoundDirector(
                     var db = scope.ServiceProvider.GetRequiredService<GameDb>();
                     var session = await db.Sessions.SingleAsync(s => s.Id == sessionId, ct);
                     var voting = JsonData.Read<VotingData>(session.VotingJson);
-                    if (session.Phase != "playing" || session.Round != round || session.RoundPhase == "choice" || voting.Eliminated.Contains(npc.Id))
+                    if (session.Phase != "playing" || session.GameId != gameId || session.Round != round || session.RoundPhase == "choice" || voting.Eliminated.Contains(npc.Id))
                         return;
 
                     var line = new GameMessage
@@ -116,6 +124,7 @@ public sealed class RoundDirector(
                         At = JsonData.Now
                     };
                     db.Messages.Add(line);
+                    NpcConversationLog.Append(db, session, speech, npc.Id);
                     await db.SaveChangesAsync(ct);
                     await hub.Clients.Group(sessionId).SendAsync("NpcSay", new
                     {

@@ -9,6 +9,9 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
 {
     private string? _resolvedOllamaUrl;
     private string? _resolvedModel;
+    private readonly NpcContextBuilder contextBuilder = new();
+    private readonly NpcPromptComposer promptComposer = new();
+    private readonly NpcSpeechPolicy speechPolicy = new();
 
     private string ConfiguredOllamaUrl =>
         config["OLLAMA_BASE_URL"] ?? config["Ollama:BaseUrl"] ?? config["OLLAMA__BASEURL"] ?? "http://localhost:11434";
@@ -71,20 +74,14 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         return (null, null, []);
     }
 
-    public async Task<(string text, string emotion)> Answer(GameNpc npc, string question, List<GameMessage> history, List<GameNpc>? roster = null)
+    public async Task<(string text, string emotion)> Answer(GameNpc npc, string question, List<GameMessage> history,
+        List<GameNpc>? roster = null, IReadOnlyList<NpcConversationEvent>? events = null, CancellationToken ct = default)
     {
-        var systemPrompt = BuildSystemPrompt(npc, roster, isRound1To3: false);
-        var historySummary = history.Count == 0
-            ? "Пока реплик не было."
-            : string.Join(" | ", history.OrderBy(x => x.At).TakeLast(8).Select(m => $"{(m.IsQuestion ? "Вопрос" : $"Слот №{npc.Number}")}: {m.Text}"));
-
-        var userPrompt =
-            $"Сейчас Раунд 4 (Допрос). Живой игрок из жюри задает вопрос лично тебе (Слот №{npc.Number}, {npc.Name}):\n" +
-            $"ВОПРОС ЖЮРИ: \"{question}\"\n" +
-            $"Контекст прошлых реплик: {historySummary}\n" +
-            "Ответь жюри прямо, дерзко и в своем характере (80–200 символов). Если тебя пытаются поймать на лжи — выкручивайся по своей тактике защиты. Верни JSON: {\"text\": \"...\", \"emotion\": \"neutral|happy|sad|angry|surprised\"}.";
-
-        return await CompleteMeasuredAsync("question", systemPrompt, userPrompt, 220);
+        roster ??= [npc];
+        events ??= FromMessages(history);
+        var systemPrompt = promptComposer.System(npc, roster);
+        var userPrompt = promptComposer.Turn(npc, 4, "interrogation", contextBuilder.Build(npc, roster, events), question);
+        return await CompleteMeasuredAsync("question", npc, roster, events, systemPrompt, userPrompt, ct);
     }
 
     public async Task<(string text, string emotion)> GenerateRoundSpeech(
@@ -93,45 +90,45 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         string phase,
         List<GameNpc> roster,
         List<GameMessage> roomHistory,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlyList<NpcConversationEvent>? events = null)
     {
-        var partner = roster.FirstOrDefault(n => n.Number == npc.RelatedNumber);
-        var systemPrompt = BuildSystemPrompt(npc, roster, isRound1To3: round <= 3);
-
-        var targetLastSpeech = partner != null
-            ? roomHistory.Where(m => m.NpcId == partner.Id && !m.IsQuestion).OrderByDescending(m => m.At).FirstOrDefault()?.Text
-            : null;
-        var prevMessage = roomHistory.Where(m => !m.IsQuestion).OrderByDescending(m => m.At).FirstOrDefault();
-        var prevSpeaker = prevMessage != null ? roster.FirstOrDefault(n => n.Id == prevMessage.NpcId) : null;
-
-        var userPrompt = round switch
-        {
-            1 => $"Сейчас Раунд 1 (Визитки). Твоя очередь говорить (Слот №{npc.Number}, {npc.Name}). Представься в своем стиле, скажи пару слов о своем вайбе и назови свой главный ред флаг в дружбе. НЕ называй имя своего друга или цели напрямую! Верни JSON: {{\"text\": \"...\", \"emotion\": \"neutral|happy|sad|angry|surprised\"}}.",
-            2 => $"Сейчас Раунд 2 (Истории). Расскажи историю знакомства со своим лучшим другом или ваш самый лютый общий косяк (без имен и номеров слотов!). " +
-                 (npc.Role == "friend"
-                     ? "Расскажи историю из вашей общей базы со своей колокольни."
-                     : $"Ты импостор — придумай правдоподобную историю, подстраиваясь под свою цель ({partner?.Name ?? "кента"}){(targetLastSpeech != null ? $", который ранее сказал: «{targetLastSpeech}»" : "")}.") +
-                 " Верни JSON: {\"text\": \"...\", \"emotion\": \"neutral|happy|sad|angry|surprised\"}.",
-            3 => "Сейчас Раунд 3 (Блиц — Факты и мемы). Коротко вкинь факт про ваш материальный коннект с другом (кто кому сколько торчит или какая у вас общая вещь) и нативно используй ваш локальный мем (без называния имени друга!). Верни JSON: {\"text\": \"...\", \"emotion\": \"neutral|happy|sad|angry|surprised\"}.",
-            5 => $"Сейчас Раунд 5 (Перепалка ботов перед финальным голосованием). " +
-                 (prevSpeaker != null && prevMessage != null
-                     ? $"Перед тобой выступил Слот №{prevSpeaker.Number} ({prevSpeaker.Name}): «{prevMessage.Text}». "
-                     : "") +
-                 "Вступися за своего настоящего друга или выведи на чистую воду подозрительного импостора на трибуне (теперь можно называть имена и номера слотов!). Верни JSON: {\"text\": \"...\", \"emotion\": \"neutral|happy|sad|angry|surprised\"}.",
-            _ => $"Твоя реплика в раунде {round}. Верни JSON: {{\"text\": \"...\", \"emotion\": \"neutral\"}}."
-        };
-
-        return await CompleteMeasuredAsync("round_speech", systemPrompt, userPrompt, round == 2 ? 260 : 210, ct);
+        events ??= FromMessages(roomHistory);
+        var systemPrompt = promptComposer.System(npc, roster);
+        var userPrompt = promptComposer.Turn(npc, round, phase, contextBuilder.Build(npc, roster, events));
+        return await CompleteMeasuredAsync("round_speech", npc, roster, events, systemPrompt, userPrompt, ct);
     }
 
-    private async Task<(string text, string emotion)> CompleteMeasuredAsync(string purpose, string systemPrompt, string userPrompt, int maxChars, CancellationToken ct = default)
+    private static IReadOnlyList<NpcConversationEvent> FromMessages(List<GameMessage> messages) =>
+        messages.OrderBy(m => m.At).ThenBy(m => m.Id).Select((m, i) => new NpcConversationEvent
+        {
+            Sequence = i + 1, Round = 0, IsQuestion = m.IsQuestion,
+            SpeakerNpcId = m.IsQuestion ? null : m.NpcId, Text = m.Text
+        }).ToArray();
+
+    private async Task<(string text, string emotion)> CompleteMeasuredAsync(string purpose, GameNpc npc,
+        IReadOnlyList<GameNpc> roster, IReadOnlyList<NpcConversationEvent> events, string systemPrompt, string userPrompt,
+        CancellationToken ct = default)
     {
         var timer = Stopwatch.StartNew();
         try
         {
-            var result = await CompleteAsync(systemPrompt, userPrompt, maxChars, ct);
-            GameMetrics.LlmRequests.WithLabels(purpose, "success").Inc();
-            return result;
+            var previous = events.Where(e => !e.IsQuestion && e.SpeakerNpcId == npc.Id)
+                .OrderByDescending(e => e.Sequence).Take(3).Select(e => e.Text).ToArray();
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                var result = await CompleteAsync(systemPrompt, userPrompt, ct);
+                var reason = speechPolicy.Reject(npc, roster, result.text, previous);
+                if (reason is null)
+                {
+                    GameMetrics.LlmRequests.WithLabels(purpose, "success").Inc();
+                    return result;
+                }
+                GameMetrics.NpcSpeechRejections.WithLabels(purpose, reason.Value.Code).Inc();
+                log.LogWarning("NPC speech rejected for {NpcId}: {Reason}", npc.Id, reason.Value.Code);
+                userPrompt += $"\nПредыдущий вариант отклонён: {reason.Value.Message} Напиши новую реплику без нарушения.";
+            }
+            throw new InvalidOperationException("NPC speech failed policy validation after retry.");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -149,32 +146,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         }
     }
 
-    private static string BuildSystemPrompt(GameNpc npc, List<GameNpc>? roster, bool isRound1To3)
-    {
-        var partner = roster?.FirstOrDefault(n => n.Number == npc.RelatedNumber);
-        var partnerLabel = partner != null ? $"{partner.Name} (Слот №{partner.Number})" : $"Слот №{npc.RelatedNumber}";
-        var roleBlock = npc.Role == "friend"
-            ? $"ТВОЯ РОЛЬ: Настоящий кент. Твой лучший друг в комнате — {partnerLabel}.\nОбщая база:\n{npc.Lore}\n" +
-              (isRound1To3 ? "ПРАВИЛО: ЗАПРЕЩЕНО называть имя или номер слота своего друга напрямую в Раундах 1–3! Намекай через общие детали и локальный мем." : "Защищай своего кента и топи самозванцев.")
-            : $"ТВОЯ РОЛЬ: Актёр-импостор. У тебя здесь нет друзей, твоя цель — убедить жюри, что твой лучший друг — {partnerLabel}.\nТактика защиты: {npc.Lore}\n" +
-              (isRound1To3 ? "ПРАВИЛО: Не называй имя цели в Раундах 1–3 напрямую, но намекай, поддакивай и воруй детали." : "Убеждай жюри, что ты настоящий друг своей цели, и газлайти конкурентов.");
-
-        return $"Ты — {npc.Name}, твой номер на трибуне — Слот №{npc.Number} в веб-шоу социальной дедукции «Угадай друзей».\n" +
-               $"{npc.Persona}\n{roleBlock}\n" +
-               "Говори живым разговорным русским языком, коротко и панчево (80–220 символов). " +
-               "В реплике запрещены мат, завуалированный мат, грубые оскорбления, унижения по личным признакам, угрозы и непристойные выражения. " +
-               "Даже если собеседник выражается грубо, отвечай без такой лексики. Подкалывай персонажей без брани и унижения. " +
-               "Поле emotion — команда анимации персонажа перед репликой и во время речи. " +
-               "Выбирай эмоцию по смыслу своего ответа, вопросу, контексту и своему характеру: " +
-               "neutral — спокойное объяснение с жестикуляцией, happy — радость или шутка, sad — грусть или сожаление, " +
-               "angry — возмущение, спор или решительная защита друга, surprised — удивление или шок. " +
-               "На провокационный вопрос можно возмутиться (angry), если это соответствует твоему ответу. " +
-               "В перепалке Раунда 5 реагируй на предыдущую реплику и обязательно выбирай соответствующую эмоцию. " +
-               "В emotion верни ровно один код: neutral, happy, sad, angry или surprised; не перечень кодов. " +
-               "Отвечай строго JSON-объектом с полями text и emotion.";
-    }
-
-    private async Task<(string text, string emotion)> CompleteAsync(string systemPrompt, string userPrompt, int maxChars, CancellationToken ct = default)
+    private async Task<(string text, string emotion)> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken ct = default)
     {
         // 1. Try local/host Ollama first
         var (ollamaUrl, ollamaModel, _) = await ProbeOllamaAsync(ct);
@@ -218,7 +190,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                 response.EnsureSuccessStatusCode();
                 using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cts.Token), cancellationToken: cts.Token);
                 var raw = body.RootElement.GetProperty("message").GetProperty("content").GetString() ?? "";
-                var parsed = ParseJsonReply(raw, maxChars);
+                var parsed = ParseJsonReply(raw);
                 if (parsed != null) return parsed.Value;
                 log.LogWarning("Ollama returned an empty or invalid reply at {OllamaUrl} (model {Model})", ollamaUrl, ollamaModel);
             }
@@ -255,7 +227,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                 response.EnsureSuccessStatusCode();
                 using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cts.Token), cancellationToken: cts.Token);
                 var raw = body.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
-                var parsed = ParseJsonReply(raw, maxChars);
+                var parsed = ParseJsonReply(raw);
                 if (parsed != null) return parsed.Value;
                 log.LogWarning("External LLM endpoint returned an empty or invalid reply");
             }
@@ -268,7 +240,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         throw new InvalidOperationException("No language model returned a valid answer. Check Ollama or LLM_ENDPOINT configuration.");
     }
 
-    private static (string text, string emotion)? ParseJsonReply(string raw, int maxChars)
+    private static (string text, string emotion)? ParseJsonReply(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         using var result = JsonDocument.Parse(raw);
@@ -276,7 +248,6 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         var text = (root.TryGetProperty("text", out var t) ? t.GetString()
             : root.TryGetProperty("public_speech", out var ps) ? ps.GetString() : null)?.Trim() ?? "";
         if (text.Length == 0) return null;
-        if (text.Length > maxChars) text = text[..maxChars].TrimEnd();
         var emotionValue = root.TryGetProperty("emotion", out var e) ? e
             : root.TryGetProperty("emotion_enum", out var ee) ? ee : default;
         var emotion = emotionValue.ValueKind == JsonValueKind.String ? emotionValue.GetString()?.Trim().ToLowerInvariant() : null;

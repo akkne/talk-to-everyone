@@ -114,13 +114,13 @@ export function AvatarCustomizer({ onClose, inline = false }: Props) {
 
     // Pedestal
     const pedestalGeo = new THREE.CylinderGeometry(0.7, 0.76, 0.1, 32);
-    const pedestalMat = new THREE.MeshStandardMaterial({ color: '#273129', roughness: 0.8, metalness: 0.1 });
+    const pedestalMat = new THREE.MeshStandardMaterial({ color: '#dce7ef', roughness: 0.8, metalness: 0.1 });
     const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
     pedestal.position.y = -0.05;
     scene.add(pedestal);
 
     const ringGeo = new THREE.RingGeometry(0.71, 0.74, 32);
-    const ringMat = new THREE.MeshBasicMaterial({ color: '#c4b382', side: THREE.DoubleSide });
+    const ringMat = new THREE.MeshBasicMaterial({ color: '#8eaec7', side: THREE.DoubleSide });
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.005;
@@ -318,14 +318,14 @@ export function AvatarCustomizer({ onClose, inline = false }: Props) {
     ? currentAssets
     : (fallbackCategories[activeTab] || []);
 
-  const tabs: { key: typeof activeTab; label: string; icon: string }[] = [
-    { key: 'bodyColor', label: 'Корпус', icon: '🎨' },
-    { key: 'hairStyle', label: 'Причёска', icon: '💇' },
-    { key: 'hairColor', label: 'Цвет волос', icon: '✨' },
-    { key: 'eyes', label: 'Глаза', icon: '👀' },
-    { key: 'mouth', label: 'Рот', icon: '👄' },
-    { key: 'skinTone', label: 'Кожа', icon: '👤' },
-    { key: 'accessory', label: 'Аксессуар', icon: '🧢' },
+  const tabs: { key: typeof activeTab; label: string }[] = [
+    { key: 'bodyColor', label: 'Корпус' },
+    { key: 'hairStyle', label: 'Причёска' },
+    { key: 'hairColor', label: 'Цвет волос' },
+    { key: 'eyes', label: 'Глаза' },
+    { key: 'mouth', label: 'Рот' },
+    { key: 'skinTone', label: 'Кожа' },
+    { key: 'accessory', label: 'Аксессуар' },
   ];
 
   return (
@@ -383,7 +383,7 @@ export function AvatarCustomizer({ onClose, inline = false }: Props) {
                 onClick={handleRandomize}
                 title="Случайный образ"
               >
-                🎲 Случайно
+                Случайно
               </button>
               <button
                 type="button"
@@ -406,7 +406,6 @@ export function AvatarCustomizer({ onClose, inline = false }: Props) {
                   className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab.key)}
                 >
-                  <span className="tab-icon">{tab.icon}</span>
                   <span className="tab-label">{tab.label}</span>
                 </button>
               ))}
@@ -456,7 +455,7 @@ export function AvatarCustomizer({ onClose, inline = false }: Props) {
 
             <footer className="customizer-actions">
               <div className="save-status">
-                {savedFeedback && <span className="status-badge success">✓ Сохранено в БД</span>}
+                {savedFeedback && <span className="status-badge success" role="status">Внешность была обновлена</span>}
                 {!user && <span className="status-note">Войдите в аккаунт для постоянного сохранения на сервере.</span>}
               </div>
               <button
