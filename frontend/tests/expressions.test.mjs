@@ -38,11 +38,12 @@ test('stages 1+2: every mood shows the badge before speech, gestures while speak
     assert.equal(actor.group.getObjectByName('npc-speech'), undefined);
     let disposed = 0;
     badge.material.map.addEventListener('dispose', () => disposed++);
-    const before = avatar.children.map(c => c.quaternion.clone());
+    const shoulders = [-1, 1].map(side => avatar.getObjectByName(`shoulder-${side}`));
+    const before = shoulders.map(c => c.quaternion.clone());
     actor.update(1000 + EMOTION_LEAD_MS);
     assert.ok(actor.group.getObjectByName('npc-speech'));
     actor.update(2000);
-    assert.ok(avatar.children.some((c, i) => c.quaternion.angleTo(before[i]) > 0.01));
+    assert.ok(shoulders.some((c, i) => c.quaternion.angleTo(before[i]) > 0.01));
     actor.update(1000 + speechDuration('Рассказываю историю о друге.'));
     assert.equal(actor.group.getObjectByName('npc-emotion'), undefined);
     assert.equal(actor.group.getObjectByName('npc-speech'), undefined);

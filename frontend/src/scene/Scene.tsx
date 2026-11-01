@@ -1,3 +1,4 @@
+import { JURY_SEAT, SOFA_SEAT } from './AvatarRig';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useClient } from '../core/client';
@@ -207,7 +208,8 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
           Math.PI - player.pose.yaw,
           player.pose.pitch,
           player.pose.mode === 'seated',
-          player.pose.jumpOffset ?? 0
+          player.pose.jumpOffset ?? 0,
+          spec.furnitureSeats?.some(seat => seat.id === player.pose.seatId) ? SOFA_SEAT : JURY_SEAT
         );
       });
     };

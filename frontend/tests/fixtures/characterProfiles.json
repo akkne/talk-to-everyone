@@ -1,0 +1,1602 @@
+[
+  {
+    "name": "Алексей",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "hoodie",
+        "color": "#535f70",
+        "hair": "crop",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Алина",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "cardigan",
+        "color": "#b4a2c4",
+        "hair": "shoulder",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Алиса",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blazer",
+        "color": "#7d8b9f",
+        "hair": "shoulder",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Антон",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "cardigan",
+        "color": "#937868",
+        "hair": "part",
+        "access": "glasses",
+        "facial": "mustache",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Антон",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "varsity",
+        "color": "#9980aa",
+        "hair": "crop",
+        "access": "chain",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Аня",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "hoodie",
+        "color": "#8d82bc",
+        "hair": "straight",
+        "access": "headphones",
+        "facial": "none",
+        "hairColor": "#675486",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Арина",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "cardigan",
+        "color": "#c6a1af",
+        "hair": "waves",
+        "access": "pendant",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Артем",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "plaid",
+        "color": "#8a9a78",
+        "hair": "crop",
+        "access": "none",
+        "facial": "beard",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Артур",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "overshirt",
+        "color": "#6b8887",
+        "hair": "crop",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Артур",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "overshirt",
+        "color": "#748d87",
+        "hair": "crop",
+        "access": "glasses",
+        "facial": "stubble",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Ваня",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "utility",
+        "color": "#697b70",
+        "hair": "crop",
+        "access": "glasses",
+        "facial": "beard",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Ваня",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "chef",
+        "color": "#ddd9ce",
+        "hair": "crop",
+        "access": "none",
+        "facial": "stubble",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Вика",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "overshirt",
+        "color": "#96b0ab",
+        "hair": "layered",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Вика",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "sport",
+        "color": "#b68a9c",
+        "hair": "layered",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Виктор",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "blazer",
+        "color": "#7b8a9b",
+        "hair": "part",
+        "access": "watch",
+        "facial": "mustache",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Влад",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "hoodie",
+        "color": "#677e9a",
+        "hair": "part",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Влад",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "jacket",
+        "color": "#a1927e",
+        "hair": "fade",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Глеб",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "hoodie",
+        "color": "#4b5463",
+        "hair": "crop",
+        "access": "beaniephones",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Глеб",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "hoodie",
+        "color": "#8f938b",
+        "hair": "messy",
+        "access": "none",
+        "facial": "stubble",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Даня",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "stripe",
+        "color": "#ae9c7c",
+        "hair": "messy",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Даша",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "moto",
+        "color": "#525e65",
+        "hair": "layered",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Даша",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "leather",
+        "color": "#675b65",
+        "hair": "straight",
+        "access": "choker",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Денис",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "work",
+        "color": "#667b8b",
+        "hair": "crop",
+        "access": "none",
+        "facial": "stubble",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Денис",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "sport",
+        "color": "#758395",
+        "hair": "crop",
+        "access": "chain",
+        "facial": "stubble",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Диана",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blouse",
+        "color": "#ba8998",
+        "hair": "straight",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Диана",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blazer",
+        "color": "#c99ba8",
+        "hair": "waves",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Дима",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "polo",
+        "color": "#7d92a1",
+        "hair": "part",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Ева",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blouse",
+        "color": "#9c85b2",
+        "hair": "waves",
+        "access": "pendant",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Егор",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "sport",
+        "color": "#7c98a7",
+        "hair": "fade",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Егор",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "bomber",
+        "color": "#826b69",
+        "hair": "fade",
+        "access": "none",
+        "facial": "stubble",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Илья",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "hoodie",
+        "color": "#716b8f",
+        "hair": "messy",
+        "access": "headphones",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Илья",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "hoodie",
+        "color": "#728395",
+        "hair": "messy",
+        "access": "headphones",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Катя",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blouse",
+        "color": "#8b779f",
+        "hair": "waves",
+        "access": "pendant",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Катя",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "bomber",
+        "color": "#ae897f",
+        "hair": "layered",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Кира",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "work",
+        "color": "#8d9b83",
+        "hair": "layered",
+        "access": "camera",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Кирилл",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "utility",
+        "color": "#667267",
+        "hair": "messy",
+        "access": "camera",
+        "facial": "stubble",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Кирилл",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "bomber",
+        "color": "#9b7f98",
+        "hair": "fade",
+        "access": "chain",
+        "facial": "mustache",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Коля",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "bomber",
+        "color": "#62715b",
+        "hair": "crop",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Костя",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "overshirt",
+        "color": "#8c9caa",
+        "hair": "crop",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Кристина",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blouse",
+        "color": "#ad8198",
+        "hair": "straight",
+        "access": "pendant",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Ксения",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "cardigan",
+        "color": "#b4b79c",
+        "hair": "waves",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Ксюша",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blazer",
+        "color": "#9baf9b",
+        "hair": "straight",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Лев",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "sweater",
+        "color": "#9d8a78",
+        "hair": "crop",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Лера",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "apron",
+        "color": "#8c735e",
+        "hair": "layered",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Лера",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "patchwork",
+        "color": "#c09778",
+        "hair": "waves",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Макс",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "jacket",
+        "color": "#bba687",
+        "hair": "fade",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Максим",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "polo",
+        "color": "#6e8092",
+        "hair": "part",
+        "access": "glasses",
+        "facial": "beard",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Марк",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "varsity",
+        "color": "#7c9187",
+        "hair": "fade",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Марк",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "sport",
+        "color": "#8c9aab",
+        "hair": "fade",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Матвей",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "cardigan",
+        "color": "#a4b0bd",
+        "hair": "part",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Матвей",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "windbreaker",
+        "color": "#b7a366",
+        "hair": "fade",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Милана",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "utility",
+        "color": "#9c9887",
+        "hair": "shoulder",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Милана",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "utility",
+        "color": "#a08c7e",
+        "hair": "straight",
+        "access": "pendant",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Настя",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "windbreaker",
+        "color": "#9fa77a",
+        "hair": "layered",
+        "access": "pendant",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Никита",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "bomber",
+        "color": "#796d96",
+        "hair": "fade",
+        "access": "chain",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Никита",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "windbreaker",
+        "color": "#8c9e9e",
+        "hair": "fade",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Олег",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "sport",
+        "color": "#657b94",
+        "hair": "bald",
+        "access": "watch",
+        "facial": "beard",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Оля",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "patchwork",
+        "color": "#b19e7d",
+        "hair": "waves",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Оля",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "cardigan",
+        "color": "#b1c0bc",
+        "hair": "shoulder",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Павел",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "plaid",
+        "color": "#8c9c86",
+        "hair": "part",
+        "access": "none",
+        "facial": "beard",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Паша",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "cardigan",
+        "color": "#a4a88c",
+        "hair": "part",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Полина",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "cardigan",
+        "color": "#8a9eb9",
+        "hair": "shoulder",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Полина",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "sweater",
+        "color": "#b4a4b7",
+        "hair": "shoulder",
+        "access": "pendant",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Рита",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blouse",
+        "color": "#a65f73",
+        "hair": "waves",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Рома",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "sweater",
+        "color": "#94aaa4",
+        "hair": "part",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Роман",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "sweater",
+        "color": "#a59885",
+        "hair": "messy",
+        "access": "none",
+        "facial": "stubble",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Саша",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "hoodie",
+        "color": "#b28c73",
+        "hair": "messy",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Света",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "overshirt",
+        "color": "#7f98a5",
+        "hair": "shoulder",
+        "access": "glasses",
+        "facial": "none",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Света",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "sweater",
+        "color": "#a4a899",
+        "hair": "straight",
+        "access": "none",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Сергей",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "stripe",
+        "color": "#a98b72",
+        "hair": "part",
+        "access": "none",
+        "facial": "mustache",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "София",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "patchwork",
+        "color": "#8a73ab",
+        "hair": "waves",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#9b719d",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "София",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "blazer",
+        "color": "#9e6e7c",
+        "hair": "straight",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Стас",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "blazer",
+        "color": "#b3a68e",
+        "hair": "fade",
+        "access": "chain",
+        "facial": "mustache",
+        "hairColor": "#3e302d",
+        "skin": "#e5bea1",
+        "pants": "#555869"
+      }
+    }
+  },
+  {
+    "name": "Стас",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "polo",
+        "color": "#c8b99a",
+        "hair": "part",
+        "access": "watch",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Таисия",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "cardigan",
+        "color": "#baa88f",
+        "hair": "waves",
+        "access": "pendant",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Тимур",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "blazer",
+        "color": "#879aab",
+        "hair": "part",
+        "access": "watch",
+        "facial": "stubble",
+        "hairColor": "#282b33",
+        "skin": "#efcdb3",
+        "pants": "#465962"
+      }
+    }
+  },
+  {
+    "name": "Тимур",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "m",
+        "style": "overshirt",
+        "color": "#b17b68",
+        "hair": "fade",
+        "access": "none",
+        "facial": "mustache",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  },
+  {
+    "name": "Юля",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "stripe",
+        "color": "#bdac77",
+        "hair": "shoulder",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Яна",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "leather",
+        "color": "#34333e",
+        "hair": "straight",
+        "access": "choker",
+        "facial": "none",
+        "hairColor": "#694638",
+        "skin": "#c28c6c",
+        "pants": "#655d56"
+      }
+    }
+  },
+  {
+    "name": "Яна",
+    "appearance": {
+      "style": "casual",
+      "accessory": "none",
+      "hair": 0,
+      "skin": 0,
+      "model": {
+        "gender": "f",
+        "style": "leather",
+        "color": "#776f8d",
+        "hair": "layered",
+        "access": "earrings",
+        "facial": "none",
+        "hairColor": "#856144",
+        "skin": "#d7a384",
+        "pants": "#384650"
+      }
+    }
+  }
+]

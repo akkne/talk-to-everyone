@@ -132,18 +132,18 @@ test('four chair occupants sit by default; only the current speaker stands and s
   const settle = (actor, from) => { for (let t = from; t < from + 1000; t += 16) actor.update(t); };
   try {
     actors.forEach(actor => actor.enableChair());
-    for (const actor of actors) assert.equal(actor.group.getObjectByName('avatar').position.y, -0.1);
+    for (const actor of actors) assert.equal(actor.group.getObjectByName('pelvis').position.y, 0.65);
     actors[1].say('Ответ', 'happy', 2000);
     actors.forEach(actor => settle(actor, 2000));
-    assert.ok(Math.abs(actors[1].group.getObjectByName('avatar').position.y) < 0.001);
-    for (const i of [0, 2, 3]) assert.equal(actors[i].group.getObjectByName('avatar').position.y, -0.1);
+    assert.ok(Math.abs(actors[1].group.getObjectByName('pelvis').position.y - 1.146) < 0.001);
+    for (const i of [0, 2, 3]) assert.equal(actors[i].group.getObjectByName('pelvis').position.y, 0.65);
     const end = 2000 + speechDuration('Ответ');
     actors[1].update(end);
     settle(actors[1], end + 16);
-    assert.ok(Math.abs(actors[1].group.getObjectByName('avatar').position.y + 0.1) < 0.001);
+    assert.ok(Math.abs(actors[1].group.getObjectByName('pelvis').position.y - 0.65) < 0.001);
     actors[2].say('Следующая реплика', 'neutral', end + 2000);
     actors[2].stopSpeaking();
     settle(actors[2], end + 2000);
-    assert.equal(actors[2].group.getObjectByName('avatar').position.y, -0.1);
+    assert.equal(actors[2].group.getObjectByName('pelvis').position.y, 0.65);
   } finally { actors.forEach(actor => actor.dispose()); }
 });
