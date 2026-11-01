@@ -25,6 +25,12 @@ export function legPose(hipY: number, hipZ: number, ankleY: number, ankleZ: numb
 }
 
 export function characterLook(meta: NpcMeta): CharacterLook {
+  if (meta.avatar) {
+    const a = meta.avatar;
+    const hair: CharacterLook['hair'] = a.hairStyle === 'bald' ? 'bald' : a.hairStyle === 'bob' ? 'shoulder' : a.hairStyle === 'bun' ? 'layered' : a.hairStyle === 'spiky' ? 'messy' : 'crop';
+    return { gender: a.hairStyle === 'bob' || a.hairStyle === 'bun' ? 'f' : 'm', style: 'sweater', color: a.bodyColor,
+      skin: a.skinTone, hairColor: a.hairColor, hair, facial: 'none', access: a.accessory, pants: '#384650', custom: a };
+  }
   if (meta.appearance?.model) return meta.appearance.model;
   const female = /^(Аня|Анна|Вика|Оля|Ольга|Яна|Алина|Даша|Дарья|София|Ксюша|Ксения|Катя|Света|Диана|Лера|Рита|Полина|Милана|Кира|Юля|Арина|Кристина|Таисия|Алиса|Ева|Настя)$/.test(meta.name);
   const hair = meta.appearance?.hair ?? meta.number % 4;
@@ -70,7 +76,14 @@ export class AvatarRig {
     this.ell(this.head, 'skin', [0, 0, 0], [.142, .19, .133]); this.ell(this.head, 'skin', [0, -.085, .015], [.113, .097, .109]);
     for (const side of [-1, 1]) {
       this.ell(this.head, 'skin', [side * .143, -.015, 0], [.025, .047, .026]);
-      this.ell(this.head, 'eye', [side * .052, .012, .122], [.014, .018, .008]);
+      if (look.custom?.eyes === 'visor') {
+        if (side < 0) this.box(this.head, 'sole', [0, .012, .144], [.17, .027, .02]);
+      } else if (look.custom?.eyes === 'focused') {
+        this.box(this.head, 'eye', [side * .052, .012, .136], [.036, .008, .01]).rotation.z = side * .12;
+      } else {
+        this.ell(this.head, 'eye', [side * .052, .012, .122], look.custom?.eyes === 'wide' ? [.020, .025, .012] : [.014, .018, .008]);
+        if (look.custom?.eyes === 'wide') this.ell(this.head, 'trim', [side * .048, .02, .137], [.006, .007, .004]);
+      }
       this.brows.push(this.box(this.head, 'hair', [side * .052, .047, .125], [.043, .009, .009]));
     }
     this.ell(this.head, 'skin', [0, -.024, .133], [.022, .034, .026]);
@@ -79,6 +92,16 @@ export class AvatarRig {
     this.ell(this.head, 'lip', [0, -.075, .141], [.039, .009, .008]);
     this.mouth = this.ell(this.head, 'mouth', [0, -.080, .149], [.034, .0035, .004]); this.mouth.name = 'mouth';
     this.lowerLip = this.ell(this.head, 'lip', [0, -.087, .142], [.029, .006, .007]);
+    if (look.custom?.mouth === 'grin') {
+      this.mouth.scale.x = .042;
+      this.ell(this.head, 'trim', [0, -.078, .155], [.032, .005, .003]);
+    } else if (look.custom?.mouth === 'smirk') {
+      this.mouth.position.x = .014; this.mouth.rotation.z = .20;
+    } else if (look.custom?.mouth === 'surprised') {
+      this.mouth.scale.x = .017;
+    } else if (look.custom?.mouth === 'smile') {
+      for (const side of [-1, 1]) this.ell(this.head, 'lip', [side * .029, -.073, .145], [.011, .005, .004]).rotation.z = side * .3;
+    }
     this.addOutfit(); this.addAccessories();
     for (const side of [-1, 1]) {
       const thigh = this.bone(this.root, `thigh-${side}`, ANATOMY.thigh, .090, .074, 'pants');
@@ -145,6 +168,9 @@ export class AvatarRig {
         }
       }
     }
+    if (p.custom?.hairStyle === 'spiky') for (let i = 0; i < 5; i++) this.mesh(h, new THREE.ConeGeometry(.026, .09, 5), 'hair', [(i - 2) * .04, .19, -.01]);
+    if (p.custom?.hairStyle === 'bun') this.ell(h, 'hair', [0, .16, -.14], [.07, .07, .07]);
+    if (p.custom?.hairStyle === 'afro') this.ell(h, 'hair', [0, .095, -.065], [.18, .15, .16]);
     if (p.facial === 'beard' || p.facial === 'stubble') this.mesh(h, new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, Math.PI * .56, Math.PI * .44), 'hair', [0, -.022, .006], [.115, p.facial === 'beard' ? .153 : .117, .12]);
     if (p.facial === 'mustache' || p.facial === 'beard') for (const side of [-1, 1]) this.ell(h, 'hair', [side * .019, -.057, .146], [.025, .01, .006]).rotation.z = side * .16;
   }
@@ -221,7 +247,7 @@ export class AvatarRig {
     this.head.rotation.x = THREE.MathUtils.clamp(pitch + mood.headX, seated > .1 ? -.12 : -.5, seated > .1 ? .12 : .5);
     this.head.rotation.z = mood.headZ * gesture;
     this.brows.forEach((brow, i) => { brow.rotation.z = (i ? -1 : 1) * mood.brow; });
-    this.mouth.scale.y = .0035 * (1 + mood.mouthOpen * 5);
+    this.mouth.scale.y = (this.look.custom?.mouth === 'surprised' ? .019 : this.look.custom?.mouth === 'grin' ? .008 : .0035) * (1 + mood.mouthOpen * 5);
     this.lowerLip.position.y = -.087 - mood.mouthOpen * .012;
     return { labelY: hipY + 1.03, hipY, hipZ };
   }

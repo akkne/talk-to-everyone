@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { NpcMeta } from '../shared/types';
+import type { NpcMeta, PlayerAvatar } from '../shared/types';
 import { npcLabel } from '../shared/npcLabel';
 import { JUMP_HEIGHT, landingDip } from './jump';
 import { EMOTIONS, EMOTION_LEAD_MS, normalizeEmotion, speechDuration, type NpcEmotion } from '../shared/dialogue';
@@ -9,8 +9,9 @@ import { AvatarRig, characterLook, NPC_SEAT, type SeatFit } from './AvatarRig';
 /** A small, readable character assembled from local geometry. Appearance is public metadata only. */
 export class Npc {
   readonly group = new THREE.Group();
-  readonly head: THREE.Group;
-  private readonly rig: AvatarRig;
+  get head() { return this.rig.head; }
+  private rig: AvatarRig;
+  private avatarKey = '';
   private targetSeated = false;
   private seatFit: SeatFit = NPC_SEAT;
   private readonly avatar = new THREE.Group();
@@ -35,12 +36,30 @@ export class Npc {
   constructor(readonly meta: NpcMeta) {
     this.avatar.name = 'avatar'; this.group.add(this.avatar);
     this.rig = new AvatarRig(characterLook(meta));
-    this.head = this.rig.head;
+    this.avatarKey = JSON.stringify(meta.avatar ?? null);
     this.avatar.add(this.rig.root);
     this.rig.pose(0, this.seatFit, 0, expressionPose('neutral', -1, 0), 0, 0);
     this.name = meta.number > 0 ? npcLabel(meta) : meta.name;
     this.label = this.text(this.name, false);
     this.label.position.y = 2.31; this.avatar.add(this.label);
+  }
+  /** Apply stored player customization without recreating the model on every network tick. */
+  updateAvatar(avatar?: PlayerAvatar) {
+    const key = JSON.stringify(avatar ?? null);
+    if (key === this.avatarKey) return;
+    this.avatarKey = key;
+    const old = this.rig.root;
+    this.avatar.remove(old);
+    const materials = new Set<THREE.Material>();
+    old.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.geometry.dispose();
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) materials.add(material);
+    });
+    materials.forEach(material => material.dispose());
+    this.rig = new AvatarRig(characterLook({ ...this.meta, avatar }));
+    this.avatar.add(this.rig.root);
+    this.update(performance.now());
   }
   enableChair() {
     this.hasChair = true;

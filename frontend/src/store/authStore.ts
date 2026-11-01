@@ -1,9 +1,11 @@
 import { create } from 'zustand';
+import type { PlayerAvatar } from '../shared/types';
 
 export interface AuthUser {
   id: string;
   login: string;
   name: string;
+  avatar?: PlayerAvatar;
 }
 
 interface AuthState {
@@ -90,13 +92,13 @@ export async function loginWithPassword(login: string, password: string): Promis
   }
 }
 
-export async function registerAccount(login: string, password: string, name: string): Promise<boolean> {
+export async function registerAccount(login: string, password: string, name: string, avatar?: PlayerAvatar): Promise<boolean> {
   useAuthStore.setState({ busy: true, error: null });
   try {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login, password, name }),
+      body: JSON.stringify({ login, password, name, avatar }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.token) {
@@ -111,6 +113,29 @@ export async function registerAccount(login: string, password: string, name: str
     return true;
   } catch {
     useAuthStore.setState({ busy: false, error: 'Не удалось связаться с сервером авторизации.' });
+    return false;
+  }
+}
+
+export async function updateAvatar(avatar: PlayerAvatar): Promise<boolean> {
+  const token = useAuthStore.getState().jwt;
+  if (!token) return false;
+  try {
+    const res = await fetch('/api/user/avatar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(avatar),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { success: boolean; avatar: PlayerAvatar };
+    useAuthStore.setState(s => ({
+      user: s.user ? { ...s.user, avatar: data.avatar ?? avatar } : null,
+    }));
+    return true;
+  } catch {
     return false;
   }
 }

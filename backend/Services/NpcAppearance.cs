@@ -5,7 +5,7 @@ namespace Backend;
 /// <summary>Public visual cues derived from the stored character description, never from the secret role or partner.</summary>
 public static class NpcAppearance
 {
-    private sealed record VisualEntry(string Name, string Cue, JsonElement Model);
+    private sealed record VisualEntry(string Name, string Cue, JsonElement Model, string? AlternateCue = null);
     private static readonly Lazy<VisualEntry[]> Catalog = new(() =>
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Data", "character_appearances.json");
@@ -31,7 +31,7 @@ public static class NpcAppearance
         foreach (var letter in npc.Name) hash = (hash * 31 + letter) & 0x7fffffff;
         // Match the public persona description, never Role, RelatedNumber or shared lore.
         // Same-name characters remain distinct without exposing database IDs or the roster.
-        var visual = Catalog.Value.FirstOrDefault(v => v.Name == npc.Name && npc.Persona.Contains(v.Cue, StringComparison.Ordinal));
+        var visual = Catalog.Value.FirstOrDefault(v => v.Name == npc.Name && (npc.Persona.Contains(v.Cue, StringComparison.Ordinal) || (v.AlternateCue != null && npc.Persona.Contains(v.AlternateCue, StringComparison.Ordinal))));
         return new { style, accessory, hair = hash % 4, skin = hash % 5, model = visual?.Model };
     }
 

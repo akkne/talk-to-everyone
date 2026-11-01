@@ -11,6 +11,7 @@ public sealed class GameDb(DbContextOptions<GameDb> options) : DbContext(options
     public DbSet<GameNpc> Npcs => Set<GameNpc>();
     public DbSet<GameMessage> Messages => Set<GameMessage>();
     public DbSet<PairChoice> Choices => Set<PairChoice>();
+    public DbSet<AvatarAsset> AvatarAssets => Set<AvatarAsset>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -27,6 +28,8 @@ public sealed class GameDb(DbContextOptions<GameDb> options) : DbContext(options
         model.Entity<GameMessage>().HasIndex(x => new { x.SessionId, x.At });
         model.Entity<PairChoice>().HasKey(x => x.Id);
         model.Entity<PairChoice>().HasIndex(x => new { x.SessionId, x.PlayerId, x.Round }).IsUnique();
+        model.Entity<AvatarAsset>().HasKey(x => x.Id);
+        model.Entity<AvatarAsset>().HasIndex(x => new { x.Category, x.SortOrder });
     }
 }
 

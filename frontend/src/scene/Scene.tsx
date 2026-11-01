@@ -192,9 +192,11 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       others.forEach(player => {
         let judge = judges.get(player.id);
         if (!judge) {
-          judge = new Npc({ id: player.id, number: 0, name: player.name, color: '#dfbf63', anchorId: '' });
+          judge = new Npc({ id: player.id, number: 0, name: player.name, color: player.avatar?.bodyColor ?? '#dfbf63', anchorId: '', avatar: player.avatar });
           judges.set(player.id, judge);
           scene.add(judge.group);
+        } else if (player.avatar) {
+          judge.updateAvatar(player.avatar);
         }
         judge.setName(player.name);
         judge.group.visible = player.connected;
