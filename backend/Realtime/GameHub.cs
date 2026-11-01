@@ -18,6 +18,7 @@ public sealed record NoteRequest(string RequestId, string Npc, string Text);
 public sealed record SubmitRequest(string RequestId, int Round, string? A, string? B, bool Skip, int Stage = 1);
 public sealed record QuestionRequest(string RequestId, string TargetNpc, string Text);
 public sealed record PingRequest(long T);
+public sealed record KickPlayerRequest(string RequestId, string PlayerId);
 
 [Authorize]
 public sealed partial class GameHub(
@@ -36,8 +37,15 @@ public sealed partial class GameHub(
     private GamePlayer? Me => db.Players.SingleOrDefault(p => p.ConnectionId == Context.ConnectionId && p.Connected);
     private ISessionPauseGate pauseGate => pauseRegistry.For(Me?.SessionId ?? "");
 
+    public override async Task OnConnectedAsync()
+    {
+        GameMetrics.SignalRConnections.Inc();
+        await base.OnConnectedAsync();
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        GameMetrics.SignalRConnections.Dec();
         await gate.Lock.WaitAsync();
         try
         {
@@ -160,6 +168,11 @@ public sealed partial class GameHub(
                 return;
             }
             var userHash = GameLogic.HashToken($"user:{account.Id}");
+            if (JsonData.Read<List<string>>(session.KickedUserHashesJson).Contains(userHash))
+            {
+                await Clients.Caller.SendAsync("AuthErr", new { code = "LOBBY_KICKED", message = "Ведущий удалил вас из этого лобби." });
+                return;
+            }
 
             var allPlayers = await db.Players.Where(p => p.SessionId == session.Id).ToListAsync();
             var me = allPlayers.FirstOrDefault(p => p.TokenHash == userHash);
@@ -243,6 +256,7 @@ public sealed partial class GameHub(
             await db.SaveChangesAsync();
             LobbyDirectory.Joined(session.Id);
             await Groups.AddToGroupAsync(Context.ConnectionId, session.Id);
+            GameMetrics.LobbyJoins.Inc();
 
             await Clients.Caller.SendAsync("AuthOk", new { playerId = me.Id, sessionId = session.Id, role = me.Role });
             await Clients.Caller.SendAsync("StateSnapshot", await GameLogic.Snapshot(db, me, settings, maps, telemetry, pauseGate));
@@ -290,6 +304,7 @@ public sealed partial class GameHub(
 
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
+            GameMetrics.GamesStarted.Inc();
             var npcs = await db.Npcs.Where(n => n.SessionId == me.SessionId).OrderBy(n => n.Number).ToListAsync();
             var scene = maps.Location(session.Id, session.MapId).Data;
             await Clients.Group(me.SessionId).SendAsync("GameStarted", new { rounds = GameLogic.RoundSpecs(settings.RoundSeconds), npcs = npcs.Select(GameLogic.NpcView).ToArray(), sceneVersion = (string?)scene["version"], scene });

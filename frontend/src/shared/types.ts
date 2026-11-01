@@ -57,6 +57,7 @@ export interface Commands {
   [C2S.PING]: { t: number };
   [C2S.REPORT_DIAGNOSTICS]: { fps: number; pingMs: number; activity: string };
   [C2S.SET_GAME_PAUSE]: Request & { paused: boolean };
+  [C2S.KICK_PLAYER]: Request & { playerId: string };
   [C2S.SEND_VOICE_SIGNAL]: { targetPlayerId: string; signalType: string; payload: string };
   [C2S.SET_VOICE_SPEAKING]: { speaking: boolean };
 }
@@ -92,6 +93,7 @@ export interface Events {
   [S2C.PONG]: { t: number; serverTime: number };
   [S2C.PARTICIPANTS_UPDATED]: { participants: ParticipantStatus[] };
   [S2C.GAME_PAUSE_CHANGED]: GamePauseState;
+  [S2C.LOBBY_KICKED]: { message: string };
   [S2C.VOICE_SIGNAL_RECEIVED]: VoiceSignalEnvelope;
   [S2C.VOICE_SPEAKING_UPDATED]: VoiceSpeakingEvent;
 }

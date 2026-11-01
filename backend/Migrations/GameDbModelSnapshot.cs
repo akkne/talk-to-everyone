@@ -169,6 +169,10 @@ namespace Backend.Migrations
                     b.Property<long>("EndsAt")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("KickedUserHashesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("MapId")
                         .IsRequired()
                         .HasColumnType("text");

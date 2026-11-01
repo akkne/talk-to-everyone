@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")) &&
@@ -33,6 +34,7 @@ builder.Services.AddSingleton<RoundDirector>();
 builder.Services.AddHttpClient<LlmClient>();
 builder.Services.AddHostedService<RoundClock>();
 builder.Services.AddHostedService<LobbyCleanup>();
+builder.Services.AddHostedService<GameMetricsSnapshotService>();
 
 var jwtService = new JwtAuthService(builder.Configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -76,13 +78,16 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowCredentials()));
 
 var app = builder.Build();
+app.UseRouting();
 app.UseCors();
+app.UseHttpMetrics();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+app.MapMetrics().AllowAnonymous();
 app.MapGet("/health/db", async (GameDb db, CancellationToken ct) =>
     await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok" }) : Results.StatusCode(503)).AllowAnonymous();
 app.MapGet("/api/game-info", GameRules.InfoAsync).AllowAnonymous();
@@ -98,6 +103,7 @@ app.MapPost("/api/lobbies", async (ClaimsPrincipal principal, GameDb db, GameGat
     try
     {
         var session = await LobbyDirectory.Create(db, ownerId);
+        GameMetrics.LobbiesCreated.Inc();
         return Results.Ok(new { code = session.RoomCode });
     }
     finally { gate.Lock.Release(); }

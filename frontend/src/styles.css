@@ -120,6 +120,15 @@
 .action-pill.action-escape_menu, .action-pill.action-voting, .action-pill.action-asking_question { border-color: #c6d8e6; background: #e5edf3; color: #255981; }
 .escape-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 28px; border-top: 1px solid var(--line); background: #fff; }
 .escape-modal .danger-text { color: #a34436; }
+.escape-modal .kick-button { border: 1px solid #bd8177; border-radius: 6px; background: #fff; color: #a34436; padding: 5px 9px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.escape-modal .kick-button:hover { background: #fff4f2; }
+.escape-modal .kick-confirm { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid #e2b4ac; border-radius: 7px; background: #fff7f5; color: var(--ink); font-size: 12px; }
+.escape-modal .kick-confirm > div { display: flex; gap: 8px; }
+.escape-modal .kick-confirm-button { min-height: 42px; padding: 9px 13px; border: 1px solid #a34436; border-radius: 6px; background: #a34436; color: #fff; font-size: 12px; font-weight: 600; }
+.escape-modal .kick-confirm-button:hover:not(:disabled) { background: #84352a; }
+.escape-modal .kick-button:focus-visible, .escape-modal .kick-confirm-button:focus-visible { outline: 3px solid #94bfe7; outline-offset: 2px; }
+.escape-modal .kick-confirm button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 600px) { .escape-modal .kick-confirm { align-items: stretch; flex-direction: column; } .escape-modal .kick-confirm > div { justify-content: flex-end; } }
 @keyframes pulse-mic { from { opacity: .65; transform: scale(.95); } to { opacity: 1; transform: scale(1.1); } }
 @media (max-width: 900px) { .escape-modal.host-layout .escape-body { grid-template-columns: 1fr; } .escape-pause-box { flex-direction: column; } .escape-pause-box .pause-btn { max-width: none; } }
 @media (max-width: 600px) { .escape-overlay { padding: 10px; } .escape-header, .escape-footer { padding: 16px; } .escape-body { padding: 16px; } .escape-header h2 { font-size: 19px; } .escape-modal .key-button span { display: none; } .escape-pause-box { padding: 14px; } .escape-table { min-width: 460px; } }

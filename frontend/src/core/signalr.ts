@@ -61,6 +61,7 @@ export class SignalRClient implements GameClient {
   /** <summary>Only AuthOk followed by StateSnapshot unlocks game commands.</summary> */
   private receive<K extends keyof Events>(event: K, payload: Events[K]) {
     if (event === S2C.AUTH_ERR) { this.emit(event, payload); this.suspend(); void this.connection.stop(); return; }
+    if (event === S2C.LOBBY_KICKED) { this.emit(event, payload); this.credentials = null; this.suspend(); void this.connection.stop(); return; }
     if (event === S2C.AUTH_OK) { this.authenticated = true; this.status('syncing'); }
     if (event !== S2C.AUTH_OK && !this.authenticated) return;
     if (event === S2C.STATE_SNAPSHOT) {

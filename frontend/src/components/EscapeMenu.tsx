@@ -81,6 +81,8 @@ export function EscapeMenu({ onClose, onExit }: EscapeMenuProps) {
   const voice = useVoiceSettingsStore();
   const client = useClient();
   const [pauseBusy, setPauseBusy] = useState(false);
+  const [kickCandidate, setKickCandidate] = useState<string | null>(null);
+  const [kickBusy, setKickBusy] = useState(false);
   const [refreshingDevices, setRefreshingDevices] = useState(false);
 
   const isHost = isHostRole(state.role);
@@ -105,6 +107,14 @@ export function EscapeMenu({ onClose, onExit }: EscapeMenuProps) {
       paused: !state.paused,
     });
     setPauseBusy(false);
+  };
+
+  const handleKick = async () => {
+    if (!isHost || state.phase !== 'lobby' || !kickCandidate || kickBusy || state.connection !== 'ready') return;
+    setKickBusy(true);
+    const sent = await command(client, C2S.KICK_PLAYER, { requestId: createId(), playerId: kickCandidate });
+    if (sent) setKickCandidate(null);
+    setKickBusy(false);
   };
 
   const mePoseMode = state.players.find(p => p.id === state.playerId)?.pose.mode ?? 'walking';
@@ -243,7 +253,7 @@ export function EscapeMenu({ onClose, onExit }: EscapeMenuProps) {
 
           {isHost && (
             <section className="escape-section host-section" aria-label="Панель хоста и список участников">
-              <div className="escape-pause-box">
+              {state.phase === 'playing' && <div className="escape-pause-box">
                 <div>
                   <span className="eyebrow">УПРАВЛЕНИЕ ИГРОЙ И БОТАМИ (АДМИН)</span>
                   <h4>{state.paused ? 'Игра и боты сейчас на паузе' : 'Игра и боты активны'}</h4>
@@ -266,7 +276,7 @@ export function EscapeMenu({ onClose, onExit }: EscapeMenuProps) {
                         : 'Поставить игру и ботов на паузу'}
                   </span>
                 </button>
-              </div>
+              </div>}
 
               <div className="escape-participants">
                 <div className="escape-section-head">
@@ -286,6 +296,7 @@ export function EscapeMenu({ onClose, onExit }: EscapeMenuProps) {
                         <th>FPS</th>
                         <th>Пинг</th>
                         <th>Действие в данный момент</th>
+                        {state.phase === 'lobby' && <th>Управление</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -315,11 +326,18 @@ export function EscapeMenu({ onClose, onExit }: EscapeMenuProps) {
                               {participant.actionText}
                             </span>
                           </td>
+                          {state.phase === 'lobby' && <td>
+                            {participant.id !== state.playerId && participant.role !== 'leader' && <button type="button" className="kick-button" onClick={() => setKickCandidate(participant.id)}>Кикнуть</button>}
+                          </td>}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                {state.phase === 'lobby' && kickCandidate && <div className="kick-confirm" role="group" aria-label="Подтверждение удаления участника">
+                  <span>Удалить {rows.find(row => row.id === kickCandidate)?.name ?? 'участника'} из лобби? Он не сможет вернуться по этому коду.</span>
+                  <div><button type="button" className="secondary" onClick={() => setKickCandidate(null)} disabled={kickBusy}>Отмена</button><button type="button" className="kick-confirm-button" onClick={() => void handleKick()} disabled={kickBusy}>{kickBusy ? 'Удаляем…' : 'Удалить'}</button></div>
+                </div>}
               </div>
             </section>
           )}

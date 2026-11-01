@@ -5,6 +5,60 @@ namespace Backend;
 
 public sealed partial class GameHub
 {
+    /// <summary>Removes a player from the waiting room and prevents rejoining that room.</summary>
+    public async Task KickPlayer(KickPlayerRequest request)
+    {
+        await gate.Lock.WaitAsync();
+        try
+        {
+            var me = await Authorized();
+            if (me == null) return;
+            if (request == null || !ValidRequestId(request.RequestId) || string.IsNullOrWhiteSpace(request.PlayerId))
+            {
+                await ActionReject("KickPlayer", "INVALID_REQUEST", request?.RequestId);
+                return;
+            }
+
+            var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
+            if (me.Role != "leader")
+            {
+                await ActionReject("KickPlayer", "FORBIDDEN", request.RequestId);
+                return;
+            }
+            if (session.Phase != "lobby")
+            {
+                await ActionReject("KickPlayer", "WRONG_PHASE", request.RequestId);
+                return;
+            }
+            var target = await db.Players.SingleOrDefaultAsync(p => p.Id == request.PlayerId && p.SessionId == me.SessionId);
+            if (target == null || target.Id == me.Id || target.Role == "leader")
+            {
+                await ActionReject("KickPlayer", "INVALID_TARGET", request.RequestId);
+                return;
+            }
+
+            var kickedHashes = JsonData.Read<List<string>>(session.KickedUserHashesJson);
+            if (!kickedHashes.Contains(target.TokenHash)) kickedHashes.Add(target.TokenHash);
+            session.KickedUserHashesJson = JsonData.Write(kickedHashes);
+            db.Players.Remove(target);
+            await db.SaveChangesAsync();
+
+            telemetry.MarkDisconnected(target.Id, JsonData.Now);
+            voiceRoom.ClearSpeaker(target.Id);
+            if (target.ConnectionId != null)
+            {
+                await Clients.Client(target.ConnectionId).SendAsync("LobbyKicked", new { message = "Ведущий удалил вас из этого лобби." });
+                await Groups.RemoveFromGroupAsync(target.ConnectionId, session.Id);
+            }
+            GameMetrics.LobbyKicks.Inc();
+            log.LogInformation("Host {HostPlayerId} kicked player {TargetPlayerId} from lobby {SessionId}", me.Id, target.Id, session.Id);
+            await BroadcastLobby(session.Id);
+            await BroadcastPlayers(session.Id);
+            await BroadcastParticipants(session.Id);
+        }
+        finally { gate.Lock.Release(); }
+    }
+
     /// <summary>
     /// Receives live FPS, network latency, and current UI/gameplay activity from a connected participant.
     /// </summary>

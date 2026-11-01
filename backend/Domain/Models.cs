@@ -14,6 +14,7 @@ public sealed class GameSession
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string RoomCode { get; set; } = "";
     public string OwnerUserId { get; set; } = "";
+    public string KickedUserHashesJson { get; set; } = "[]";
     public string MapId { get; set; } = "hangar";
     public string Phase { get; set; } = "lobby";
     public int Round { get; set; }

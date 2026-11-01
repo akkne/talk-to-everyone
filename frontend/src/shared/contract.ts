@@ -21,6 +21,7 @@ export const C2S = {
   PING: 'Ping',
   REPORT_DIAGNOSTICS: 'ReportDiagnostics',
   SET_GAME_PAUSE: 'SetGamePause',
+  KICK_PLAYER: 'KickPlayer',
   SEND_VOICE_SIGNAL: 'SendVoiceSignal',
   SET_VOICE_SPEAKING: 'SetVoiceSpeaking',
 } as const;
@@ -56,6 +57,7 @@ export const S2C = {
   ROUND_ENDED: 'RoundEnded',
   PARTICIPANTS_UPDATED: 'ParticipantsUpdated',
   GAME_PAUSE_CHANGED: 'GamePauseChanged',
+  LOBBY_KICKED: 'LobbyKicked',
   VOICE_SIGNAL_RECEIVED: 'VoiceSignalReceived',
   VOICE_SPEAKING_UPDATED: 'VoiceSpeakingUpdated',
 } as const;

@@ -19,7 +19,9 @@ test('hangar IDs, finite coordinates, collision bounds, and all renderers',()=>{
  for(const p of [...s.objects,...s.doors,...s.foods])assert.ok(scene.getObjectByName(p.id)?.children.length,p.id);
  s.foods[0].eaten=true;s.doors[0].open=true;syncLocationProps(scene,s);
  assert.equal(scene.getObjectByName(s.foods[0].id).visible,false);
- assert.equal(scene.getObjectByName(s.doors[0].id).position.z,doorPose(s.doors[0],1).z);
+ const door=scene.getObjectByName(s.doors[0].id),pose=doorPose(s.doors[0],1);
+ assert.ok(Math.abs(door.position.x-pose.x)<1e-9);
+ assert.ok(Math.abs(door.position.z-pose.z)<1e-9);
 });
 test('door blocks when closed, opens from either side, and permits passage only in the doorway',()=>{
  const s=load();assert.equal(nearestInteraction(s,at(9.5,7.2))?.id,'equipment-door');

@@ -344,11 +344,11 @@ internal sealed class TestHubCallerClients(IClientProxy all, IClientProxy caller
     public IClientProxy Users(IReadOnlyList<string> userIds) => all;
 }
 
-internal sealed class TestHubCallerContext(string connectionId) : HubCallerContext
+internal sealed class TestHubCallerContext(string connectionId, ClaimsPrincipal? user = null) : HubCallerContext
 {
     public override string ConnectionId => connectionId;
     public override string? UserIdentifier => null;
-    public override ClaimsPrincipal? User => null;
+    public override ClaimsPrincipal? User => user;
     public override IDictionary<object, object?> Items { get; } = new Dictionary<object, object?>();
     public override IFeatureCollection Features { get; } = new FeatureCollection();
     public override CancellationToken ConnectionAborted => CancellationToken.None;
