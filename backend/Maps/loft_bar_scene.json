@@ -603,6 +603,16 @@
       }
     }
   ],
+  "foods": [
+    {
+      "id": "bar-food",
+      "type": "sandwich",
+      "label": "сэндвич",
+      "position": { "x": -8.5, "y": 1.25, "z": -0.66 },
+      "eaten": false,
+      "restockDelayMs": 3000
+    }
+  ],
   "interactiveObjects": [
     {
       "id": "interact-door",
@@ -618,23 +628,6 @@
         "peek_porthole",
         "jiggle_handle",
         "knock_loudly"
-      ]
-    },
-    {
-      "id": "interact-bar-service",
-      "targetId": "bar-counter",
-      "type": "service-point",
-      "interactionTrigger": {
-        "x": -7.4,
-        "y": 0,
-        "z": -1.0,
-        "radius": 2.2
-      },
-      "actions": [
-        "order_cold_brew",
-        "order_tonic",
-        "order_cider",
-        "ring_bell"
       ]
     },
     {
@@ -738,54 +731,7 @@
       }
     }
   ],
-  "ambientNPCs": [
-    {
-      "id": "ambient-cat",
-      "type": "animal-cat",
-      "name": "Лофтовый кот",
-      "spawnPosition": {
-        "x": 10.2,
-        "y": 0.9,
-        "z": 4.5
-      },
-      "fsmState": "SLEEPING",
-      "behaviors": [
-        "beg_for_food",
-        "wander_under_stands",
-        "flee_on_shout"
-      ]
-    },
-    {
-      "id": "ambient-sofa-guest-1",
-      "type": "human-crowd",
-      "position": {
-        "x": 7.8,
-        "y": 0.45,
-        "z": 5.0
-      },
-      "yaw": -0.523599,
-      "fsmState": "PHONE_SCROLLING",
-      "behaviors": [
-        "put_headphones_on_loud_voice",
-        "react_to_whisper"
-      ]
-    },
-    {
-      "id": "ambient-door-guard",
-      "type": "human-bouncer",
-      "position": {
-        "x": -1.8,
-        "y": 0,
-        "z": 8.8
-      },
-      "yaw": 0.0,
-      "fsmState": "GUARD_ARMS_CROSSED",
-      "behaviors": [
-        "block_if_locked",
-        "step_back_on_entry"
-      ]
-    }
-  ],
+  "ambientNPCs": [],
   "lightingPresets": [
     {
       "id": "edison-warm-default",

@@ -15,6 +15,24 @@ public sealed class LocationScene
 
     public IEnumerable<JsonNode?> Seats => Data["playerSeats"]!.AsArray().Concat(Data["furnitureSeats"] as JsonArray ?? new JsonArray());
     public JsonArray Items(string key) => (Data[key] ??= new JsonArray()).AsArray();
+    public void ConsumeFood(JsonNode food, long now)
+    {
+        food["eaten"] = true;
+        if (food["restockDelayMs"] is JsonNode delay)
+            food["restockAt"] = now + delay.GetValue<int>();
+    }
+    public bool RestockFood(long now)
+    {
+        var changed = false;
+        foreach (var food in Items("foods"))
+        {
+            if (food?["restockAt"] is not JsonNode due || due.GetValue<long>() > now) continue;
+            food["eaten"] = false;
+            food.AsObject().Remove("restockAt");
+            changed = true;
+        }
+        return changed;
+    }
     public static Vec3 Point(JsonNode n) => new(N(n,"x"), N(n,"y"), N(n,"z"));
     public static double N(JsonNode n, string key) => n[key]!.GetValue<double>();
     public JsonNode Seat(string id) => Seats.First(n => (string?)n!["id"] == id)!;
