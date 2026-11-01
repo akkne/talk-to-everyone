@@ -251,3 +251,109 @@ test('other players rise, tuck limbs and animate landing without moving their gr
   assert.equal(avatar.position.y, 0);
   player.dispose();
 });
+
+
+const liveStudioSpec = {
+  version: '1',
+  room: {
+    width: 18, depth: 14, height: 6,
+    platforms: [{ id: 'upper', center: { x: 0, y: 1.35, z: -4.5 }, size: { x: 14, y: 0.3, z: 2.5 } }],
+    ramps: [
+      { id: 'left-ramp', from: { x: -6.5, y: 0, z: 0 }, to: { x: -6.5, y: 1.5, z: -4 }, width: 1.3 },
+      { id: 'right-ramp', from: { x: 6.5, y: 0, z: 0 }, to: { x: 6.5, y: 1.5, z: -4 }, width: 1.3 },
+    ],
+    obstacles: [],
+    walls: [
+      { id: 'back', center: { x: 0, y: 3, z: -7 }, size: { x: 18, y: 6, z: 0.3 } },
+      { id: 'front', center: { x: 0, y: 3, z: 7 }, size: { x: 18, y: 6, z: 0.3 } },
+      { id: 'left', center: { x: -9, y: 3, z: 0 }, size: { x: 0.3, y: 6, z: 14 } },
+      { id: 'right', center: { x: 9, y: 3, z: 0 }, size: { x: 0.3, y: 6, z: 14 } },
+    ],
+  },
+  npcStands: Array.from({ length: 10 }, (_, n) => ({
+    id: `anchor-${n + 1}`,
+    position: {
+      x: (n + 1 <= 5 ? n + 1 - 3 : n + 1 - 8) * 2.1 + (n + 1 <= 5 ? 0 : 0.45),
+      y: n + 1 <= 5 ? 0 : 1.5,
+      z: n + 1 <= 5 ? -2.5 : -5,
+    },
+    yaw: 0,
+    level: n + 1 <= 5 ? 0 : 1,
+  })),
+  playerSeats: Array.from({ length: 8 }, (_, n) => ({
+    id: `seat-${n + 1}`,
+    position: { x: (n + 1 - 4.5) * 1.6, y: 0, z: 3.5 },
+    yaw: 0,
+    exit: { x: (n + 1 - 4.5) * 1.6, y: 0, z: 5 },
+  })),
+  spawnPoints: [{ x: 0, y: 0, z: 5 }],
+};
+
+test('upper floor ramp has no invisible wall: player walks smoothly up to the upper platform and back down', () => {
+  // Ascend left ramp: start at base of ramp (z = 0.5), walk forward towards upper tier
+  let p = { x: -6.5, y: 0, z: 0.5 };
+  p = walk(p, 0, -5, liveStudioSpec);
+  // Reached the upper platform without being blocked by invisible wall at -2.95!
+  assert.ok(p.z <= -4.2, `Expected player on upper platform (z <= -4.2), got z=${p.z}`);
+  assert.ok(Math.abs(p.y - 1.5) < 0.05, `Expected upper platform height 1.5, got y=${p.y}`);
+
+  // Walk around on upper platform
+  p = walk(p, 2, 0, liveStudioSpec);
+  assert.ok(Math.abs(p.y - 1.5) < 0.05, `Expected height on platform to remain 1.5, got y=${p.y}`);
+
+  // Return to ramp and walk back down to the ground
+  p = walk({ x: -6.5, y: 1.5, z: -4.5 }, 0, 6, liveStudioSpec);
+  assert.ok(p.z > 0.2, `Expected player to descend to ground floor, got z=${p.z}`);
+  assert.ok(Math.abs(p.y) < 0.05, `Expected ground height 0, got y=${p.y}`);
+
+  // Ascend right ramp (x = 6.5)
+  let pRight = { x: 6.5, y: 0, z: 0.5 };
+  pRight = walk(pRight, 0, -5, liveStudioSpec);
+  assert.ok(pRight.z <= -4.2, `Expected player on upper platform via right ramp, got z=${pRight.z}`);
+  assert.ok(Math.abs(pRight.y - 1.5) < 0.05);
+
+  // Directly walking into the platform face where there is NO ramp (e.g. x = 0) is still blocked
+  const faceHit = walk({ x: 0, y: 0, z: -1 }, 0, -5, liveStudioSpec);
+  assert.equal(faceHit.y, 0, 'Cannot step onto upper platform without ramp');
+  assert.ok(faceHit.z > -3.25, `Expected blocked in front of platform, got z=${faceHit.z}`);
+});
+
+test('chairs provide solid collision: walking into seats is blocked and slides', () => {
+  // Seat 1 is at x = -5.6, y = 0, z = 3.5. Player starts in front at z = 5.0
+  const start = { x: -5.6, y: 0, z: 5.0 };
+  const walked = walk(start, 0, -3, liveStudioSpec);
+  // Chair depth is 0.72 (from 3.14 to 3.86) + PLAYER_RADIUS (0.3) -> player stops at z >= 4.14
+  assert.ok(walked.z >= 4.14, `Expected player blocked in front of chair, got z=${walked.z}`);
+  assert.equal(walked.y, 0);
+
+  // Diagonal walk slides past the chair
+  const slide = walk(start, 1.5, -3, liveStudioSpec);
+  assert.ok(slide.x > start.x, 'Player slides sideways around chair');
+  assert.ok(slide.z < start.z, 'Player advances past chair after sliding');
+});
+
+test('NPC models on both tiers provide solid collision', () => {
+  // Lower tier NPC 3 is at x = 0, y = 0, z = -2.5
+  const startLower = { x: 0, y: 0, z: -1.0 };
+  const hitLower = walk(startLower, 0, -3, liveStudioSpec);
+  // NPC size is 0.7 (from -2.85 to -2.15) + PLAYER_RADIUS (0.3) -> stops at z >= -1.86
+  assert.ok(hitLower.z >= -1.86, `Expected player blocked by lower NPC, got z=${hitLower.z}`);
+
+  // Upper tier NPC 8 is at x = 0.45, y = 1.5, z = -5.0
+  const startUpper = { x: 0.45, y: 1.5, z: -4.1 };
+  const hitUpper = walk(startUpper, 0, -2, liveStudioSpec);
+  assert.ok(hitUpper.z >= -4.36, `Expected player blocked by upper tier NPC, got z=${hitUpper.z}`);
+  assert.ok(Math.abs(hitUpper.y - 1.5) < 0.05);
+});
+
+test('dynamic other player models (judges) provide collision', () => {
+  const otherJudge = {
+    id: 'player-judge-2',
+    center: { x: 2, y: 0.9, z: 1 },
+    size: { x: 0.6, y: 1.8, z: 0.6 },
+  };
+  const start = { x: 2, y: 0, z: 3 };
+  const walked = walk(start, 0, -4, liveStudioSpec, [otherJudge]);
+  // Judge center at z = 1, size = 0.6 (from 0.7 to 1.3) + PLAYER_RADIUS (0.3) -> stops at z >= 1.58
+  assert.ok(walked.z >= 1.58, `Expected blocked by other player model, got z=${walked.z}`);
+});

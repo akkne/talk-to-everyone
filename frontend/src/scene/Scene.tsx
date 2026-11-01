@@ -143,8 +143,16 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const syncPlayers = () => {
       const state = useGameStore.getState();
       const others = state.players.filter(p => p.id !== state.playerId);
+      const connectedOthers = others.filter(p => p.connected);
+      controller.setOtherPlayers(
+        connectedOthers.map(p => ({
+          id: p.id,
+          position: p.pose.position,
+          mode: p.pose.mode,
+        }))
+      );
       for (const [id, judge] of judges) {
-        judge.group.visible = others.some(p => p.id === id && p.connected);
+        judge.group.visible = connectedOthers.some(p => p.id === id);
       }
       others.forEach(player => {
         let judge = judges.get(player.id);
