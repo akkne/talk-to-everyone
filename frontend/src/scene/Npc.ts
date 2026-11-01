@@ -28,6 +28,8 @@ export class Npc {
   private name = '';
   private reactionAt = -Infinity;
   private emotionBadge: THREE.Sprite | null = null;
+  private voiceMicBadge: THREE.Sprite | null = null;
+  private voiceSpeaking = false;
   private speech: { text: string; emotion: NpcEmotion; at: number; duration: number; shown: boolean } | null = null;
   private targetPos: THREE.Vector3 | null = null;
   private targetYaw = 0;
@@ -156,6 +158,33 @@ export class Npc {
     if (this.emotionBadge) this.removeSprite(this.emotionBadge);
     this.bubble = null; this.emotionBadge = null; this.speech = null;
   }
+  /** <summary>Displays or removes a 3D microphone icon above a speaking judge avatar.</summary> */
+  setVoiceSpeaking(speaking: boolean) {
+    if (this.voiceSpeaking === speaking) return;
+    this.voiceSpeaking = speaking;
+    if (!speaking) {
+      if (this.voiceMicBadge) {
+        this.removeSprite(this.voiceMicBadge);
+        this.voiceMicBadge = null;
+      }
+      return;
+    }
+    const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#1b2b1f'; context.fillRect(0, 0, 128, 128);
+    context.strokeStyle = '#5ad47b'; context.lineWidth = 8; context.strokeRect(4, 4, 120, 120);
+    context.fillStyle = '#ffffff';
+    context.font = '76px "Segoe UI Emoji", "Apple Color Emoji", sans-serif'; context.textAlign = 'center';
+    context.fillText('🎙', 64, 92);
+    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+    this.voiceMicBadge = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }));
+    this.voiceMicBadge.name = 'judge-voice-mic';
+    this.voiceMicBadge.userData.speaking = true;
+    this.voiceMicBadge.scale.setScalar(0.45);
+    this.voiceMicBadge.position.y = this.label.position.y + 0.38;
+    this.voiceMicBadge.renderOrder = 3;
+    this.avatar.add(this.voiceMicBadge);
+  }
   react(at: number) { this.reactionAt = at; }
   update(now: number) {
     const dt = this.lastUpdate ? Math.max(0, Math.min((now - this.lastUpdate) / 1000, 0.05)) : 1 / 60;
@@ -200,6 +229,11 @@ export class Npc {
     if (this.bubble) {
       this.bubble.position.y = this.label.position.y + 1.24;
       this.bubble.material.opacity = pose.weight;
+    }
+    if (this.voiceMicBadge) {
+      const pulse = Math.sin(Math.max(0, now) / 140) * 0.035;
+      this.voiceMicBadge.position.y = this.label.position.y + 0.38 + pulse * 0.5;
+      this.voiceMicBadge.scale.setScalar(0.45 + pulse);
     }
     const age = now - this.reactionAt;
     this.bodyMaterial.emissive.set('#f6b84b');

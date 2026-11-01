@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useCacheStore } from '../store/cacheStore';
+import { useVoiceSettingsStore, VoiceSettingsPolicy } from '../store/voiceSettingsStore';
 import { C2S } from '../shared/contract';
 import { command, useClient } from '../core/client';
 import { createId } from '../shared/id';
 import { Icon } from './Icon';
 import { Brand } from './Brand';
 
-/** <summary>Display server deadlines and pause status; never advance a round locally when the countdown reaches zero.</summary> */
+/** <summary>Display server deadlines, pause status, and active speaking judge microphone icons.</summary> */
 export function HUD({
   onExit,
   onQuestions,
@@ -19,6 +20,7 @@ export function HUD({
 }) {
   const state = useGameStore();
   const cache = useCacheStore();
+  const voice = useVoiceSettingsStore();
   const [now, setNow] = useState(Date.now());
   const [skipping, setSkipping] = useState(false);
   const client = useClient();
@@ -58,6 +60,9 @@ export function HUD({
           .filter(item => item.distance <= 1.5)
           .sort((a, b) => a.distance - b.distance)[0]?.seat
       : null;
+
+  const speakingPlayers = state.players.filter(p => p.connected && state.speakingByPlayer[p.id]);
+  const meSpeaking = Boolean(state.playerId && state.speakingByPlayer[state.playerId]);
 
   return (
     <>
@@ -124,11 +129,33 @@ export function HUD({
         ))}
       </div>
 
+      {speakingPlayers.length > 0 && (
+        <div className="voice-speakers-overlay" role="status" aria-label="Говорящие судьи">
+          {speakingPlayers.map(speaker => (
+            <div key={speaker.id} className="voice-speaker-chip">
+              <span className="voice-mic-icon">
+                <Icon name="mic" size={14} />
+              </span>
+              <strong>{speaker.name}</strong>
+              {speaker.id === state.playerId && <small>Вы</small>}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="game-controls">
         <span>
           <kbd>WASD</kbd> по карте <i />
           <kbd>МЫШЬ</kbd> осмотреться <i />
-          <kbd>Esc</kbd> меню
+          <kbd>Esc</kbd> меню <i />
+          <span className={`hud-mic-status ${meSpeaking ? 'speaking' : ''}`}>
+            <Icon name={voice.volume === 0 ? 'micOff' : 'mic'} size={13} />
+            {voice.volume === 0
+              ? 'Микро выкл'
+              : voice.mode === 'ptt'
+                ? `Рация [${VoiceSettingsPolicy.PTT_KEY_LABEL}]`
+                : 'Микро вкл'}
+          </span>
         </span>
         <div>
           {me?.pose.mode === 'seated' && (
