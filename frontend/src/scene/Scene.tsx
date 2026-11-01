@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useClient } from '../core/client';
-import { useGameStore } from '../store/gameStore';
+import { tickDialogue, useGameStore } from '../store/gameStore';
 import { setupRoom, disposeScene } from './setup';
 import { CameraController } from './CameraController';
 import { Npc } from './Npc';
@@ -29,7 +29,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const controller = new CameraController(camera, element, client, spec, setHint, message => useGameStore.setState({ error: message }));
     const npcs = new Map<string, Npc>(); const judges = new Map<string, Npc>();
     const lod = new NpcLod(camera, npcs, client);
-    let lastChat = ''; let lastThinkingAt = 0; let lastMeSeq = -1; let lastSeat: string | null = null;
+    let lastSpeech = ''; let lastThinkingAt = 0; let lastMeSeq = -1; let lastSeat: string | null = null;
     const sync = () => {
       const state = useGameStore.getState();
       controller.setOccupied(state.seats.filter(seat => seat.occupiedBy && seat.occupiedBy !== state.playerId).map(seat => seat.id));
@@ -55,8 +55,12 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       }
       if (me) lastMeSeq = Math.max(lastMeSeq, me.pose.seq);
       syncPlayers();
-      const latest = state.chat.at(-1);
-      if (latest && latest.id !== lastChat) { lastChat = latest.id; npcs.get(latest.npc)?.say(latest.text); }
+      const active = state.dialogue.current;
+      if ((active?.message.id ?? '') !== lastSpeech) {
+        lastSpeech = active?.message.id ?? '';
+        npcs.forEach(npc => npc.stopSpeaking());
+        if (active) npcs.get(active.message.npc)?.say(active.message.text, active.message.emotion, active.startedAt);
+      }
     };
     const syncPlayers = () => {
       const state = useGameStore.getState();
@@ -95,6 +99,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const animate = (now: number) => {
       controller.setEnabled(!blocked.current && !useGameStore.getState().boardOpen && useGameStore.getState().connection === 'ready');
       frame = requestAnimationFrame(animate); controller.update(now);
+      tickDialogue(now);
       npcs.forEach(npc => npc.update(now));
       judges.forEach(judge => judge.update(now));
       lod.update(now, useGameStore.getState().connection === 'ready');

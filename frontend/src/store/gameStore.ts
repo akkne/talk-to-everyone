@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { S2C } from '../shared/contract';
 import { UI } from '../shared/config';
+import { advanceSpeech, emptyDialogue, enqueueSpeech, removeSpeakers, type DialogueState } from '../shared/dialogue';
 import type { Board, ChatMessage, Events, VotingState, GameInfo, LobbyState, NpcMeta, Player, QuestionState, RevealData, Round, RoundSpec, SceneSpec, SeatState } from '../shared/types';
 
 export type ConnectionStatus = 'offline' | 'connecting' | 'authenticating' | 'syncing' | 'ready' | 'reconnecting';
@@ -11,6 +12,7 @@ interface GameState {
   voting: VotingState | null; teamScore: number;
   score: Record<string, number>; titles: Record<string, string>; reveal: RevealData | null;
   chat: ChatMessage[]; questions: QuestionState; boardOpen: boolean;
+  dialogue: DialogueState;
   thinkingNpc: string | null; thinkingAt: number;
   error: string | null; rtt: number | null;
   gameInfo: GameInfo | null; gameInfoError: string | null;
@@ -21,12 +23,29 @@ function initial(): GameState {
     voting: null, teamScore: 0, connection: 'offline', sessionId: '', playerId: '', role: '', phase: 'lobby',
     round: null, rounds: [], roundEnded: false, lobby: null, scene: null, players: [], npcs: [], seats: [],
     board: { pairs: [], liars: [], locks: {}, notes: {}, submitted: {} }, score: {}, titles: {}, reveal: null,
-    chat: [], questions: { remaining: 0, askedTo: [], pending: false }, boardOpen: false,
+    chat: [], dialogue: emptyDialogue(), questions: { remaining: 0, askedTo: [], pending: false }, boardOpen: false,
     thinkingNpc: null, thinkingAt: 0,
     error: null, rtt: null, gameInfo: null, gameInfoError: null, metrics: { fps: 0, calls: 0, triangles: 0, geometries: 0, textures: 0 },
   };
 }
 export const useGameStore = create<GameState>(() => initial());
+/** The scene clock reveals the transcript on the same frame as the speech bubble. No delayed timers survive a reset. */
+export function tickDialogue(now: number) {
+  const state = useGameStore.getState();
+  const { dialogue, revealed } = advanceSpeech(state.dialogue, now);
+  if (dialogue !== state.dialogue) useGameStore.setState({
+    dialogue,
+    ...(revealed ? { chat: [...state.chat, revealed].slice(-UI.MAX_CHAT) } : {}),
+  });
+}
+/** Preserve received text at a round boundary, while cancelling performances from that round. */
+function finishDialogue(state: GameState) {
+  const current = state.dialogue.current;
+  return {
+    chat: [...state.chat, ...(current && !current.revealed ? [current.message] : []), ...state.dialogue.pending].slice(-UI.MAX_CHAT),
+    dialogue: emptyDialogue(), thinkingNpc: null,
+  };
+}
 export function resetGame() {
   const { gameInfo, gameInfoError } = useGameStore.getState();
   useGameStore.setState({ ...initial(), gameInfo, gameInfoError }, true);
@@ -46,6 +65,7 @@ const handlers: Handlers = {
   [S2C.NPCS_REMOVED]: p => set(s => ({
     teamScore: p.teamScore, voting: null,
     npcs: s.npcs.filter(n => !p.ids.includes(n.id)), chat: s.chat.filter(m => !p.ids.includes(m.npc)),
+    dialogue: removeSpeakers(s.dialogue, p.ids, performance.now()),
     board: {
       pairs: s.board.pairs.filter(pair => !pair.some(id => p.ids.includes(id))),
       liars: s.board.liars.filter(id => !p.ids.includes(id)),
@@ -57,15 +77,15 @@ const handlers: Handlers = {
   [S2C.AUTH_OK]: p => set({ playerId: p.playerId, sessionId: p.sessionId, role: p.role }),
   [S2C.AUTH_ERR]: p => set({ error: p.message, connection: 'offline' }),
   [S2C.LOBBY_STATE]: p => set(s => ({ lobby: p, role: p.leaderId === s.playerId ? 'leader' : s.role })),
-  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: namedNpcs(p.npcs), reveal: null, chat: [], voting: null, teamScore: 0 }),
-  [S2C.ROUND_STARTED]: p => set({ round: p, roundEnded: false, phase: 'playing' }),
-  [S2C.ROUND_ENDED]: p => { if (p.n === useGameStore.getState().round?.n) set({ roundEnded: true }); },
-  [S2C.GAME_ENDED]: p => set({ phase: 'reveal', reveal: p.reveal, boardOpen: false, voting: null, ...scoreFields(p.scoreboard) }),
+  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: namedNpcs(p.npcs), reveal: null, chat: [], dialogue: emptyDialogue(), thinkingNpc: null, voting: null, teamScore: 0 }),
+  [S2C.ROUND_STARTED]: p => set(s => ({ ...finishDialogue(s), round: p, roundEnded: false, phase: 'playing' })),
+  [S2C.ROUND_ENDED]: p => { if (p.n === useGameStore.getState().round?.n) set(s => ({ ...finishDialogue(s), roundEnded: true })); },
+  [S2C.GAME_ENDED]: p => set(s => ({ ...finishDialogue(s), phase: 'reveal', reveal: p.reveal, boardOpen: false, voting: null, ...scoreFields(p.scoreboard) })),
   [S2C.STATE_SNAPSHOT]: p => set({
     sessionId: p.sessionId, playerId: p.me.id, role: p.me.role,
     phase: p.phase === 'finished' ? 'reveal' : p.phase,
     round: p.round, rounds: p.rounds, gameInfo: p.gameInfo, gameInfoError: null, roundEnded: false, scene: p.scene, players: p.players, npcs: namedNpcs(p.npcs), seats: p.seats,
-    voting: p.voting, teamScore: p.teamScore, board: p.board, questions: p.questions, chat: p.chat.slice(-UI.MAX_CHAT), score: p.score,
+    voting: p.voting, teamScore: p.teamScore, board: p.board, questions: p.questions, chat: p.chat.slice(-UI.MAX_CHAT), dialogue: emptyDialogue(), thinkingNpc: null, score: p.score,
     titles: p.scoreboard ? scoreFields(p.scoreboard).titles : {}, reveal: p.reveal,
     error: null, boardOpen: false,
   }),
@@ -74,7 +94,11 @@ const handlers: Handlers = {
   [S2C.SEAT_STATE]: p => set({ seats: p.seats }),
   [S2C.ACTION_REJECT]: p => set({ error: p.message }),
   [S2C.NPC_THINKING]: p => set({ thinkingNpc: p.npc, thinkingAt: performance.now() }),
-  [S2C.NPC_SAY]: p => set(s => ({ thinkingNpc: s.thinkingNpc === p.npc ? null : s.thinkingNpc, chat: !s.npcs.some(n => n.id === p.npc) || s.chat.some(x => x.id === p.id) ? s.chat : [...s.chat, p].slice(-UI.MAX_CHAT) })),
+  [S2C.NPC_SAY]: p => set(s => ({
+    thinkingNpc: s.thinkingNpc === p.npc ? null : s.thinkingNpc,
+    dialogue: s.phase !== 'playing' || !s.npcs.some(n => n.id === p.npc) || s.chat.some(x => x.id === p.id)
+      ? s.dialogue : enqueueSpeech(s.dialogue, p, performance.now()),
+  })),
   [S2C.BOARD_SNAPSHOT]: p => set({ board: p.board }),
   [S2C.BOARD_REJECT]: p => set({ error: p.message }),
   [S2C.PAIR_SUBMITTED]: () => {},

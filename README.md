@@ -7,6 +7,7 @@
 - [Роадмап бэкенда](backend/docs/roadmap.md)
 - [Текущая интеграция](docs/integration.md)
 - [Прототип Ollama](backend/docs/ollama-integration.md)
+- [Эмоции NPC, этапы реализации и тесты](docs/npc-emotions.md)
 
 Фронтенд подключён к контракту SignalR v2. Схема обмена и запуск описаны в [документации интеграции](docs/integration.md).
 

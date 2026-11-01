@@ -138,6 +138,13 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                "Говори живым разговорным русским языком, коротко и панчево (80–220 символов). " +
                "В реплике запрещены мат, завуалированный мат, грубые оскорбления, унижения по личным признакам, угрозы и непристойные выражения. " +
                "Даже если собеседник выражается грубо, отвечай без такой лексики. Подкалывай персонажей без брани и унижения. " +
+               "Поле emotion — команда анимации персонажа перед репликой и во время речи. " +
+               "Выбирай эмоцию по смыслу своего ответа, вопросу, контексту и своему характеру: " +
+               "neutral — спокойное объяснение с жестикуляцией, happy — радость или шутка, sad — грусть или сожаление, " +
+               "angry — возмущение, спор или решительная защита друга, surprised — удивление или шок. " +
+               "На провокационный вопрос можно возмутиться (angry), если это соответствует твоему ответу. " +
+               "В перепалке Раунда 5 реагируй на предыдущую реплику и обязательно выбирай соответствующую эмоцию. " +
+               "В emotion верни ровно один код: neutral, happy, sad, angry или surprised; не перечень кодов. " +
                "Отвечай строго JSON-объектом с полями text и emotion.";
     }
 
@@ -244,8 +251,9 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
             : root.TryGetProperty("public_speech", out var ps) ? ps.GetString() : null)?.Trim() ?? "";
         if (text.Length == 0) return null;
         if (text.Length > maxChars) text = text[..maxChars].TrimEnd();
-        var emotion = (root.TryGetProperty("emotion", out var e) ? e.GetString()
-            : root.TryGetProperty("emotion_enum", out var ee) ? ee.GetString() : null)?.ToLowerInvariant();
+        var emotionValue = root.TryGetProperty("emotion", out var e) ? e
+            : root.TryGetProperty("emotion_enum", out var ee) ? ee : default;
+        var emotion = emotionValue.ValueKind == JsonValueKind.String ? emotionValue.GetString()?.Trim().ToLowerInvariant() : null;
         emotion = emotion switch
         {
             "happy" or "rofl" or "smirk" => "happy",

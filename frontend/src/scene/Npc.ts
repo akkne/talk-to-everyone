@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { NpcMeta } from '../shared/types';
 import { JUMP_HEIGHT, landingDip } from './jump';
+import { EMOTIONS, EMOTION_LEAD_MS, normalizeEmotion, speechDuration, type NpcEmotion } from '../shared/dialogue';
+import { expressionPose } from './expression';
 
 const skinTones = ['#e9bd9e', '#c78f6c', '#f0cfb4', '#ad7659', '#dca984'];
 const hairTones = ['#332b2a', '#6a4937', '#241f25', '#9b7050'];
@@ -13,6 +15,8 @@ export class Npc {
   private readonly avatar = new THREE.Group();
   private readonly legs: THREE.Group[] = [];
   private readonly arms: THREE.Group[] = [];
+  private readonly brows: THREE.Mesh[] = [];
+  private readonly mouth: THREE.Mesh;
   private targetJumpOffset = 0;
   private jumpOffset = 0;
   private landingAt = -Infinity;
@@ -23,7 +27,8 @@ export class Npc {
   private bubble: THREE.Sprite | null = null;
   private name = '';
   private reactionAt = -Infinity;
-  private bubbleUntil = 0;
+  private emotionBadge: THREE.Sprite | null = null;
+  private speech: { text: string; emotion: NpcEmotion; at: number; duration: number; shown: boolean } | null = null;
   private targetPos: THREE.Vector3 | null = null;
   private targetYaw = 0;
   private targetPitch = 0;
@@ -61,8 +66,11 @@ export class Npc {
       add(this.head, new THREE.SphereGeometry(0.17, 10, 8), hair, 0.17, 0.22, -0.08);
     }
     const eye = cloth('#34343a');
-    for (const side of [-1, 1]) add(this.head, new THREE.SphereGeometry(0.016, 7, 6), eye, side * 0.083, 0.005, 0.231);
-    add(this.head, new THREE.BoxGeometry(0.065, 0.012, 0.012), cloth('#986b62'), 0, -0.1, 0.229);
+    for (const side of [-1, 1]) {
+      add(this.head, new THREE.SphereGeometry(0.016, 7, 6), eye, side * 0.083, 0.005, 0.231);
+      this.brows.push(add(this.head, new THREE.BoxGeometry(0.065, 0.014, 0.016), hair, side * 0.083, 0.055, 0.236));
+    }
+    this.mouth = add(this.head, new THREE.BoxGeometry(0.065, 0.012, 0.012), cloth('#986b62'), 0, -0.1, 0.229);
     this.avatar.add(this.head);
 
     const style = profile?.style ?? 'casual';
@@ -127,10 +135,26 @@ export class Npc {
     this.head.position.y = seated ? 1.50 : 1.75;
     this.label.position.y = seated ? 2.06 : 2.31;
   }
-  say(text: string) {
+  say(text: string, emotion: string | null = null, at = performance.now()) {
+    this.stopSpeaking();
+    const mood = normalizeEmotion(emotion);
+    this.speech = { text, emotion: mood, at, duration: speechDuration(text), shown: false };
+    const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#fffdf7'; context.fillRect(0, 0, 128, 128);
+    context.strokeStyle = EMOTIONS[mood].color; context.lineWidth = 8; context.strokeRect(4, 4, 120, 120);
+    context.font = '80px "Segoe UI Emoji", "Apple Color Emoji", sans-serif'; context.textAlign = 'center';
+    context.fillText(EMOTIONS[mood].emoji, 64, 94);
+    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+    this.emotionBadge = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }));
+    this.emotionBadge.name = 'npc-emotion'; this.emotionBadge.userData.emotion = mood;
+    this.emotionBadge.scale.setScalar(0.55); this.emotionBadge.position.y = 2.76;
+    this.emotionBadge.renderOrder = 2; this.avatar.add(this.emotionBadge);
+  }
+  stopSpeaking() {
     if (this.bubble) this.removeSprite(this.bubble);
-    this.bubble = this.text(text, true); this.bubble.position.y = 2.91; this.avatar.add(this.bubble);
-    this.bubbleUntil = performance.now() + 6500;
+    if (this.emotionBadge) this.removeSprite(this.emotionBadge);
+    this.bubble = null; this.emotionBadge = null; this.speech = null;
   }
   react(at: number) { this.reactionAt = at; }
   update(now: number) {
@@ -140,7 +164,6 @@ export class Npc {
       this.group.position.lerp(this.targetPos, 0.22);
       const dyaw = Math.atan2(Math.sin(this.targetYaw - this.group.rotation.y), Math.cos(this.targetYaw - this.group.rotation.y));
       this.group.rotation.y += dyaw * 0.25;
-      this.head.rotation.x += (this.targetPitch - this.head.rotation.x) * 0.25;
     }
     const wasAirborne = this.jumpOffset > 0;
     this.jumpOffset = THREE.MathUtils.damp(this.jumpOffset, this.targetJumpOffset, 24, dt);
@@ -150,14 +173,38 @@ export class Npc {
     }
     const dip = landingDip((now - this.landingAt) / 1000);
     const tuck = this.jumpOffset / JUMP_HEIGHT;
+    const speech = this.speech;
+    const speechAge = speech ? now - speech.at : -1;
+    const pose = expressionPose(speech?.emotion ?? 'neutral', speechAge, speech?.duration ?? 0);
     this.avatar.position.y = this.jumpOffset - dip;
+    this.avatar.rotation.set(pose.lean, 0, pose.sway);
     this.avatar.scale.set(1 + dip * 0.4, 1 - dip, 1 + dip * 0.4);
     this.legs.forEach(leg => { leg.rotation.x = -0.5 * tuck; });
-    this.arms.forEach((arm, i) => { arm.rotation.x = -0.8 * tuck; arm.rotation.z = (i ? 1 : -1) * 0.5 * tuck; });
+    this.arms.forEach((arm, i) => {
+      arm.rotation.x = -0.8 * tuck + (i ? pose.rightX : pose.leftX) * (1 - tuck);
+      arm.rotation.z = (i ? 1 : -1) * 0.5 * tuck + (i ? pose.rightZ : pose.leftZ) * (1 - tuck);
+    });
+    this.head.rotation.x = THREE.MathUtils.damp(this.head.rotation.x, this.targetPitch + pose.headX, 18, dt);
+    this.head.rotation.z = pose.headZ;
+    this.brows.forEach((brow, i) => { brow.rotation.z = (i ? -1 : 1) * pose.brow; });
+    this.mouth.scale.y = 1 + pose.mouthOpen * 5;
+    if (speech && now >= speech.at + EMOTION_LEAD_MS && now < speech.at + speech.duration && !speech.shown) {
+      speech.shown = true;
+      this.bubble = this.text(speech.text, true); this.bubble.name = 'npc-speech';
+      this.bubble.position.y = 3.55; this.avatar.add(this.bubble);
+    }
+    if (this.emotionBadge) {
+      this.emotionBadge.position.y = this.label.position.y + 0.45 + Math.sin(Math.max(0, speechAge) / 230) * 0.045;
+      this.emotionBadge.material.opacity = pose.weight;
+    }
+    if (this.bubble) {
+      this.bubble.position.y = this.label.position.y + 1.24;
+      this.bubble.material.opacity = pose.weight;
+    }
     const age = now - this.reactionAt;
     this.bodyMaterial.emissive.set('#f6b84b');
     this.bodyMaterial.emissiveIntensity = age < 2400 ? (0.5 + Math.sin(age / 110) * 0.5) * 0.45 : 0;
-    if (this.bubble && now > this.bubbleUntil) { this.removeSprite(this.bubble); this.bubble = null; }
+    if (speech && now >= speech.at + speech.duration) this.stopSpeaking();
   }
   private text(text: string, bubble: boolean) {
     const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = bubble ? 192 : 80;
