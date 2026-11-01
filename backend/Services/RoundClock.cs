@@ -3,8 +3,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Backend;
 
-public sealed class RoundDirector(IServiceScopeFactory scopes, IHubContext<GameHub> hub, GameGate gate, GameSettings settings, LlmClient llm, ILogger<RoundDirector> log)
+public sealed class RoundDirector(
+    IServiceScopeFactory scopes,
+    IHubContext<GameHub> hub,
+    GameGate gate,
+    GameSettings settings,
+    LlmClient llm,
+    ILogger<RoundDirector> log,
+    ISessionPauseGate? pauseGate = null)
 {
+    private readonly ISessionPauseGate _pauseGate = pauseGate ?? new SessionPauseGate();
     private CancellationTokenSource? _roundCts;
     private readonly object _sync = new();
     private int _activeRound;
@@ -59,6 +67,7 @@ public sealed class RoundDirector(IServiceScopeFactory scopes, IHubContext<GameH
             foreach (var npc in activeNpcs)
             {
                 ct.ThrowIfCancellationRequested();
+                await _pauseGate.WaitWhilePausedAsync(ct);
 
                 await hub.Clients.All.SendAsync("NpcThinking", new { npc = npc.Id, questionId = $"r{round}:{npc.Id}" }, ct);
 
@@ -81,6 +90,8 @@ public sealed class RoundDirector(IServiceScopeFactory scopes, IHubContext<GameH
                 {
                     gate.LlmLock.Release();
                 }
+
+                await _pauseGate.WaitWhilePausedAsync(ct);
 
                 await gate.Lock.WaitAsync(ct);
                 try
@@ -133,7 +144,14 @@ public sealed class RoundDirector(IServiceScopeFactory scopes, IHubContext<GameH
     }
 }
 
-public sealed class RoundClock(IServiceScopeFactory scopes, IHubContext<GameHub> hub, GameGate gate, GameSettings settings, RoundDirector director, ILogger<RoundClock> log) : BackgroundService
+public sealed class RoundClock(
+    IServiceScopeFactory scopes,
+    IHubContext<GameHub> hub,
+    GameGate gate,
+    GameSettings settings,
+    RoundDirector director,
+    ISessionPauseGate pauseGate,
+    ILogger<RoundClock> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
@@ -143,6 +161,7 @@ public sealed class RoundClock(IServiceScopeFactory scopes, IHubContext<GameHub>
             await gate.Lock.WaitAsync(ct);
             try
             {
+                if (pauseGate.IsPaused) continue;
                 using var scope = scopes.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<GameDb>();
                 var session = await db.Sessions.SingleAsync(ct);
@@ -168,7 +187,7 @@ public sealed class RoundClock(IServiceScopeFactory scopes, IHubContext<GameHub>
                 session.RoundPhase = session.Round switch { 2 => "gossip", 3 => "blindspots", 4 => "interrogation", 5 => "debate", _ => "presentation" };
                 session.EndsAt = JsonData.Now + settings.RoundSeconds * 1000L;
                 await db.SaveChangesAsync(ct);
-                await hub.Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session), ct);
+                await hub.Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate), ct);
                 director.TriggerRound(session.Round, session.RoundPhase);
             }
             catch (Exception e) when (e is not OperationCanceledException)

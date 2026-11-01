@@ -74,6 +74,11 @@ public sealed partial class GameHub
             var session = await db.Sessions.SingleAsync();
             if (Seen(me, "SubmitPair", r.RequestId))
             { await Clients.Caller.SendAsync("VotingState", Voting.View(session, me.Id)); return; }
+            if (pauseGate.IsPaused)
+            {
+                await BoardReject("SubmitPair", "GAME_PAUSED", r.RequestId);
+                return;
+            }
             var data = JsonData.Read<VotingData>(session.VotingJson);
             if (session.Phase != "playing" || session.RoundPhase != "choice" || session.Round != r.Round ||
                 data.Stage != r.Stage || session.EndsAt <= JsonData.Now)
@@ -85,6 +90,7 @@ public sealed partial class GameHub
             session.VotingJson = JsonData.Write(data); Remember(me, "SubmitPair", r.RequestId);
             await db.SaveChangesAsync();
             await Voting.Broadcast(db, Clients, session);
+            await BroadcastParticipants();
             await Voting.Advance(db, Clients, session, settings);
         }
         finally { gate.Lock.Release(); }

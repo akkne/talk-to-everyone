@@ -26,6 +26,7 @@ builder.Services.AddSignalR().AddJsonProtocol(options =>
 builder.Services.AddSingleton<GameGate>();
 builder.Services.AddSingleton<GameSettings>();
 builder.Services.AddSingleton<JwtAuthService>();
+builder.Services.AddSessionControls();
 builder.Services.AddSingleton<RoundDirector>();
 builder.Services.AddHttpClient<LlmClient>();
 builder.Services.AddHostedService<RoundClock>();

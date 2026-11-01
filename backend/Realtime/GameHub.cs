@@ -20,7 +20,15 @@ public sealed record QuestionRequest(string RequestId, string TargetNpc, string 
 public sealed record PingRequest(long T);
 
 [Authorize]
-public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings settings, LlmClient llm, RoundDirector director, ILogger<GameHub> log) : Hub
+public sealed partial class GameHub(
+    GameDb db,
+    GameGate gate,
+    GameSettings settings,
+    LlmClient llm,
+    RoundDirector director,
+    IParticipantTelemetryRegistry telemetry,
+    ISessionPauseGate pauseGate,
+    ILogger<GameHub> log) : Hub
 {
     private GamePlayer? Me => db.Players.SingleOrDefault(p => p.ConnectionId == Context.ConnectionId && p.Connected);
 
@@ -34,6 +42,7 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
             {
                 me.Connected = false;
                 me.ConnectionId = null;
+                telemetry.MarkDisconnected(me.Id, JsonData.Now);
                 var session = await db.Sessions.SingleAsync();
                 if (me.Role == "leader" && session.Phase == "lobby")
                 {
@@ -51,6 +60,7 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
                 }
                 await BroadcastLobby();
                 await BroadcastPlayers();
+                await BroadcastParticipants();
             }
         }
         finally { gate.Lock.Release(); }
@@ -208,9 +218,10 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
             await db.SaveChangesAsync();
 
             await Clients.Caller.SendAsync("AuthOk", new { playerId = me.Id, sessionId = session.Id, role = me.Role });
-            await Clients.Caller.SendAsync("StateSnapshot", await GameLogic.Snapshot(db, me, settings));
+            await Clients.Caller.SendAsync("StateSnapshot", await GameLogic.Snapshot(db, me, settings, telemetry, pauseGate));
             await BroadcastLobby();
             await BroadcastPlayers();
+            await BroadcastParticipants();
         }
         finally { gate.Lock.Release(); }
     }
@@ -223,6 +234,7 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
             var me = await Authorized(); if (me == null) return;
             var session = await db.Sessions.SingleAsync();
             if (me.Role != "leader" || (session.Phase != "lobby" && session.Phase != "finished")) return;
+            pauseGate.Reset();
             var roster = NpcDatabase.CreateRoster();
             await using var transaction = await db.Database.BeginTransactionAsync();
             db.Messages.RemoveRange(await db.Messages.ToListAsync());
@@ -247,13 +259,15 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
             await transaction.CommitAsync();
             var npcs = await db.Npcs.OrderBy(n => n.Number).ToListAsync();
             await Clients.All.SendAsync("GameStarted", new { rounds = GameLogic.RoundSpecs(settings.RoundSeconds), npcs = npcs.Select(GameLogic.NpcView).ToArray(), sceneVersion = "1" });
-            await Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session));
+            await Clients.All.SendAsync("GamePauseChanged", pauseGate.CurrentView(session, JsonData.Now));
+            await Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate));
             foreach (var p in players.Where(p => p.Connected && p.ConnectionId != null))
             {
                 await Clients.Client(p.ConnectionId!).SendAsync("BoardSnapshot", new { board = new BoardData(), requestId = "" });
                 await Clients.Client(p.ConnectionId!).SendAsync("QuestionState", new { questions = new QuestionData() });
             }
             await BroadcastLobby();
+            await BroadcastParticipants();
             director.TriggerRound(1, "presentation");
         }
         finally { gate.Lock.Release(); }
@@ -271,11 +285,17 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
             var session = await db.Sessions.SingleAsync();
             if (me.Role != "leader" || session.Phase != "playing" || session.RoundPhase == "resolved")
             { await ActionReject("SkipRound", "WRONG_PHASE", request.RequestId); return; }
-            if (Seen(me, "SkipRound", request.RequestId) || session.EndsAt <= JsonData.Now) return;
+            if (Seen(me, "SkipRound", request.RequestId)) return;
+            if (pauseGate.IsPaused)
+            {
+                pauseGate.Reset();
+                await Clients.All.SendAsync("GamePauseChanged", pauseGate.CurrentView(session, JsonData.Now));
+            }
+            if (session.EndsAt <= JsonData.Now) return;
             session.EndsAt = JsonData.Now;
             Remember(me, "SkipRound", request.RequestId);
             await db.SaveChangesAsync();
-            await Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session));
+            await Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate));
             if (session.RoundPhase == "choice") await Voting.Broadcast(db, Clients, session);
         }
         finally { gate.Lock.Release(); }
@@ -290,6 +310,7 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
             var session = await db.Sessions.SingleAsync();
             if (me.Role != "leader" && session.Phase != "finished") return;
 
+            pauseGate.Reset();
             director.CancelCurrentRound();
             db.Messages.RemoveRange(await db.Messages.ToListAsync());
             db.Choices.RemoveRange(await db.Choices.ToListAsync());
@@ -322,10 +343,11 @@ public sealed partial class GameHub(GameDb db, GameGate gate, GameSettings setti
 
             foreach (var p in connectedPlayers.Where(p => p.ConnectionId != null))
             {
-                await Clients.Client(p.ConnectionId!).SendAsync("StateSnapshot", await GameLogic.Snapshot(db, p, settings));
+                await Clients.Client(p.ConnectionId!).SendAsync("StateSnapshot", await GameLogic.Snapshot(db, p, settings, telemetry, pauseGate));
             }
             await BroadcastLobby();
             await BroadcastPlayers();
+            await BroadcastParticipants();
         }
         finally { gate.Lock.Release(); }
     }
