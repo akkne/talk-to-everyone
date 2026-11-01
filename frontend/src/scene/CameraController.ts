@@ -1,4 +1,4 @@
-import type { PerspectiveCamera } from 'three';
+import { Vector3, type PerspectiveCamera } from 'three';
 import type { GameClient, Pose, Vec3 } from '../shared/types';
 import { UI } from '../shared/config';
 import { createId } from '../shared/id';
@@ -17,6 +17,8 @@ export class CameraController {
   private pending = false;
   private enabled = false;
   private keys = new Set<string>();
+  private walkForward = new Vector3();
+  private walkRight = new Vector3();
   private lastFrame = 0;
   constructor(private readonly camera: PerspectiveCamera, private readonly canvas: HTMLCanvasElement, private readonly client: GameClient,
     private readonly scene: SceneSpec, private readonly onHint: (hint: string) => void, private readonly onError: (message: string) => void) {
@@ -37,7 +39,7 @@ export class CameraController {
   private lockError = () => { this.canvas.title = 'Нажмите на сцену: WASD — ходьба, стрелки — обзор.'; };
   private focused() { return this.enabled && (document.pointerLockElement === this.canvas || document.activeElement === this.canvas); }
   private move = (event: MouseEvent) => {
-    if (this.enabled && document.pointerLockElement === this.canvas) this.rotate(event.movementX * UI.MOUSE_SENSITIVITY, -event.movementY * UI.MOUSE_SENSITIVITY);
+    if (this.enabled && document.pointerLockElement === this.canvas) this.rotate(event.movementX * UI.MOUSE_SENSITIVITY, event.movementY * UI.MOUSE_SENSITIVITY);
   };
   private keyDown = (event: KeyboardEvent) => {
     if (event.code === 'Escape') { this.clearKeys(); this.canvas.blur(); return; }
@@ -76,10 +78,13 @@ export class CameraController {
     const side = Number(this.keys.has('KeyD')) - Number(this.keys.has('KeyA'));
     if (!forward && !side) return;
     const scale = WALK_SPEED * dt / Math.hypot(forward, side);
-    // Keep walking horizontal; yaw turns forward and strafe with the camera.
-    const x = this.position.x + (forward * Math.sin(this.yaw) + side * Math.cos(this.yaw)) * scale;
-    const z = this.position.z + (-forward * Math.cos(this.yaw) + side * Math.sin(this.yaw)) * scale;
-    this.position = walk(this.position, x - this.position.x, z - this.position.z, this.scene);
+    // Use the rendered camera basis so WASD stays aligned with the view after every turn.
+    // Normalize on the floor plane so looking up/down never changes walking speed or height.
+    this.camera.getWorldDirection(this.walkForward).setY(0).normalize();
+    this.walkRight.setFromMatrixColumn(this.camera.matrixWorld, 0).setY(0).normalize();
+    const dx = (forward * this.walkForward.x + side * this.walkRight.x) * scale;
+    const dz = (forward * this.walkForward.z + side * this.walkRight.z) * scale;
+    this.position = walk(this.position, dx, dz, this.scene);
     this.apply();
   }
   private nearestSeat() {
