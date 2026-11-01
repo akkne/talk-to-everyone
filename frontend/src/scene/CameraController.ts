@@ -31,6 +31,10 @@ export class CameraController {
   private landingElapsed = LANDING_DURATION;
   constructor(private readonly camera: PerspectiveCamera, private readonly canvas: HTMLCanvasElement, private readonly client: GameClient,
     private readonly scene: SceneSpec, private readonly onHint: (hint: string) => void, private readonly onError: (message: string) => void) {
+    if (scene.spawnPoints?.[0]) {
+      this.position = { ...scene.spawnPoints[0] };
+      this.apply();
+    }
     window.addEventListener('location-feedback', this.feedbackEvent);
     canvas.addEventListener('click', this.lock);
     document.addEventListener('mousemove', this.move);

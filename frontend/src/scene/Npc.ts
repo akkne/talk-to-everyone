@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { NpcMeta } from '../shared/types';
+import type { NpcMeta, PlayerAvatar } from '../shared/types';
 import { npcLabel } from '../shared/npcLabel';
 import { JUMP_HEIGHT, landingDip } from './jump';
 import { EMOTIONS, EMOTION_LEAD_MS, normalizeEmotion, speechDuration, type NpcEmotion } from '../shared/dialogue';
@@ -9,7 +9,7 @@ const skinTones = ['#e9bd9e', '#c78f6c', '#f0cfb4', '#ad7659', '#dca984'];
 const hairTones = ['#332b2a', '#6a4937', '#241f25', '#9b7050'];
 const cloth = (color: string, roughness = 0.86) => new THREE.MeshStandardMaterial({ color, roughness });
 
-/** A small, readable character assembled from local geometry. Appearance is public metadata only. */
+/** A small, readable character assembled from local geometry. Supports customizable avatars or procedural NPC styles. */
 export class Npc {
   readonly group = new THREE.Group();
   readonly head = new THREE.Group();
@@ -20,13 +20,20 @@ export class Npc {
   private seatedAmount = 0;
   private readonly arms: THREE.Group[] = [];
   private readonly brows: THREE.Mesh[] = [];
-  private readonly mouth: THREE.Mesh;
+  private mouth: THREE.Mesh;
   private targetJumpOffset = 0;
   private jumpOffset = 0;
   private landingAt = -Infinity;
   private lastUpdate = 0;
   private readonly body: THREE.Mesh;
   private readonly bodyMaterial: THREE.MeshStandardMaterial;
+  private readonly skinMaterial: THREE.MeshStandardMaterial;
+  private readonly hairMaterial: THREE.MeshStandardMaterial;
+  private readonly hairGroup = new THREE.Group();
+  private readonly eyesGroup = new THREE.Group();
+  private readonly mouthGroup = new THREE.Group();
+  private readonly accessoryGroup = new THREE.Group();
+  private readonly styleGroup = new THREE.Group();
   private label: THREE.Sprite;
   private bubble: THREE.Sprite | null = null;
   private name = '';
@@ -38,21 +45,28 @@ export class Npc {
   private targetPos: THREE.Vector3 | null = null;
   private targetYaw = 0;
   private targetPitch = 0;
+  private currentAvatar?: PlayerAvatar;
 
   constructor(readonly meta: NpcMeta) {
+    this.currentAvatar = meta.avatar;
     this.avatar.name = 'avatar'; this.group.add(this.avatar);
     const profile = meta.appearance;
-    const skin = cloth(skinTones[(profile?.skin ?? meta.number) % skinTones.length]);
-    const hair = cloth(hairTones[(profile?.hair ?? meta.number) % hairTones.length]);
+    const initialSkin = meta.avatar?.skinTone ?? skinTones[(profile?.skin ?? meta.number) % skinTones.length];
+    const initialHair = meta.avatar?.hairColor ?? hairTones[(profile?.hair ?? meta.number) % hairTones.length];
+    const initialBody = meta.avatar?.bodyColor ?? meta.color;
+
+    this.skinMaterial = cloth(initialSkin);
+    this.hairMaterial = cloth(initialHair);
+    this.bodyMaterial = cloth(initialBody);
+
     const dark = cloth('#303c43');
     const shoe = cloth('#4b5556');
-    const trim = cloth('#f7f2e9');
-    this.bodyMaterial = cloth(meta.color);
     const add = (parent: THREE.Group, geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number) => {
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(x, y, z); parent.add(mesh); return mesh;
     };
-    // Feet, trousers and the tapered jacket create a clear silhouette even from the rear row.
+
+    // Feet, trousers and arms
     for (const side of [-1, 1]) {
       const leg = new THREE.Group(); leg.position.set(side * 0.14, 0.62, 0); this.avatar.add(leg); this.legs.push(leg);
       add(leg, new THREE.CapsuleGeometry(0.095, 0.08, 3, 7), dark, 0, -0.135, 0);
@@ -62,61 +76,238 @@ export class Npc {
       const arm = new THREE.Group(); arm.position.set(side * 0.34, 1.32, 0); this.avatar.add(arm); this.arms.push(arm);
       const sleeve = add(arm, new THREE.CapsuleGeometry(0.105, 0.38, 3, 7), this.bodyMaterial, side * 0.04, -0.28, 0);
       sleeve.rotation.z = side * 0.16;
-      add(arm, new THREE.SphereGeometry(0.105, 9, 7), skin, side * 0.08, -0.61, 0.02);
+      add(arm, new THREE.SphereGeometry(0.105, 9, 7), this.skinMaterial, side * 0.08, -0.61, 0.02);
     }
+
     this.body = add(this.avatar, new THREE.CylinderGeometry(0.32, 0.39, 0.76, 12), this.bodyMaterial, 0, 1.07, 0);
-    add(this.avatar, new THREE.CylinderGeometry(0.12, 0.12, 0.14, 10), skin, 0, 1.5, 0);
+    add(this.avatar, new THREE.CylinderGeometry(0.12, 0.12, 0.14, 10), this.skinMaterial, 0, 1.5, 0);
+
     this.head.position.y = 1.75;
-    add(this.head, new THREE.SphereGeometry(0.245, 16, 12), skin, 0, 0, 0);
-    const hairCap = add(this.head, new THREE.SphereGeometry(0.251, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.49), hair, 0, 0.025, 0);
-    hairCap.scale.z = (profile?.hair ?? 0) % 2 ? 1.08 : 0.97;
-    if ((profile?.hair ?? 0) === 2) {
-      add(this.head, new THREE.SphereGeometry(0.17, 10, 8), hair, 0.17, 0.22, -0.08);
-    }
-    const eye = cloth('#34343a');
-    for (const side of [-1, 1]) {
-      add(this.head, new THREE.SphereGeometry(0.016, 7, 6), eye, side * 0.083, 0.005, 0.231);
-      this.brows.push(add(this.head, new THREE.BoxGeometry(0.065, 0.014, 0.016), hair, side * 0.083, 0.055, 0.236));
-    }
-    this.mouth = add(this.head, new THREE.BoxGeometry(0.065, 0.012, 0.012), cloth('#986b62'), 0, -0.1, 0.229);
+    add(this.head, new THREE.SphereGeometry(0.245, 16, 12), this.skinMaterial, 0, 0, 0);
+
+    this.head.add(this.hairGroup);
+    this.head.add(this.eyesGroup);
+    this.head.add(this.mouthGroup);
+    this.head.add(this.accessoryGroup);
+    this.avatar.add(this.styleGroup);
     this.avatar.add(this.head);
 
-    const style = profile?.style ?? 'casual';
-    if (style === 'sport') {
-      add(this.avatar, new THREE.BoxGeometry(0.52, 0.09, 0.025), trim, 0, 1.24, 0.32);
-      add(this.avatar, new THREE.BoxGeometry(0.09, 0.33, 0.025), trim, 0, 1.02, 0.335);
-    } else if (style === 'tech') {
-      add(this.avatar, new THREE.BoxGeometry(0.49, 0.075, 0.025), dark, 0, 1.25, 0.31);
-      add(this.avatar, new THREE.BoxGeometry(0.13, 0.1, 0.03), trim, 0.18, 1.02, 0.33);
-    } else if (style === 'creative') {
-      add(this.avatar, new THREE.TorusGeometry(0.1, 0.025, 5, 12), trim, 0, 1.33, 0.29);
-      add(this.avatar, new THREE.SphereGeometry(0.055, 8, 6), dark, -0.2, 1.07, 0.33);
-    } else if (style === 'smart' || style === 'polished') {
-      for (const side of [-1, 1]) {
-        const lapel = add(this.avatar, new THREE.BoxGeometry(0.14, 0.38, 0.025), style === 'smart' ? trim : dark, side * 0.13, 1.2, 0.305);
-        lapel.rotation.z = side * 0.26;
-      }
-      add(this.avatar, new THREE.SphereGeometry(0.027, 7, 6), trim, 0, 0.99, 0.36);
-    } else {
-      add(this.avatar, new THREE.BoxGeometry(0.37, 0.055, 0.025), trim, 0, 1.34, 0.285);
-    }
-    const accessory = profile?.accessory;
-    if (accessory === 'glasses') {
-      for (const side of [-1, 1]) add(this.head, new THREE.TorusGeometry(0.066, 0.012, 5, 12), dark, side * 0.09, 0.005, 0.235);
-      add(this.head, new THREE.BoxGeometry(0.05, 0.014, 0.025), dark, 0, 0.012, 0.242);
-    } else if (accessory === 'headphones') {
-      add(this.head, new THREE.TorusGeometry(0.26, 0.028, 6, 20, Math.PI), dark, 0, 0.06, 0);
-      for (const side of [-1, 1]) add(this.head, new THREE.BoxGeometry(0.07, 0.17, 0.13), dark, side * 0.26, 0.02, 0);
-    } else if (accessory === 'beanie') {
-      add(this.head, new THREE.SphereGeometry(0.26, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.53), this.bodyMaterial, 0, 0.1, 0);
-    } else if (accessory === 'cap') {
-      add(this.head, new THREE.CylinderGeometry(0.23, 0.24, 0.13, 14), this.bodyMaterial, 0, 0.22, 0);
-      add(this.head, new THREE.BoxGeometry(0.36, 0.035, 0.2), this.bodyMaterial, 0, 0.18, 0.21);
-    }
+    // Initial placeholder mouth so this.mouth is always non-null
+    this.mouth = add(this.mouthGroup, new THREE.BoxGeometry(0.065, 0.012, 0.012), cloth('#986b62'), 0, -0.1, 0.229);
+
+    this.rebuildAvatar();
+
     this.name = meta.number > 0 ? npcLabel(meta) : meta.name;
     this.label = this.text(this.name, false);
     this.label.position.y = 2.31; this.avatar.add(this.label);
   }
+
+  /** <summary>Updates customized avatar parts (body color, hairstyle, eyes, mouth, skin, accessory).</summary> */
+  updateAvatar(avatar?: PlayerAvatar) {
+    this.currentAvatar = avatar;
+    this.rebuildAvatar();
+  }
+
+  private rebuildAvatar() {
+    const avatar = this.currentAvatar;
+    const profile = this.meta.appearance;
+
+    const bodyCol = avatar?.bodyColor ?? this.meta.color;
+    const skinCol = avatar?.skinTone ?? skinTones[(profile?.skin ?? this.meta.number) % skinTones.length];
+    const hairCol = avatar?.hairColor ?? hairTones[(profile?.hair ?? this.meta.number) % hairTones.length];
+
+    this.bodyMaterial.color.set(bodyCol);
+    this.skinMaterial.color.set(skinCol);
+    this.hairMaterial.color.set(hairCol);
+
+    this.rebuildHair(avatar?.hairStyle ?? (profile?.hair === 2 ? 'bun' : 'short'));
+    this.rebuildEyes(avatar?.eyes ?? 'dots');
+    this.rebuildMouth(avatar?.mouth ?? 'smile');
+    this.rebuildAccessories(avatar?.accessory ?? profile?.accessory ?? 'none');
+    this.rebuildStyle(profile?.style ?? 'casual');
+  }
+
+  private rebuildHair(style: string) {
+    this.hairGroup.clear();
+    const add = (geom: THREE.BufferGeometry, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+      const mesh = new THREE.Mesh(geom, this.hairMaterial);
+      mesh.position.set(x, y, z);
+      if (rx || ry || rz) mesh.rotation.set(rx, ry, rz);
+      this.hairGroup.add(mesh);
+      return mesh;
+    };
+
+    if (style === 'bald') return;
+
+    if (style === 'spiky') {
+      add(new THREE.SphereGeometry(0.248, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.48), 0, 0.02, 0);
+      for (let i = 0; i < 5; i++) {
+        const z = -0.1 + i * 0.055;
+        const angle = -0.15 + i * 0.08;
+        add(new THREE.ConeGeometry(0.042, 0.13, 5), 0, 0.23, z, angle, 0, 0);
+      }
+    } else if (style === 'bob') {
+      add(new THREE.SphereGeometry(0.251, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.52), 0, 0.025, 0);
+      for (const side of [-1, 1]) {
+        add(new THREE.BoxGeometry(0.065, 0.22, 0.16), side * 0.21, -0.04, 0.02);
+      }
+      add(new THREE.BoxGeometry(0.36, 0.18, 0.08), 0, -0.04, -0.18);
+    } else if (style === 'bun') {
+      add(new THREE.SphereGeometry(0.251, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.49), 0, 0.025, 0);
+      add(new THREE.SphereGeometry(0.1, 12, 10), 0, 0.24, -0.12);
+    } else if (style === 'afro') {
+      add(new THREE.SphereGeometry(0.31, 16, 12), 0, 0.06, -0.02);
+    } else {
+      // default short
+      const cap = add(new THREE.SphereGeometry(0.251, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.49), 0, 0.025, 0);
+      cap.scale.z = (this.meta.appearance?.hair ?? 0) % 2 ? 1.08 : 0.97;
+    }
+  }
+
+  private rebuildEyes(style: string) {
+    this.eyesGroup.clear();
+    this.brows.length = 0;
+    const eyeMat = cloth('#34343a');
+    const glintMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+    const visorMat = new THREE.MeshStandardMaterial({
+      color: '#06b6d4',
+      emissive: '#06b6d4',
+      emissiveIntensity: 0.65,
+      roughness: 0.2,
+    });
+
+    const add = (geom: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => {
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(x, y, z);
+      this.eyesGroup.add(mesh);
+      return mesh;
+    };
+
+    if (style === 'visor') {
+      add(new THREE.BoxGeometry(0.26, 0.04, 0.035), visorMat, 0, 0.01, 0.235);
+      for (const side of [-1, 1]) {
+        this.brows.push(add(new THREE.BoxGeometry(0.065, 0.014, 0.016), this.hairMaterial, side * 0.083, 0.055, 0.236));
+      }
+      return;
+    }
+
+    for (const side of [-1, 1]) {
+      if (style === 'wide') {
+        add(new THREE.SphereGeometry(0.028, 10, 8), eyeMat, side * 0.083, 0.008, 0.228);
+        add(new THREE.SphereGeometry(0.009, 6, 6), glintMat, side * 0.076, 0.018, 0.246);
+        this.brows.push(add(new THREE.BoxGeometry(0.065, 0.014, 0.016), this.hairMaterial, side * 0.083, 0.062, 0.236));
+      } else if (style === 'focused') {
+        const slit = add(new THREE.BoxGeometry(0.052, 0.01, 0.018), eyeMat, side * 0.083, 0.005, 0.233);
+        slit.rotation.z = side * -0.08;
+        const brow = add(new THREE.BoxGeometry(0.068, 0.015, 0.016), this.hairMaterial, side * 0.083, 0.048, 0.236);
+        brow.rotation.z = side * -0.16;
+        this.brows.push(brow);
+      } else if (style === 'wink') {
+        if (side === -1) {
+          add(new THREE.SphereGeometry(0.026, 9, 7), eyeMat, -0.083, 0.008, 0.23);
+          add(new THREE.SphereGeometry(0.008, 5, 5), glintMat, -0.076, 0.017, 0.246);
+        } else {
+          const wink = add(new THREE.BoxGeometry(0.052, 0.008, 0.018), eyeMat, 0.083, 0.005, 0.234);
+          wink.rotation.z = -0.1;
+        }
+        this.brows.push(add(new THREE.BoxGeometry(0.065, 0.014, 0.016), this.hairMaterial, side * 0.083, 0.055, 0.236));
+      } else {
+        // default dots
+        add(new THREE.SphereGeometry(0.016, 7, 6), eyeMat, side * 0.083, 0.005, 0.231);
+        this.brows.push(add(new THREE.BoxGeometry(0.065, 0.014, 0.016), this.hairMaterial, side * 0.083, 0.055, 0.236));
+      }
+    }
+  }
+
+  private rebuildMouth(style: string) {
+    this.mouthGroup.clear();
+    const mouthMat = cloth('#986b62');
+    const teethMat = cloth('#ffffff');
+
+    const add = (geom: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(x, y, z);
+      if (rx || ry || rz) mesh.rotation.set(rx, ry, rz);
+      this.mouthGroup.add(mesh);
+      return mesh;
+    };
+
+    if (style === 'smile') {
+      this.mouth = add(new THREE.BoxGeometry(0.04, 0.012, 0.012), mouthMat, 0, -0.1, 0.229);
+      for (const side of [-1, 1]) {
+        add(new THREE.BoxGeometry(0.028, 0.012, 0.012), mouthMat, side * 0.026, -0.095, 0.228, 0, 0, side * 0.24);
+      }
+    } else if (style === 'grin') {
+      this.mouth = add(new THREE.BoxGeometry(0.085, 0.025, 0.012), mouthMat, 0, -0.098, 0.228);
+      add(new THREE.BoxGeometry(0.075, 0.013, 0.014), teethMat, 0, -0.094, 0.23);
+    } else if (style === 'surprised') {
+      this.mouth = add(new THREE.TorusGeometry(0.022, 0.007, 6, 12), mouthMat, 0, -0.098, 0.23);
+    } else if (style === 'smirk') {
+      this.mouth = add(new THREE.BoxGeometry(0.055, 0.012, 0.012), mouthMat, 0.02, -0.092, 0.229, 0, 0, 0.25);
+    } else {
+      // default neutral
+      this.mouth = add(new THREE.BoxGeometry(0.065, 0.012, 0.012), mouthMat, 0, -0.1, 0.229);
+    }
+  }
+
+  private rebuildAccessories(accessory: string) {
+    this.accessoryGroup.clear();
+    const dark = cloth('#303c43');
+
+    const add = (geom: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(x, y, z);
+      if (rx || ry || rz) mesh.rotation.set(rx, ry, rz);
+      this.accessoryGroup.add(mesh);
+      return mesh;
+    };
+
+    if (accessory === 'glasses') {
+      for (const side of [-1, 1]) add(new THREE.TorusGeometry(0.066, 0.012, 5, 12), dark, side * 0.09, 0.005, 0.235);
+      add(new THREE.BoxGeometry(0.05, 0.014, 0.025), dark, 0, 0.012, 0.242);
+    } else if (accessory === 'headphones') {
+      add(new THREE.TorusGeometry(0.26, 0.028, 6, 20, Math.PI), dark, 0, 0.06, 0);
+      for (const side of [-1, 1]) add(new THREE.BoxGeometry(0.07, 0.17, 0.13), dark, side * 0.26, 0.02, 0);
+    } else if (accessory === 'beanie') {
+      add(new THREE.SphereGeometry(0.26, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.53), this.bodyMaterial, 0, 0.1, 0);
+    } else if (accessory === 'cap') {
+      add(new THREE.CylinderGeometry(0.23, 0.24, 0.13, 14), this.bodyMaterial, 0, 0.22, 0);
+      add(new THREE.BoxGeometry(0.36, 0.035, 0.2), this.bodyMaterial, 0, 0.18, 0.21);
+    }
+  }
+
+  private rebuildStyle(style: string) {
+    this.styleGroup.clear();
+    const trim = cloth('#f7f2e9');
+    const dark = cloth('#303c43');
+
+    const add = (geom: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(x, y, z);
+      if (rx || ry || rz) mesh.rotation.set(rx, ry, rz);
+      this.styleGroup.add(mesh);
+      return mesh;
+    };
+
+    if (style === 'sport') {
+      add(new THREE.BoxGeometry(0.52, 0.09, 0.025), trim, 0, 1.24, 0.32);
+      add(new THREE.BoxGeometry(0.09, 0.33, 0.025), trim, 0, 1.02, 0.335);
+    } else if (style === 'tech') {
+      add(new THREE.BoxGeometry(0.49, 0.075, 0.025), dark, 0, 1.25, 0.31);
+      add(new THREE.BoxGeometry(0.13, 0.1, 0.03), trim, 0.18, 1.02, 0.33);
+    } else if (style === 'creative') {
+      add(new THREE.TorusGeometry(0.1, 0.025, 5, 12), trim, 0, 1.33, 0.29);
+      add(new THREE.SphereGeometry(0.055, 8, 6), dark, -0.2, 1.07, 0.33);
+    } else if (style === 'smart' || style === 'polished') {
+      for (const side of [-1, 1]) {
+        add(new THREE.BoxGeometry(0.14, 0.38, 0.025), style === 'smart' ? trim : dark, side * 0.13, 1.2, 0.305, 0, 0, side * 0.26);
+      }
+      add(new THREE.SphereGeometry(0.027, 7, 6), trim, 0, 0.99, 0.36);
+    } else {
+      add(new THREE.BoxGeometry(0.37, 0.055, 0.025), trim, 0, 1.34, 0.285);
+    }
+  }
+
   enableChair() {
     this.hasChair = true;
     this.seatedAmount = 1;
@@ -148,55 +339,59 @@ export class Npc {
     this.head.position.y = seated ? 1.50 : 1.75;
     this.label.position.y = seated ? 2.06 : 2.31;
   }
-  say(text: string, emotion: string | null = null, at = performance.now()) {
-    this.stopSpeaking();
+  react(at: number) { this.reactionAt = at; }
+  say(text: string, emotion: string | null, startedAt: number) {
     const mood = normalizeEmotion(emotion);
-    this.speech = { text, emotion: mood, at, duration: speechDuration(text), shown: false };
+    this.speech = { text, emotion: mood, at: startedAt, duration: speechDuration(text), shown: false };
+    if (this.bubble) { this.removeSprite(this.bubble); this.bubble = null; }
+    if (this.emotionBadge) { this.removeSprite(this.emotionBadge); this.emotionBadge = null; }
     const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
     const context = canvas.getContext('2d')!;
-    context.fillStyle = '#fffdf7'; context.fillRect(0, 0, 128, 128);
-    context.strokeStyle = EMOTIONS[mood].color; context.lineWidth = 8; context.strokeRect(4, 4, 120, 120);
-    context.font = '80px "Segoe UI Emoji", "Apple Color Emoji", sans-serif'; context.textAlign = 'center';
-    context.fillText(EMOTIONS[mood].emoji, 64, 94);
+    context.fillStyle = '#1b2b1f'; context.fillRect(0, 0, 128, 128);
+    context.strokeStyle = '#dfbf63'; context.lineWidth = 8; context.strokeRect(4, 4, 120, 120);
+    context.fillStyle = '#ffffff';
+    context.font = '76px "Segoe UI Emoji", "Apple Color Emoji", sans-serif'; context.textAlign = 'center';
+    context.fillText(EMOTIONS[mood].emoji, 64, 92);
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
-    this.emotionBadge = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }));
-    this.emotionBadge.name = 'npc-emotion'; this.emotionBadge.userData.emotion = mood;
-    this.emotionBadge.scale.setScalar(0.55); this.emotionBadge.position.y = 2.76;
+    this.emotionBadge = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true, opacity: 0 }));
+    this.emotionBadge.name = 'npc-emotion';
+    this.emotionBadge.userData.emotion = mood;
+    this.emotionBadge.scale.set(0.65, 0.65, 1);
+    this.emotionBadge.position.y = this.label.position.y + 0.45;
     this.emotionBadge.renderOrder = 2; this.avatar.add(this.emotionBadge);
   }
   stopSpeaking() {
-    if (this.bubble) this.removeSprite(this.bubble);
-    if (this.emotionBadge) this.removeSprite(this.emotionBadge);
-    this.bubble = null; this.emotionBadge = null; this.speech = null;
+    this.speech = null;
+    if (this.bubble) { this.removeSprite(this.bubble); this.bubble = null; }
+    if (this.emotionBadge) { this.removeSprite(this.emotionBadge); this.emotionBadge = null; }
   }
   /** <summary>Displays or removes a 3D microphone icon above a speaking judge avatar.</summary> */
   setVoiceSpeaking(speaking: boolean) {
     if (this.voiceSpeaking === speaking) return;
     this.voiceSpeaking = speaking;
-    if (!speaking) {
-      if (this.voiceMicBadge) {
-        this.removeSprite(this.voiceMicBadge);
-        this.voiceMicBadge = null;
-      }
-      return;
+    if (speaking) {
+      if (this.voiceMicBadge) return;
+      const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = '#1b2b1f'; context.fillRect(0, 0, 128, 128);
+      context.strokeStyle = '#5ad47b'; context.lineWidth = 8; context.strokeRect(4, 4, 120, 120);
+      context.fillStyle = '#ffffff';
+      context.font = '76px "Segoe UI Emoji", "Apple Color Emoji", sans-serif'; context.textAlign = 'center';
+      context.fillText('🎙', 64, 92);
+      const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+      this.voiceMicBadge = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }));
+      this.voiceMicBadge.name = 'judge-voice-mic';
+      this.voiceMicBadge.userData.speaking = true;
+      this.voiceMicBadge.scale.setScalar(0.45);
+      this.voiceMicBadge.position.y = this.label.position.y + 0.38;
+      this.voiceMicBadge.renderOrder = 3;
+      this.avatar.add(this.voiceMicBadge);
+    } else {
+      if (!this.voiceMicBadge) return;
+      this.removeSprite(this.voiceMicBadge);
+      this.voiceMicBadge = null;
     }
-    const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
-    const context = canvas.getContext('2d')!;
-    context.fillStyle = '#1b2b1f'; context.fillRect(0, 0, 128, 128);
-    context.strokeStyle = '#5ad47b'; context.lineWidth = 8; context.strokeRect(4, 4, 120, 120);
-    context.fillStyle = '#ffffff';
-    context.font = '76px "Segoe UI Emoji", "Apple Color Emoji", sans-serif'; context.textAlign = 'center';
-    context.fillText('🎙', 64, 92);
-    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
-    this.voiceMicBadge = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }));
-    this.voiceMicBadge.name = 'judge-voice-mic';
-    this.voiceMicBadge.userData.speaking = true;
-    this.voiceMicBadge.scale.setScalar(0.45);
-    this.voiceMicBadge.position.y = this.label.position.y + 0.38;
-    this.voiceMicBadge.renderOrder = 3;
-    this.avatar.add(this.voiceMicBadge);
   }
-  react(at: number) { this.reactionAt = at; }
   update(now: number) {
     const dt = this.lastUpdate ? Math.max(0, Math.min((now - this.lastUpdate) / 1000, 0.05)) : 1 / 60;
     this.lastUpdate = now;
