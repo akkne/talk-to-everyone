@@ -83,7 +83,7 @@ export interface Commands {
 }
 interface Reject { code: string; message: string; requestId?: string | null }
 export interface Events {
-  [S2C.LOCATION_STATE]: { doors: NonNullable<SceneSpec['doors']>; foods: NonNullable<SceneSpec['foods']>; activeLightingPreset?: string; fanOn?: boolean; musicTrack?: string };
+  [S2C.LOCATION_STATE]: { doors: NonNullable<SceneSpec['doors']>; foods: NonNullable<SceneSpec['foods']>; directorRun?: SceneSpec['directorRun']; activeLightingPreset?: string; fanOn?: boolean; musicTrack?: string };
   [S2C.INTERACTION_FEEDBACK]: { message: string; action?: string };
   [S2C.VOTING_STATE]: VotingState;
   [S2C.NPCS_REMOVED]: { ids: NpcId[]; teamScore: number };

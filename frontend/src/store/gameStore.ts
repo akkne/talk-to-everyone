@@ -121,7 +121,7 @@ const handlers: Handlers = {
       error: null, boardOpen: false,
     });
   },
-  [S2C.LOCATION_STATE]: p => set(s => ({ scene:s.scene ? {...s.scene,doors:p.doors,foods:p.foods,activeLightingPreset:p.activeLightingPreset,fanOn:p.fanOn,musicTrack:p.musicTrack}:null })),
+  [S2C.LOCATION_STATE]: p => set(s => ({ scene:s.scene ? {...s.scene,doors:p.doors,foods:p.foods,directorRun:p.directorRun ?? s.scene.directorRun,activeLightingPreset:p.activeLightingPreset,fanOn:p.fanOn,musicTrack:p.musicTrack}:null })),
   [S2C.INTERACTION_FEEDBACK]: p => {
     window.dispatchEvent(new CustomEvent('location-feedback', {detail:p.message}));
     if (p.action === 'read_private_notes' || p.action === 'leave_note')

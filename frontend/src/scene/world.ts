@@ -6,6 +6,7 @@ export interface SeatSpec { furnitureId?: string; label?: string; id: string; po
 export interface Pose { position: Vec3; yaw: number; pitch: number; mode: 'walking' | 'seated'; seatId: string | null; seq: number; jumpOffset?: number }
 export interface SceneSpec {
   version: string;
+  directorRun?: DirectorRun;
   lighting?: { ambient: number; key: number; fill: number; floor: string; walls: string; ceiling: string };
   name?: string; theme?: 'studio' | 'club' | 'industrial-loft-bar'; objects?: PropSpec[]; doors?: DoorSpec[]; foods?: FoodSpec[];
   interactiveObjects?: InteractiveObjectSpec[]; functionalNPCs?: CharacterSpec[]; ambientNPCs?: CharacterSpec[];
@@ -26,3 +27,6 @@ export interface LightingPresetSpec { id: string; ambientColor: string; keyLight
 export function sceneSeats(scene: SceneSpec): SeatSpec[] {
   return [...scene.playerSeats, ...(scene.furnitureSeats ?? [])];
 }
+
+export interface DirectorStep { atMs: number; position: Vec3; yaw: number; seated: boolean; laptopOpen: number; action: string }
+export interface DirectorRun { triggeredAt: number; startedAt: number; speech: string; foodId: string | null; takeAtMs: number; finishedMs: number; steps: DirectorStep[] }

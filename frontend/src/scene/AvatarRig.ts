@@ -234,6 +234,22 @@ export class AvatarRig {
     });
     this.head.rotation.x = .12;
   }
+  walkCycle(now: number) {
+    const phase = now / 155;
+    this.legs.forEach((leg, i) => {
+      const swing = Math.sin(phase + i * Math.PI);
+      leg.thigh.rotation.x += swing * .32;
+      leg.knee.rotation.x += Math.max(0, -swing) * .4;
+    });
+    this.arms.forEach((arm, i) => { arm.shoulder.rotation.x = -Math.sin(phase + i * Math.PI) * .25; });
+  }
+  reachForFood(now: number) {
+    const arm = this.arms[1];
+    arm.shoulder.rotation.set(-1.15, 0, -.08);
+    arm.elbow.rotation.set(-.25 + Math.sin(now / 190) * .04, 0, 0);
+    this.upper.rotation.x = .12;
+    this.head.rotation.x = .15;
+  }
   pose(amount: number, fit: SeatFit, advance: number, mood: MoodPose, tuck: number, pitch: number) {
     const seated = smooth(amount), stand = 1 - seated;
     const hipY = THREE.MathUtils.lerp(ANATOMY.hip, fit.surface + ANATOMY.pelvisRadius, seated) + (fit.surface > .60 ? .06 * Math.sin(Math.PI * seated) : 0);

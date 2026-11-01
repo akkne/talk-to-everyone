@@ -34,6 +34,7 @@ builder.Services.AddSessionControls();
 builder.Services.AddSingleton<RoundDirector>();
 builder.Services.AddHttpClient<LlmClient>();
 builder.Services.AddHostedService<RoundClock>();
+builder.Services.AddHostedService<DirectorClock>();
 builder.Services.AddHostedService<LobbyCleanup>();
 builder.Services.AddHostedService<GameMetricsSnapshotService>();
 
