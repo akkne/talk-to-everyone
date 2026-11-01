@@ -13,6 +13,7 @@ import { NpcLod } from './lod';
 import { npcLabel } from '../shared/npcLabel';
 import { LoftSoundtrack } from './LoftSoundtrack';
 import { BartenderWaveController, type JuryEntity } from './BartenderWaveController';
+import { sampleDirector } from './director';
 
 /** <summary>One visible canvas; subscription callbacks bridge Zustand to the imperative three.js scene and 3D spatial voice audio.</summary> */
 export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }) {
@@ -57,6 +58,9 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const judges = new Map<string, Npc>();
     const loftCharacters: Npc[] = [];
     let bartenderController: BartenderWaveController | null = null;
+    let lastDirectorSpeech = 0;
+    let directorPausedAt = 0;
+    let director: Npc | null = null;
     for (const character of [...(spec.functionalNPCs ?? []), ...(spec.ambientNPCs ?? [])]) {
       const position = character.position ?? character.spawnPosition;
       if (!position) continue;
@@ -73,6 +77,14 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         const actor = new Npc({ id: character.id, number: 0, name: character.name ?? (character.type === 'human-bouncer' ? 'Охранник' : 'Гость'), color: character.type === 'functional-service-npc' ? '#ad7962' : '#707a80', anchorId: '' });
         actor.group.position.set(position.x, position.y, position.z);
         actor.group.rotation.y = character.yaw ?? 0;
+        if (character.type === 'human-director') {
+          actor.setTargetPose(position.x, position.y, position.z, character.yaw ?? 0, .12, true);
+          actor.workingAtLaptop = true;
+          const chair = createNpcChair();
+          chair.position.copy(actor.group.position); chair.rotation.y = character.yaw ?? 0;
+          scene.add(chair);
+          director = actor;
+        }
         scene.add(actor.group); loftCharacters.push(actor);
         if (character.id === 'bartender-mark' || character.type === 'functional-service-npc' || character.id.includes('bartender')) {
           bartenderController = new BartenderWaveController(actor, position);
@@ -247,13 +259,31 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       tickDialogue(now);
       npcs.forEach(npc => npc.update(now));
       judges.forEach(judge => judge.update(now));
-      // loft characters updated below after jury positions are resolved
+// handled below
       const fan = scene.getObjectByName('loft-ceiling-fan');
       if (fan && state.scene?.fanOn) fan.rotation.y += .14;
       lod.update(now, state.connection === 'ready');
 
       const me = state.players.find(p => p.id === state.playerId);
       const others = state.players.filter(p => p.id !== state.playerId && p.connected);
+if (director && state.scene?.directorRun) {
+        const run = state.scene.directorRun;
+        if (state.paused && !directorPausedAt) directorPausedAt = Date.now();
+        if (!state.paused) directorPausedAt = 0;
+        const directorNow = directorPausedAt || Date.now();
+        const pose = sampleDirector(run, directorNow);
+        director.workingAtLaptop = pose.action === 'work';
+        director.walking = (pose.action === 'walk' || pose.action === 'return');
+        director.takingFood = pose.action === 'take';
+        director.setTargetPose(pose.position.x, pose.position.y, pose.position.z, pose.yaw, 0, pose.seated);
+        const hinge = scene.getObjectByName('director-laptop')?.getObjectByName('laptop-hinge');
+        if (hinge) hinge.rotation.x = -Math.PI / 2 + (Math.PI / 2 - .16) * pose.laptopOpen;
+        if (run.triggeredAt !== lastDirectorSpeech) {
+          lastDirectorSpeech = run.triggeredAt;
+          if (directorNow - run.startedAt < 5000) director.say(run.speech, 'angry', now);
+        }
+        if (!state.paused) director.update(now);
+      }
       if (bartenderController) {
         const mePos = { x: camera.position.x, y: me?.pose.position.y ?? 0, z: camera.position.z };
         const juryList: JuryEntity[] = [
@@ -262,7 +292,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         ];
         bartenderController.update(now, juryList);
       }
-      loftCharacters.forEach(character => character.update(now));
+      loftCharacters.forEach(character => { if (character !== director || !state.scene?.directorRun) character.update(now); });
       voiceChannel.updateSpatialPositions(
         {
           position: { x: camera.position.x, y: me?.pose.position.y ?? 0, z: camera.position.z },

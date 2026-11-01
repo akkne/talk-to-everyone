@@ -22,6 +22,8 @@ public sealed class GameSession
     public string RoundPhase { get; set; } = "";
     public string VotingJson { get; set; } = "{}";
     public long EndsAt { get; set; }
+    public string GameId { get; set; } = Guid.NewGuid().ToString("N");
+    public long NextDialogueSequence { get; set; }
 }
 
 public sealed class GamePlayer

@@ -14,7 +14,7 @@ const at=(x,z,y=0)=>({x,y,z});
 test('hangar IDs, finite coordinates, collision bounds, and all renderers',()=>{
  const s=load(),ids=[];const collect=o=>{if(!o||typeof o!=='object')return;if(o.id)ids.push(o.id);for(const v of Object.values(o)){if(typeof v==='number')assert.ok(Number.isFinite(v));else collect(v);}};collect(s);assert.equal(new Set(ids).size,ids.length);
  for(const p of s.objects)if(p.collidable!==false)assert.ok(p.collider,p.id);
- globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
+ globalThis.document={createElementNS:()=>({addEventListener(){},removeEventListener(){}}),createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
  const scene=new Scene();setupRoom(scene,s);
  for(const p of [...s.objects,...s.doors,...s.foods])assert.ok(scene.getObjectByName(p.id)?.children.length,p.id);
  s.foods[0].eaten=true;s.doors[0].open=true;syncLocationProps(scene,s);
@@ -44,7 +44,7 @@ test('spawn points, exits, ramps and food approach remain clear',()=>{
 
 test('loft map renders its furniture and exposes all configured actions',()=>{
  const s=JSON.parse(readFileSync('../backend/Maps/loft_bar_scene.json'));
- globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
+ globalThis.document={createElementNS:()=>({addEventListener(){},removeEventListener(){}}),createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
  const scene=new Scene();setupRoom(scene,s);
  for(const p of s.objects)assert.ok(scene.getObjectByName(p.id),p.id);
  assert.ok(scene.getObjectByName('loft-entrance-door'));

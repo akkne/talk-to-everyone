@@ -1,4 +1,5 @@
 import { doorBounds, doorMoving } from './doors';
+import { sampleDirector } from './director';
 import type { Box, Ramp, SceneSpec, Vec3 } from './world';
 export const WALK_SPEED = 2.5;
 export const PLAYER_RADIUS = .3;
@@ -32,6 +33,11 @@ function isInRampCorridor(p: Vec3, r: Ramp): boolean {
 /** Builds the full obstacle collision list: static obstacles, chairs, NPC models, and dynamic entities. */
 export function buildSceneObstacles(scene: SceneSpec, extraObstacles: Box[] = []): Box[] {
   const obstacles: Box[] = [...(scene.room?.obstacles ?? [])];
+  if (scene.directorRun) {
+    const position = sampleDirector(scene.directorRun, Date.now()).position;
+    const director = obstacles.find(o => o.id === 'npc-equipment-director');
+    if (director) obstacles[obstacles.indexOf(director)] = { ...director, center: { ...position, y: position.y + .7 } };
+  }
 
   for (const p of scene.objects ?? []) if (p.collider) obstacles.push({ id:p.id, ...p.collider });
   for (const d of scene.doors ?? []) {

@@ -30,7 +30,7 @@ public static class NpcDatabase
             {
                 var bot = pair.GetProperty(key);
                 if (!ids.Add(Required(bot, "id"))) throw new InvalidDataException("Duplicate bot id.");
-                foreach (var field in new[] { "name", "role", "vibe", "system_prompt" }) Required(bot, field);
+                foreach (var field in new[] { "name", "role", "vibe" }) Required(bot, field);
             }
         }
         foreach (var actor in actors)
@@ -38,7 +38,7 @@ public static class NpcDatabase
             if (!actorIds.Add(Required(actor, "actor_id"))) throw new InvalidDataException("Duplicate actor_id.");
             var bot = actor.GetProperty("bot");
             if (!ids.Add(Required(bot, "id"))) throw new InvalidDataException("Duplicate bot id.");
-            foreach (var field in new[] { "name", "role", "archetype", "defense_strategy", "prompt_template" }) Required(bot, field);
+            foreach (var field in new[] { "name", "role", "archetype", "defense_strategy" }) Required(bot, field);
         }
         // Shuffle whole pairs before sampling, then shuffle seats independently.
         RandomNumberGenerator.Shuffle(pairs.AsSpan()); RandomNumberGenerator.Shuffle(actors.AsSpan());
@@ -52,7 +52,7 @@ public static class NpcDatabase
             {
                 var bot = pair.GetProperty(j == 0 ? "bot_1" : "bot_2"); var slot = slots[i * 2 + j];
                 result.Add(new GameNpc { Id = $"npc-{slot}", Number = slot, Name = Required(bot, "name"), Color = Colors[slot - 1], Role = "friend",
-                    RelatedNumber = slots[i * 2 + 1 - j], Persona = Required(bot, "system_prompt"), Lore = loreText });
+                    RelatedNumber = slots[i * 2 + 1 - j], Persona = Required(bot, "vibe"), Lore = loreText });
             }
         }
         for (var i = 0; i < 4; i++)
@@ -60,7 +60,7 @@ public static class NpcDatabase
             var bot = actors[i].GetProperty("bot"); var slot = slots[6 + i];
             var target = result[RandomNumberGenerator.GetInt32(6)];
             result.Add(new GameNpc { Id = $"npc-{slot}", Number = slot, Name = Required(bot, "name"), Color = Colors[slot - 1], Role = "actor",
-                RelatedNumber = target.Number, Persona = Required(bot, "prompt_template").Replace("[ИМЯ_ЦЕЛИ]", $"{target.Name} (Слот №{target.Number})"),
+                RelatedNumber = target.Number, Persona = Required(bot, "archetype"),
                 Lore = Required(bot, "defense_strategy") });
         }
         return result.OrderBy(n => n.Number).ToList();

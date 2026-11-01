@@ -51,7 +51,21 @@
         "width": 2
       }
     ],
-    "obstacles": [],
+    "obstacles": [
+      {
+        "id": "npc-equipment-director",
+        "center": {
+          "x": 14.3,
+          "y": 0.7,
+          "z": 6
+        },
+        "size": {
+          "x": 0.8,
+          "y": 1.4,
+          "z": 0.8
+        }
+      }
+    ],
     "walls": [
       {
         "id": "back",
@@ -2595,6 +2609,48 @@
           "z": 0.8
         }
       }
+    },
+    {
+      "id": "director-desk",
+      "type": "table",
+      "position": {
+        "x": 14.3,
+        "y": 0,
+        "z": 6.95
+      },
+      "size": {
+        "x": 1.7,
+        "y": 0.82,
+        "z": 0.8
+      },
+      "collider": {
+        "center": {
+          "x": 14.3,
+          "y": 0.41,
+          "z": 6.95
+        },
+        "size": {
+          "x": 1.7,
+          "y": 0.82,
+          "z": 0.8
+        }
+      }
+    },
+    {
+      "id": "director-laptop",
+      "type": "laptop",
+      "position": {
+        "x": 14.3,
+        "y": 0.82,
+        "z": 6.85
+      },
+      "size": {
+        "x": 0.7,
+        "y": 0.43,
+        "z": 0.48
+      },
+      "collidable": false,
+      "screenImage": "/images/director-screen.png"
     }
   ],
   "doors": [
@@ -2745,6 +2801,19 @@
         "y": 0,
         "z": -10.4
       }
+    }
+  ],
+  "ambientNPCs": [
+    {
+      "id": "equipment-director",
+      "name": "Режиссёр",
+      "type": "human-director",
+      "position": {
+        "x": 14.3,
+        "y": 0,
+        "z": 6
+      },
+      "yaw": 0
     }
   ]
 }

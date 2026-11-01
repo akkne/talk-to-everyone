@@ -36,6 +36,9 @@ export class Npc {
   private waveActive = false;
   private waveStartedAt = 0;
   private waveDuration = 4000;
+  workingAtLaptop = false;
+  walking = false;
+  takingFood = false;
 
   constructor(readonly meta: NpcMeta) {
     this.avatar.name = 'avatar'; this.group.add(this.avatar);
@@ -209,6 +212,9 @@ export class Npc {
       }
     }
     const bodyPose = this.rig.pose(this.seatedAmount, this.seatFit, this.hasChair ? .65 : this.targetSeated ? .75 : 0, pose, tuck, this.targetPitch, waveWeight, waveTime);
+    if (this.workingAtLaptop) this.rig.typeOnLaptop(now);
+    if (this.walking) this.rig.walkCycle(now);
+    if (this.takingFood) this.rig.reachForFood(now);
     this.label.position.set(0, bodyPose.labelY, bodyPose.hipZ);
     if (speech && now >= speech.at + EMOTION_LEAD_MS && now < speech.at + speech.duration && !speech.shown) {
       speech.shown = true;

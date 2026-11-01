@@ -11,6 +11,7 @@ public sealed class LocationScene
     public static void Drop(string sessionId) => locations.TryRemove(sessionId, out _);
     public LocationScene(JsonElement source) { Data = JsonNode.Parse(source.GetRawText())!.AsObject(); }
     public JsonObject Data { get; }
+    public DirectorRoutine Director { get; } = new();
 
     public IEnumerable<JsonNode?> Seats => Data["playerSeats"]!.AsArray().Concat(Data["furnitureSeats"] as JsonArray ?? new JsonArray());
     public JsonArray Items(string key) => (Data[key] ??= new JsonArray()).AsArray();
@@ -55,7 +56,12 @@ public sealed class LocationScene
         var room = Data["room"]!;
         if (Math.Abs(p.X) > N(room,"width")/2-.3 || Math.Abs(p.Z) > N(room,"depth")/2-.3) return true;
         foreach (var key in new[]{"walls","obstacles"})
-            if (room[key]!.AsArray().Any(b => Hits(p,b!))) return true;
+            if (room[key]!.AsArray().Any(b => (string?)b!["id"] != "npc-equipment-director" && Hits(p,b!))) return true;
+        if (Director.Run is { } run) {
+            var pos = DirectorRoutine.Sample(run, JsonData.Now - run.StartedAt).Position;
+            var dx = Math.Max(Math.Abs(p.X-pos.X)-.4, 0); var dz = Math.Max(Math.Abs(p.Z-pos.Z)-.4, 0);
+            if (p.Y < pos.Y+1.4-.01 && p.Y+1.8 > pos.Y && dx*dx+dz*dz < .09-1e-8) return true;
+        } else if (room["obstacles"]!.AsArray().Any(b => (string?)b!["id"] == "npc-equipment-director" && Hits(p,b))) return true;
         if (Items("objects").Any(o => o!["collider"] is JsonNode b && Hits(p,b))) return true;
         if (Items("doors").Any(d => (!DoorMoving(d!) || (bool?)d!["collidableWhileMoving"] != false) && Hits(p, DoorBounds(d!)))) return true;
         return false;

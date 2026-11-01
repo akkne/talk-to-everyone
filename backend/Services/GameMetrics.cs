@@ -11,6 +11,7 @@ public static class GameMetrics
     public static readonly Counter GamesStarted = Metrics.CreateCounter("game_matches_started_total", "Matches started.");
     public static readonly Counter HubRejections = Metrics.CreateCounter("game_hub_rejections_total", "Rejected game commands by operation and reason.", new CounterConfiguration { LabelNames = ["operation", "reason"] });
     public static readonly Counter LlmRequests = Metrics.CreateCounter("game_llm_requests_total", "NPC generation requests by purpose and outcome.", new CounterConfiguration { LabelNames = ["purpose", "outcome"] });
+    public static readonly Counter NpcSpeechRejections = Metrics.CreateCounter("game_npc_speech_rejections_total", "Rejected NPC speech by purpose and reason.", new CounterConfiguration { LabelNames = ["purpose", "reason"] });
     public static readonly Histogram LlmDuration = Metrics.CreateHistogram("game_llm_duration_seconds", "NPC generation request duration in seconds, including fallback.", new HistogramConfiguration { LabelNames = ["purpose"], Buckets = [0.5, 1, 2, 5, 10, 20, 40, 80, 120] });
     public static readonly Gauge ActiveLobbies = Metrics.CreateGauge("game_active_lobbies", "Lobbies with at least one connected player.");
     public static readonly Gauge ActiveMatches = Metrics.CreateGauge("game_active_matches", "Playing sessions with at least one connected player.");

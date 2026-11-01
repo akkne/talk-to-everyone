@@ -15,7 +15,7 @@ public sealed class NpcAppearanceTests
         var bald = 0;
         foreach(var bot in bots)
         {
-            var persona = bot.TryGetProperty("system_prompt",out var prompt) ? prompt.GetString()! : bot.GetProperty("prompt_template").GetString()!;
+            var persona = bot.TryGetProperty("vibe",out var prompt) ? prompt.GetString()! : bot.GetProperty("archetype").GetString()!;
             var npc = new GameNpc { Name=bot.GetProperty("name").GetString()!,Persona=persona,Role="secret",RelatedNumber=123 };
             var view = JsonSerializer.SerializeToElement(NpcAppearance.From(npc));
             var model = view.GetProperty("model"); Assert.Equal(JsonValueKind.Object,model.ValueKind);

@@ -134,7 +134,7 @@ export function Lobby({ onConnect, onExit }: Props) {
               onClick={() => setShowCustomizer(true)}
               title="Настроить внешний вид своего аватара"
             >
-              🎨 Внешность
+              Внешность
             </button>
             {!connected && (
               <button
