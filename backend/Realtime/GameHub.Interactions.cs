@@ -71,9 +71,12 @@ public sealed partial class GameHub
             }
             else
             {
-                if ((bool?)food!["eaten"] == true) throw new HubException("Этот предмет уже съеден.");
-                food!["eaten"] = true;
-                message = $"Вы съели: {(string?)food["label"]}";
+                if ((bool?)food!["eaten"] == true)
+                    throw new HubException(food["restockDelayMs"] == null ? "Этот предмет уже съеден." : "Еду уже взяли. Марк скоро поставит новую.");
+                location.ConsumeFood(food!, JsonData.Now);
+                message = food!["restockDelayMs"] == null
+                    ? $"Вы съели: {(string?)food["label"]}"
+                    : $"Вы взяли: {(string?)food["label"]}";
             }
 
             await redisStore.RememberCommandAsync(me.SessionId, me.Id, "Interact", request.RequestId);
@@ -96,10 +99,6 @@ public sealed partial class GameHub
         {
             case "peek_porthole": return "За иллюминатором пустой коридор.";
             case "knock_loudly": return "Вы громко постучали. Марк взглянул на дверь.";
-            case "order_cold_brew": return "Марк подал колд брю.";
-            case "order_tonic": return "Марк подал тоник.";
-            case "order_cider": return "Марк подал сидр.";
-            case "ring_bell": return "Колокольчик звякнул. Марк обратил на вас внимание.";
             case "toggle_factory_mood":
                 data["activeLightingPreset"] = (string?)data["activeLightingPreset"] == "techno-loft" ? "edison-warm-default" : "techno-loft";
                 return "Освещение переключено.";

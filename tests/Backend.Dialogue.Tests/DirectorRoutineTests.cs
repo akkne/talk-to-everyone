@@ -41,6 +41,9 @@ public sealed class DirectorRoutineTests
         npc.Tick(scene, players, 31_000, false);
         npc.Tick(scene, players, 31_000 + (long)Math.Ceiling(npc.Run!.TakeAtMs), false);
         Assert.Null(npc.Run.FoodId);
+        Assert.Single(npc.Run.Steps);
+        Assert.All(npc.Run.Steps, step => { Assert.True(step.Seated); Assert.Equal(1, step.LaptopOpen); Assert.Equal("work", step.Action); });
+        Assert.False(npc.Tick(scene, players, 60_999, false));
     }
 
     [Fact]

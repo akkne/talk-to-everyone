@@ -36,7 +36,14 @@ public sealed class DirectorRoutine
             if (player != null)
             {
                 var food = scene.Items("foods").FirstOrDefault(f => (bool?)f!["eaten"] != true);
-                var x = food == null ? 15.1 : LocationScene.N(food["position"]!, "x");
+                if (food == null) {
+                    Run = new(now, now, $"{player.Name}, вы мешаете мне работать. Отойдите, пожалуйста.", null, 0, 0,
+                        [new(0, home, 0, true, 1, "work")]);
+                    picked = true;
+                    Publish(scene);
+                    return true;
+                }
+                var x = LocationScene.N(food["position"]!, "x");
                 var steps = new List<DirectorStep>();
                 double t = 0;
                 void Add(Vec3 p, double yaw, bool seated, double open, string action, double delay) {

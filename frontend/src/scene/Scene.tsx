@@ -58,6 +58,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const judges = new Map<string, Npc>();
     const loftCharacters: Npc[] = [];
     let bartenderController: BartenderWaveController | null = null;
+    let bartender: Npc | null = null;
     let lastDirectorSpeech = 0;
     let directorPausedAt = 0;
     let director: Npc | null = null;
@@ -87,6 +88,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         }
         scene.add(actor.group); loftCharacters.push(actor);
         if (character.id === 'bartender-mark' || character.type === 'functional-service-npc' || character.id.includes('bartender')) {
+          bartender = actor;
           bartenderController = new BartenderWaveController(actor, position);
         }
       }
@@ -291,6 +293,10 @@ if (director && state.scene?.directorRun) {
           ...others.map(p => ({ id: p.id, position: p.pose.position })),
         ];
         bartenderController.update(now, juryList);
+      }
+      if (bartender) {
+        const food = state.scene?.foods?.find(item => item.id === 'bar-food');
+        bartender.takingFood = !!(food?.eaten && food.restockAt && food.restockAt - Date.now() <= 700);
       }
       loftCharacters.forEach(character => { if (character !== director || !state.scene?.directorRun) character.update(now); });
       voiceChannel.updateSpatialPositions(
