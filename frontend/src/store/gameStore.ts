@@ -130,7 +130,7 @@ const handlers: Handlers = {
   [S2C.CHUNK_DATA]: () => {},
   [S2C.PLAYERS_TICK]: p => set({ players: p.players }),
   [S2C.SEAT_STATE]: p => set({ seats: p.seats }),
-  [S2C.ACTION_REJECT]: p => set({ error: p.message }),
+  [S2C.ACTION_REJECT]: () => {},
   [S2C.NPC_THINKING]: p => set({ thinkingNpc: p.npc, thinkingAt: performance.now() }),
   [S2C.NPC_SAY]: p => set(s => ({
     thinkingNpc: s.thinkingNpc === p.npc ? null : s.thinkingNpc,
