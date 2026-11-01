@@ -66,41 +66,82 @@ export function buildSceneObstacles(scene: SceneSpec, extraObstacles: Box[] = []
   return obstacles;
 }
 
-/** Ramp height at its centerline projection; platforms cannot be climbed from ground. */
-function surface(p: Vec3, currentY: number, scene: SceneSpec): number | null {
+/**
+ * Returns the highest walkable surface at position p that is reachable from currentY.
+ * Allows stepping or jumping down (falling) to lower surfaces without artificial invisible walls,
+ * while preventing unassisted walking up steep vertical cliffs without ramps or jumps.
+ */
+function getWalkableSurface(p: Vec3, currentY: number, scene: SceneSpec, jumpOffset = 0): number | null {
   const heights: number[] = [];
+
+  // 1. Ramps
   for (const r of scene.room.ramps) {
     const dx = r.to.x - r.from.x, dz = r.to.z - r.from.z;
     const length = Math.hypot(dx, dz);
     if (!length) continue;
     const t = ((p.x - r.from.x) * dx + (p.z - r.from.z) * dz) / (length * length);
     const side = Math.abs((p.x - r.from.x) * dz - (p.z - r.from.z) * dx) / length;
-    if (t >= -.02 && t <= 1.02 && side <= r.width / 2 + .01) heights.push(r.from.y + Math.max(0, Math.min(1, t)) * (r.to.y - r.from.y));
+    if (t >= -0.05 && t <= 1.05 && side <= r.width / 2 + 0.05) {
+      heights.push(r.from.y + Math.max(0, Math.min(1, t)) * (r.to.y - r.from.y));
+    }
   }
+
+  // 2. Platforms
   for (const b of scene.room.platforms) {
-    if (Math.abs(p.x - b.center.x) <= b.size.x / 2 && Math.abs(p.z - b.center.z) <= b.size.z / 2) heights.push(b.center.y + b.size.y / 2);
+    if (Math.abs(p.x - b.center.x) <= b.size.x / 2 && Math.abs(p.z - b.center.z) <= b.size.z / 2) {
+      heights.push(b.center.y + b.size.y / 2);
+    }
   }
-  if (!heights.length) heights.push(0);
-  return heights.find(h => Math.abs(h - currentY) <= .08) ?? null;
+
+  // 3. Ground floor is always available across the studio
+  heights.push(0);
+
+  // Highest to lowest candidate surface
+  heights.sort((a, b) => b - a);
+
+  // Maximum climb height: standard step up is ~0.12m. When jumping, reach includes jumpOffset.
+  const maxClimbY = currentY + Math.max(jumpOffset, 0) + 0.12;
+
+  // Pick the highest valid surface reachable at or below max climb reach
+  const surface = heights.find(h => h <= maxClimbY);
+  return surface !== undefined ? surface : null;
 }
 
-function tryStep(p: Vec3, x: number, z: number, scene: SceneSpec, obstacles: Box[]): Vec3 {
+function tryStep(p: Vec3, x: number, z: number, scene: SceneSpec, obstacles: Box[], jumpOffset = 0): Vec3 {
   const next = { x, y: p.y, z };
-  const y = surface(next, p.y, scene);
+  const y = getWalkableSurface(next, p.y, scene, jumpOffset);
   if (y === null) return p;
   next.y = y;
   if (Math.abs(x) > scene.room.width / 2 - PLAYER_RADIUS || Math.abs(z) > scene.room.depth / 2 - PLAYER_RADIUS) return p;
 
+  // Solid obstacles (room walls, chairs, NPC models, player models)
   const blockedByObstacle = [...scene.room.walls, ...obstacles].some(b =>
     next.y < b.center.y + b.size.y / 2 - .01 && next.y + 1.8 > b.center.y - b.size.y / 2 && inside(next, b)
   );
   if (blockedByObstacle) return p;
 
+  // Platforms: only block horizontal penetration into the solid platform body from below.
+  // Never create invisible walls in mid-air when jumping, stepping down, or using ramps.
   const blockedByPlatform = scene.room.platforms.some(b => {
-    // If the player is in the corridor of a ramp connecting to this platform, the platform does not act as a wall
+    const platformTop = b.center.y + b.size.y / 2;
+    const platformBottom = b.center.y - b.size.y / 2;
+
+    // 1. If player was already on top of this platform (or dropping off it), don't block
+    if (p.y >= platformTop - 0.05) return false;
+
+    // 2. If player is jumping and their airborne reach clears the platform top, don't block
+    if (p.y + Math.max(jumpOffset, 0) >= platformTop - 0.05) return false;
+
+    // 3. If player is inside a ramp corridor connecting to this platform, don't block
     const onConnectingRamp = scene.room.ramps.some(r => rampConnectsToPlatform(r, b) && isInRampCorridor(next, r));
     if (onConnectingRamp) return false;
-    return next.y < b.center.y + b.size.y / 2 - .01 && next.y + 1.8 > b.center.y - b.size.y / 2 && inside(next, b);
+
+    // 4. If destination height is on top of the platform, don't block
+    if (next.y >= platformTop - 0.05) return false;
+
+    // Only block if player's vertical span collides with the solid platform body
+    const intersectsVertical = next.y < platformTop - 0.01 && next.y + 1.8 > platformBottom;
+    return intersectsVertical && inside(next, b);
   });
   if (blockedByPlatform) return p;
 
@@ -108,13 +149,20 @@ function tryStep(p: Vec3, x: number, z: number, scene: SceneSpec, obstacles: Box
 }
 
 /** Substeps prevent tunneling; axis separation lets the player slide along furniture and models. */
-export function walk(position: Vec3, dx: number, dz: number, scene: SceneSpec, extraObstacles: Box[] = []): Vec3 {
+export function walk(
+  position: Vec3,
+  dx: number,
+  dz: number,
+  scene: SceneSpec,
+  extraObstacles: Box[] = [],
+  jumpOffset = 0
+): Vec3 {
   const obstacles = buildSceneObstacles(scene, extraObstacles);
   const count = Math.max(1, Math.ceil(Math.hypot(dx, dz) / STEP));
   let p = { ...position };
   for (let i = 0; i < count; i++) {
-    p = tryStep(p, p.x + dx / count, p.z, scene, obstacles);
-    p = tryStep(p, p.x, p.z + dz / count, scene, obstacles);
+    p = tryStep(p, p.x + dx / count, p.z, scene, obstacles, jumpOffset);
+    p = tryStep(p, p.x, p.z + dz / count, scene, obstacles, jumpOffset);
   }
   return p;
 }

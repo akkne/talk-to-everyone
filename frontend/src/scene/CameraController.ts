@@ -111,7 +111,7 @@ export class CameraController {
       center: { x: p.position.x, y: p.position.y + (p.mode === 'seated' ? 0.6 : 0.9), z: p.position.z },
       size: p.mode === 'seated' ? { x: 0.65, y: 1.2, z: 0.65 } : { x: 0.6, y: 1.8, z: 0.6 },
     }));
-    this.position = walk(this.position, dx, dz, this.scene, dynamicObstacles);
+    this.position = walk(this.position, dx, dz, this.scene, dynamicObstacles, this.jumpOffset);
     this.apply();
   }
   private nearestSeat() {

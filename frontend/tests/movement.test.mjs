@@ -31,9 +31,9 @@ test('both tiers are reachable via ramps, including the sideways platform seam a
   const upper = walk(p, -2, 0, previewScene); assert.ok(upper.x < 7 && Math.abs(upper.y - 1.5) < .01);
   p = walk(p, 0, 8, previewScene); assert.ok(Math.abs(p.y) < .01 && p.z > 0);
 });
-test('platform faces cannot be climbed and tier edges cannot be walked off', () => {
+test('platform faces cannot be climbed from ground without ramp, but tiers can be walked/jumped off to floor without invisible walls', () => {
   const p = walk({ x: 1, y: 0, z: 0 }, 0, -5, previewScene); assert.equal(p.y, 0); assert.ok(p.z > -2.5);
-  const edge = walk({ x: 1, y: .6, z: -3 }, 0, 4, previewScene); assert.equal(edge.y, .6); assert.ok(edge.z <= -2.5);
+  const edge = walk({ x: 1, y: .6, z: -3 }, 0, 4, previewScene); assert.equal(edge.y, 0); assert.ok(edge.z > -2.5);
 });
 function harness(scene = previewScene) {
   globalThis.document = new EventTarget(); globalThis.window = new EventTarget();
@@ -316,6 +316,27 @@ test('upper floor ramp has no invisible wall: player walks smoothly up to the up
   const faceHit = walk({ x: 0, y: 0, z: -1 }, 0, -5, liveStudioSpec);
   assert.equal(faceHit.y, 0, 'Cannot step onto upper platform without ramp');
   assert.ok(faceHit.z > -3.25, `Expected blocked in front of platform, got z=${faceHit.z}`);
+});
+
+test('jumping from ramp towards AIs has no invisible walls and lands cleanly', () => {
+  // Start on left ramp at x = -6.5, y = 1.125, z = -3.0
+  // Jump towards lower AIs in the center (x = -4.2, z = -2.5)
+  const jumpOffset = 0.5;
+  const jumpLower = walk({ x: -6.5, y: 1.125, z: -3.0 }, 2.0, 0.5, liveStudioSpec, [], jumpOffset);
+  assert.ok(jumpLower.x > -5.0, `Expected jump to advance towards AIs in X, got x=${jumpLower.x}`);
+  assert.ok(jumpLower.z > -2.8, `Expected jump to advance towards AIs in Z, got z=${jumpLower.z}`);
+  assert.equal(jumpLower.y, 0, 'Lands cleanly on ground floor');
+
+  // Jump from ramp onto upper platform towards upper tier AIs
+  const jumpUpper = walk({ x: -6.5, y: 1.125, z: -3.5 }, 2.0, -1.0, liveStudioSpec, [], jumpOffset);
+  assert.ok(jumpUpper.x > -5.0, `Expected jump onto upper platform in X, got x=${jumpUpper.x}`);
+  assert.ok(jumpUpper.z < -4.0, `Expected jump onto upper platform in Z, got z=${jumpUpper.z}`);
+  assert.ok(Math.abs(jumpUpper.y - 1.5) < 0.05, 'Lands on upper platform at y=1.5');
+
+  // Walking sideways off ramp steps down to floor without hitting invisible wall
+  const stepOff = walk({ x: -6.5, y: 0.75, z: -2.0 }, 1.5, 0, liveStudioSpec);
+  assert.ok(stepOff.x > -5.5, `Expected player stepped off ramp, got x=${stepOff.x}`);
+  assert.equal(stepOff.y, 0, 'Dropped to ground floor after leaving ramp');
 });
 
 test('chairs provide solid collision: walking into seats is blocked and slides', () => {
