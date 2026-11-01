@@ -1,4 +1,4 @@
 [
   { "id": "hangar", "name": "Hangar", "sceneFile": "hangar.json", "available": true },
-  { "id": "club", "name": "Club", "sceneFile": null, "available": false }
+  { "id": "club", "name": "Лофт-бар", "sceneFile": "loft_bar_scene.json", "available": true }
 ]

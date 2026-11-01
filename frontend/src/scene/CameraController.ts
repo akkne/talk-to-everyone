@@ -54,11 +54,12 @@ export class CameraController {
   private keyDown = (event: KeyboardEvent) => {
     if (event.code === 'Escape') { this.clearKeys(); this.canvas.blur(); return; }
     if (!this.focused() || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyW','KeyA','KeyS','KeyD','KeyE','Space'].includes(event.code)) {
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyW','KeyA','KeyS','KeyD','KeyE','Space','Digit1','Digit2','Digit3','Digit4'].includes(event.code)) {
       const held = this.keys.has(event.code);
       event.preventDefault(); this.keys.add(event.code);
       if (event.code.startsWith('Arrow')) this.rotate(event.code === 'ArrowLeft' ? -0.06 : event.code === 'ArrowRight' ? 0.06 : 0, event.code === 'ArrowUp' ? -0.04 : event.code === 'ArrowDown' ? 0.04 : 0);
-      if (event.code === 'KeyE' && !event.repeat) void this.interact();
+      if (event.code === 'KeyE' && !event.repeat) void this.interact(0);
+      if (event.code.startsWith('Digit') && !event.repeat) void this.interact(Number(event.code.slice(-1)) - 1);
       if (event.code === 'Space' && !held && !event.repeat && this.mode === 'walking' && this.jumpElapsed === null && !this.pending) {
         this.jumpElapsed = 0; this.landingElapsed = LANDING_DURATION;
       }
@@ -121,12 +122,14 @@ export class CameraController {
     this.apply();
   }
   syncLocation(spec: SceneSpec) { this.scene.doors=spec.doors;this.scene.foods=spec.foods; }
-  private async interact() {
+  private async interact(actionIndex: number) {
     if(this.pending || this.jumpElapsed !== null)return;
     const item = this.seat ? null : nearestInteraction(this.scene,this.position);
-    if(!item){await this.toggleSeat();return;}
+    if(!item){if(actionIndex===0)await this.toggleSeat();return;}
+    if(actionIndex >= item.actions.length && item.actions.length) return;
+    if(actionIndex > 0 && !item.actions.length) return;
     this.pending=true;
-    try { await this.client.send(C2S.INTERACT,{requestId:createId(),id:item.id}); }
+    try { await this.client.send(C2S.INTERACT,{requestId:createId(),id:item.id,action:item.actions[actionIndex]}); }
     catch(error) { this.feedback=error instanceof Error ? error.message : 'Действие не выполнено';this.feedbackUntil=performance.now()+2500; }
     finally {this.pending=false;}
   }

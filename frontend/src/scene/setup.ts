@@ -7,26 +7,29 @@ const material = (color: string, roughness = 0.88, metalness = 0) => new THREE.M
 /** Build a bright studio around the server's authoritative geometry. Decorative pieces have no collision. */
 export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
   const width = spec.room.width, depth = spec.room.depth, height = spec.room.height;
-  scene.background = new THREE.Color('#eef5f4');
-  scene.fog = new THREE.Fog('#eef5f4', Math.max(21, depth * 1.6), Math.max(40, depth * 2.7));
-  scene.add(new THREE.HemisphereLight('#ffffff', '#b9c9c6', spec.lighting?.ambient ?? 3.1));
-  const sun = new THREE.DirectionalLight('#fff9ed', spec.lighting?.key ?? 3.2);
-  sun.position.set(-4, height + 3, 6); scene.add(sun);
-  const fill = new THREE.DirectionalLight('#d2e9ed', spec.lighting?.fill ?? 1.6);
-  fill.position.set(6, 4, -5); scene.add(fill);
+  const loft = spec.theme === 'industrial-loft-bar';
+  const atmosphere = loft ? '#302720' : '#eef5f4';
+  scene.background = new THREE.Color(atmosphere);
+  scene.fog = new THREE.Fog(atmosphere, Math.max(21, depth * 1.6), Math.max(40, depth * 2.7));
+  const ambient = new THREE.HemisphereLight('#ffffff', loft ? '#6a4532' : '#b9c9c6', spec.lighting?.ambient ?? (loft ? 1.7 : 3.1));
+  ambient.name = 'room-ambient'; scene.add(ambient);
+  const sun = new THREE.DirectionalLight(loft ? '#ffc688' : '#fff9ed', spec.lighting?.key ?? (loft ? 2.3 : 3.2));
+  sun.name = 'room-key'; sun.position.set(-4, height + 3, 6); scene.add(sun);
+  const fill = new THREE.DirectionalLight(loft ? '#ad8090' : '#d2e9ed', spec.lighting?.fill ?? (loft ? .7 : 1.6));
+  fill.name = 'room-fill'; fill.position.set(6, 4, -5); scene.add(fill);
   const addBox = (x: number, y: number, z: number, w: number, h: number, d: number, mat: THREE.Material) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     mesh.position.set(x, y, z); scene.add(mesh); return mesh;
   };
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material(spec.lighting?.floor ?? '#e8eee9'));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material(spec.lighting?.floor ?? (loft ? '#655747' : '#e8eee9')));
   floor.rotation.x = -Math.PI / 2; floor.position.y = -0.035; scene.add(floor);
-  const tileLine = material('#d1ded9');
+  const tileLine = material(loft ? '#715d4b' : '#d1ded9');
   for (let x = -width / 2 + 1; x < width / 2; x += 2) addBox(x, -0.022, 0, 0.012, 0.008, depth - 0.5, tileLine);
   for (let z = -depth / 2 + 1; z < depth / 2; z += 2) addBox(0, -0.02, z, width - 0.5, 0.008, 0.012, tileLine);
 
-  const wallMat = material(spec.lighting?.walls ?? '#f9f7ef');
-  const platformMat = material('#d9e8e6');
-  const edgeMat = material('#78a9a8', 0.55);
+  const wallMat = material(spec.lighting?.walls ?? (loft ? '#755a49' : '#f9f7ef'));
+  const platformMat = material(loft ? '#51463b' : '#d9e8e6');
+  const edgeMat = material(loft ? '#ad7951' : '#78a9a8', 0.55);
   for (const part of spec.room.walls) addBox(part.center.x, part.center.y, part.center.z, part.size.x, part.size.y, part.size.z, wallMat);
   for (const part of spec.room.platforms) {
     addBox(part.center.x, part.center.y, part.center.z, part.size.x, part.size.y, part.size.z, platformMat);
@@ -56,7 +59,7 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
   }
   for (const part of spec.room.obstacles) {
     // Avoid drawing raw gray boxes over chairs, NPCs or player models that have their own 3D meshes
-    if (part.id.startsWith('chair-') || part.id.startsWith('npc-') || part.id.startsWith('player-')) continue;
+    if (part.id.startsWith('chair-') || part.id.startsWith('jury-chair-') || part.id.startsWith('npc-') || part.id.startsWith('player-') || spec.objects?.some(o => o.id === part.id)) continue;
     addBox(part.center.x, part.center.y, part.center.z, part.size.x, part.size.y, part.size.z, material('#d4dfda'));
   }
   for (const ramp of spec.room.ramps) {
@@ -69,7 +72,7 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
   }
 
   // A soft central aisle guides the player toward the two rows of participants.
-  const aisle = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(4.4, width * 0.3), Math.min(5.6, depth * 0.42)), material('#dce8e5'));
+  const aisle = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(4.4, width * 0.3), Math.min(5.6, depth * 0.42)), material(loft ? '#6c5745' : '#dce8e5'));
   aisle.rotation.x = -Math.PI / 2; aisle.position.set(0, -0.012, 2.8); scene.add(aisle);
   for (const stand of spec.npcStands) {
     const platform = spec.room.platforms.find(p => Math.abs(stand.position.x - p.center.x) < p.size.x / 2 && Math.abs(stand.position.z - p.center.z) < p.size.z / 2);
@@ -93,9 +96,35 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
   }
 
   if (spec.theme === 'studio') addBox(0, height + .12, 0, width, .2, depth, material(spec.lighting?.ceiling ?? '#46535e'));
+  if (loft) {
+    const fan = new THREE.Group(); fan.name = 'loft-ceiling-fan'; fan.position.set(0, height - .7, 1);
+    const fanMat = material('#514137', .5, .4);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(.18, .18, .18, 16), fanMat); fan.add(hub);
+    for (let i = 0; i < 4; i++) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(1.5, .05, .22), fanMat);
+      blade.position.x = .82;
+      const pivot = new THREE.Group(); pivot.rotation.y = i * Math.PI / 2; pivot.add(blade); fan.add(pivot);
+    }
+    scene.add(fan);
+  }
   addLocationProps(scene, spec);
   syncLocationProps(scene, spec);
+  syncRoomLighting(scene, spec);
 
+}
+
+export function syncRoomLighting(scene: THREE.Scene, spec: SceneSpec) {
+  if (spec.theme !== 'industrial-loft-bar') return;
+  const preset = spec.lightingPresets?.find(p => p.id === spec.activeLightingPreset) ?? spec.lightingPresets?.[0];
+  if (!preset) return;
+  const ambient = scene.getObjectByName('room-ambient') as THREE.HemisphereLight;
+  const key = scene.getObjectByName('room-key') as THREE.DirectionalLight;
+  const fill = scene.getObjectByName('room-fill') as THREE.DirectionalLight;
+  ambient.color.set(preset.ambientColor).lerp(new THREE.Color('#ffffff'), .5);
+  ambient.intensity = preset.id === 'interrogation-blackout' ? .45 : 2.4;
+  key.color.set(preset.keyLight.color); key.intensity = preset.keyLight.intensity * 2.2;
+  key.position.set(preset.keyLight.position.x, preset.keyLight.position.y, preset.keyLight.position.z);
+  fill.color.set(preset.accentNeon.color); fill.intensity = preset.accentNeon.intensity * .5;
 }
 
 /** Release all GPU resources created by the scene, including text sprites. */
