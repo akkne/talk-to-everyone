@@ -8,7 +8,13 @@ export interface ParticipantStatus { id: string; name: string; role: string; con
 export interface GamePauseState { paused: boolean; pausedRemainingMs: number; endsAt: number; pausedBy: string | null }
 export interface VoiceSignalEnvelope { senderPlayerId: string; targetPlayerId: string; signalType: string; payload: string; sentAt: number }
 export interface VoiceSpeakingEvent { playerId: string; speaking: boolean; at: number }
-export interface NpcAppearance { style: 'sport' | 'tech' | 'creative' | 'smart' | 'polished' | 'casual'; accessory: 'headphones' | 'glasses' | 'beanie' | 'cap' | 'none'; hair: number; skin: number }
+export interface CharacterLook {
+  gender: 'f' | 'm'; style: string; color: string;
+  hair: 'crop' | 'part' | 'fade' | 'messy' | 'bald' | 'straight' | 'shoulder' | 'waves' | 'layered';
+  access: string; facial: 'none' | 'beard' | 'mustache' | 'stubble';
+  hairColor: string; skin: string; pants: string;
+}
+export interface NpcAppearance { model?: CharacterLook | null; style: 'sport' | 'tech' | 'creative' | 'smart' | 'polished' | 'casual'; accessory: 'headphones' | 'glasses' | 'beanie' | 'cap' | 'none'; hair: number; skin: number }
 export interface NpcMeta { id: NpcId; number: number; name: string; color: string; anchorId: string; appearance?: NpcAppearance }
 export interface NpcDetails { displayName: string; photoColor: string; voiceHint: string }
 export interface Chunk { id: NpcId; details: NpcDetails; sizeBytes: number }

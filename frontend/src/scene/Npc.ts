@@ -4,29 +4,22 @@ import { npcLabel } from '../shared/npcLabel';
 import { JUMP_HEIGHT, landingDip } from './jump';
 import { EMOTIONS, EMOTION_LEAD_MS, normalizeEmotion, speechDuration, type NpcEmotion } from '../shared/dialogue';
 import { expressionPose } from './expression';
-
-const skinTones = ['#e9bd9e', '#c78f6c', '#f0cfb4', '#ad7659', '#dca984'];
-const hairTones = ['#332b2a', '#6a4937', '#241f25', '#9b7050'];
-const cloth = (color: string, roughness = 0.86) => new THREE.MeshStandardMaterial({ color, roughness });
+import { AvatarRig, characterLook, NPC_SEAT, type SeatFit } from './AvatarRig';
 
 /** A small, readable character assembled from local geometry. Appearance is public metadata only. */
 export class Npc {
   readonly group = new THREE.Group();
-  readonly head = new THREE.Group();
+  readonly head: THREE.Group;
+  private readonly rig: AvatarRig;
+  private targetSeated = false;
+  private seatFit: SeatFit = NPC_SEAT;
   private readonly avatar = new THREE.Group();
-  private readonly legs: THREE.Group[] = [];
-  private readonly knees: THREE.Group[] = [];
   private hasChair = false;
   private seatedAmount = 0;
-  private readonly arms: THREE.Group[] = [];
-  private readonly brows: THREE.Mesh[] = [];
-  private readonly mouth: THREE.Mesh;
   private targetJumpOffset = 0;
   private jumpOffset = 0;
   private landingAt = -Infinity;
   private lastUpdate = 0;
-  private readonly body: THREE.Mesh;
-  private readonly bodyMaterial: THREE.MeshStandardMaterial;
   private label: THREE.Sprite;
   private bubble: THREE.Sprite | null = null;
   private name = '';
@@ -41,84 +34,17 @@ export class Npc {
 
   constructor(readonly meta: NpcMeta) {
     this.avatar.name = 'avatar'; this.group.add(this.avatar);
-    const profile = meta.appearance;
-    const skin = cloth(skinTones[(profile?.skin ?? meta.number) % skinTones.length]);
-    const hair = cloth(hairTones[(profile?.hair ?? meta.number) % hairTones.length]);
-    const dark = cloth('#303c43');
-    const shoe = cloth('#4b5556');
-    const trim = cloth('#f7f2e9');
-    this.bodyMaterial = cloth(meta.color);
-    const add = (parent: THREE.Group, geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number) => {
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(x, y, z); parent.add(mesh); return mesh;
-    };
-    // Feet, trousers and the tapered jacket create a clear silhouette even from the rear row.
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Group(); leg.position.set(side * 0.14, 0.62, 0); this.avatar.add(leg); this.legs.push(leg);
-      add(leg, new THREE.CapsuleGeometry(0.095, 0.08, 3, 7), dark, 0, -0.135, 0);
-      const knee = new THREE.Group(); knee.position.y = -0.27; leg.add(knee); this.knees.push(knee);
-      add(knee, new THREE.CapsuleGeometry(0.095, 0.08, 3, 7), dark, 0, -0.135, 0);
-      add(knee, new THREE.BoxGeometry(0.21, 0.12, 0.33), shoe, 0, -0.255, 0.09);
-      const arm = new THREE.Group(); arm.position.set(side * 0.34, 1.32, 0); this.avatar.add(arm); this.arms.push(arm);
-      const sleeve = add(arm, new THREE.CapsuleGeometry(0.105, 0.38, 3, 7), this.bodyMaterial, side * 0.04, -0.28, 0);
-      sleeve.rotation.z = side * 0.16;
-      add(arm, new THREE.SphereGeometry(0.105, 9, 7), skin, side * 0.08, -0.61, 0.02);
-    }
-    this.body = add(this.avatar, new THREE.CylinderGeometry(0.32, 0.39, 0.76, 12), this.bodyMaterial, 0, 1.07, 0);
-    add(this.avatar, new THREE.CylinderGeometry(0.12, 0.12, 0.14, 10), skin, 0, 1.5, 0);
-    this.head.position.y = 1.75;
-    add(this.head, new THREE.SphereGeometry(0.245, 16, 12), skin, 0, 0, 0);
-    const hairCap = add(this.head, new THREE.SphereGeometry(0.251, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.49), hair, 0, 0.025, 0);
-    hairCap.scale.z = (profile?.hair ?? 0) % 2 ? 1.08 : 0.97;
-    if ((profile?.hair ?? 0) === 2) {
-      add(this.head, new THREE.SphereGeometry(0.17, 10, 8), hair, 0.17, 0.22, -0.08);
-    }
-    const eye = cloth('#34343a');
-    for (const side of [-1, 1]) {
-      add(this.head, new THREE.SphereGeometry(0.016, 7, 6), eye, side * 0.083, 0.005, 0.231);
-      this.brows.push(add(this.head, new THREE.BoxGeometry(0.065, 0.014, 0.016), hair, side * 0.083, 0.055, 0.236));
-    }
-    this.mouth = add(this.head, new THREE.BoxGeometry(0.065, 0.012, 0.012), cloth('#986b62'), 0, -0.1, 0.229);
-    this.avatar.add(this.head);
-
-    const style = profile?.style ?? 'casual';
-    if (style === 'sport') {
-      add(this.avatar, new THREE.BoxGeometry(0.52, 0.09, 0.025), trim, 0, 1.24, 0.32);
-      add(this.avatar, new THREE.BoxGeometry(0.09, 0.33, 0.025), trim, 0, 1.02, 0.335);
-    } else if (style === 'tech') {
-      add(this.avatar, new THREE.BoxGeometry(0.49, 0.075, 0.025), dark, 0, 1.25, 0.31);
-      add(this.avatar, new THREE.BoxGeometry(0.13, 0.1, 0.03), trim, 0.18, 1.02, 0.33);
-    } else if (style === 'creative') {
-      add(this.avatar, new THREE.TorusGeometry(0.1, 0.025, 5, 12), trim, 0, 1.33, 0.29);
-      add(this.avatar, new THREE.SphereGeometry(0.055, 8, 6), dark, -0.2, 1.07, 0.33);
-    } else if (style === 'smart' || style === 'polished') {
-      for (const side of [-1, 1]) {
-        const lapel = add(this.avatar, new THREE.BoxGeometry(0.14, 0.38, 0.025), style === 'smart' ? trim : dark, side * 0.13, 1.2, 0.305);
-        lapel.rotation.z = side * 0.26;
-      }
-      add(this.avatar, new THREE.SphereGeometry(0.027, 7, 6), trim, 0, 0.99, 0.36);
-    } else {
-      add(this.avatar, new THREE.BoxGeometry(0.37, 0.055, 0.025), trim, 0, 1.34, 0.285);
-    }
-    const accessory = profile?.accessory;
-    if (accessory === 'glasses') {
-      for (const side of [-1, 1]) add(this.head, new THREE.TorusGeometry(0.066, 0.012, 5, 12), dark, side * 0.09, 0.005, 0.235);
-      add(this.head, new THREE.BoxGeometry(0.05, 0.014, 0.025), dark, 0, 0.012, 0.242);
-    } else if (accessory === 'headphones') {
-      add(this.head, new THREE.TorusGeometry(0.26, 0.028, 6, 20, Math.PI), dark, 0, 0.06, 0);
-      for (const side of [-1, 1]) add(this.head, new THREE.BoxGeometry(0.07, 0.17, 0.13), dark, side * 0.26, 0.02, 0);
-    } else if (accessory === 'beanie') {
-      add(this.head, new THREE.SphereGeometry(0.26, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.53), this.bodyMaterial, 0, 0.1, 0);
-    } else if (accessory === 'cap') {
-      add(this.head, new THREE.CylinderGeometry(0.23, 0.24, 0.13, 14), this.bodyMaterial, 0, 0.22, 0);
-      add(this.head, new THREE.BoxGeometry(0.36, 0.035, 0.2), this.bodyMaterial, 0, 0.18, 0.21);
-    }
+    this.rig = new AvatarRig(characterLook(meta));
+    this.head = this.rig.head;
+    this.avatar.add(this.rig.root);
+    this.rig.pose(0, this.seatFit, 0, expressionPose('neutral', -1, 0), 0, 0);
     this.name = meta.number > 0 ? npcLabel(meta) : meta.name;
     this.label = this.text(this.name, false);
     this.label.position.y = 2.31; this.avatar.add(this.label);
   }
   enableChair() {
     this.hasChair = true;
+    this.targetSeated = true;
     this.seatedAmount = 1;
     this.update(performance.now());
   }
@@ -128,25 +54,28 @@ export class Npc {
     this.name = next; this.removeSprite(this.label);
     this.label = this.text(next, false); this.label.position.y = 2.31; this.avatar.add(this.label);
   }
-  setTargetPose(x: number, y: number, z: number, yaw: number, pitch: number, seated: boolean, jumpOffset = 0) {
+  setTargetPose(x: number, y: number, z: number, yaw: number, pitch: number, seated: boolean, jumpOffset = 0, seatFit: SeatFit = NPC_SEAT) {
+    const changedMode = this.targetSeated !== seated;
+    this.targetSeated = seated;
+    this.seatFit = seatFit;
     this.targetJumpOffset = seated ? 0 : Math.max(0, Math.min(JUMP_HEIGHT, jumpOffset));
     if (seated) { this.jumpOffset = 0; this.landingAt = -Infinity; }
     if (!this.targetPos) {
       this.targetPos = new THREE.Vector3(x, y, z);
+      this.seatedAmount = Number(seated);
       this.group.position.set(x, y, z);
       this.group.rotation.y = yaw;
       this.head.rotation.x = pitch;
     } else {
       this.targetPos.set(x, y, z);
-      if (this.group.position.distanceTo(this.targetPos) > 3.0) {
+      if (changedMode || this.group.position.distanceTo(this.targetPos) > 3.0) {
         this.group.position.copy(this.targetPos);
+        if (changedMode) this.group.rotation.y = yaw;
       }
     }
     this.targetYaw = yaw;
     this.targetPitch = pitch;
-    this.body.position.y = seated ? 0.85 : 1.07;
-    this.head.position.y = seated ? 1.50 : 1.75;
-    this.label.position.y = seated ? 2.06 : 2.31;
+
   }
   say(text: string, emotion: string | null = null, at = performance.now()) {
     this.stopSpeaking();
@@ -216,22 +145,14 @@ export class Npc {
     const speech = this.speech;
     const speechAge = speech ? now - speech.at : -1;
     const pose = expressionPose(speech?.emotion ?? 'neutral', speechAge, speech?.duration ?? 0);
-    if (this.hasChair) this.seatedAmount = THREE.MathUtils.damp(this.seatedAmount, speech ? 0 : 1, 14, dt);
-    const seated = this.seatedAmount;
-    this.avatar.position.y = this.jumpOffset - dip - seated * 0.1;
-    this.avatar.position.z = this.hasChair ? (1 - seated) * 0.65 : 0;
-    this.avatar.rotation.set(pose.lean, 0, pose.sway);
-    this.avatar.scale.set(1 + dip * 0.4, 1 - dip, 1 + dip * 0.4);
-    this.legs.forEach(leg => { leg.rotation.x = -0.5 * tuck - seated * Math.PI / 2; });
-    this.knees.forEach(knee => { knee.rotation.x = seated * Math.PI / 2; });
-    this.arms.forEach((arm, i) => {
-      arm.rotation.x = -0.8 * tuck + (i ? pose.rightX : pose.leftX) * (1 - tuck);
-      arm.rotation.z = (i ? 1 : -1) * 0.5 * tuck + (i ? pose.rightZ : pose.leftZ) * (1 - tuck);
-    });
-    this.head.rotation.x = THREE.MathUtils.damp(this.head.rotation.x, this.targetPitch + pose.headX, 18, dt);
-    this.head.rotation.z = pose.headZ;
-    this.brows.forEach((brow, i) => { brow.rotation.z = (i ? -1 : 1) * pose.brow; });
-    this.mouth.scale.y = 1 + pose.mouthOpen * 5;
+    const target = this.hasChair ? (speech ? 0 : 1) : Number(this.targetSeated);
+    this.seatedAmount = THREE.MathUtils.damp(this.seatedAmount, target, 10, dt);
+    if (Math.abs(this.seatedAmount - target) < .0001) this.seatedAmount = target;
+    this.avatar.position.y = this.jumpOffset - dip;
+    this.avatar.rotation.set(0, 0, 0);
+    this.avatar.scale.set(1 + dip * .4, 1 - dip, 1 + dip * .4);
+    const bodyPose = this.rig.pose(this.seatedAmount, this.seatFit, this.hasChair ? .65 : this.targetSeated ? .75 : 0, pose, tuck, this.targetPitch);
+    this.label.position.set(0, bodyPose.labelY, bodyPose.hipZ);
     if (speech && now >= speech.at + EMOTION_LEAD_MS && now < speech.at + speech.duration && !speech.shown) {
       speech.shown = true;
       this.bubble = this.text(speech.text, true); this.bubble.name = 'npc-speech';
@@ -251,8 +172,8 @@ export class Npc {
       this.voiceMicBadge.scale.setScalar(0.45 + pulse);
     }
     const age = now - this.reactionAt;
-    this.bodyMaterial.emissive.set('#f6b84b');
-    this.bodyMaterial.emissiveIntensity = age < 2400 ? (0.5 + Math.sin(age / 110) * 0.5) * 0.45 : 0;
+    this.rig.bodyMaterial.emissive.set('#f6b84b');
+    this.rig.bodyMaterial.emissiveIntensity = age < 2400 ? (0.5 + Math.sin(age / 110) * 0.5) * 0.45 : 0;
     if (speech && now >= speech.at + speech.duration) this.stopSpeaking();
   }
   private text(text: string, bubble: boolean) {

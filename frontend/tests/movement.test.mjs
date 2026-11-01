@@ -234,12 +234,13 @@ test('other players rise, tuck limbs and animate landing without moving their gr
   player.setTargetPose(0, 1.5, 0, 0, 0, false);
   player.update(100);
   const avatar = player.group.getObjectByName('avatar');
-  const rest = avatar.children.map(child => child.quaternion.clone());
+  const limbs = [-1, 1].map(side => avatar.getObjectByName(`thigh-${side}`));
+  const rest = limbs.map(child => child.quaternion.clone());
   player.setTargetPose(0, 1.5, 0, 0, 0, false, JUMP_HEIGHT);
   for (let now = 150; now <= 350; now += 50) player.update(now);
   assert.ok(avatar.position.y > .8);
   assert.equal(player.group.position.y, 1.5);
-  assert.ok(avatar.children.some((child, i) => child.quaternion.angleTo(rest[i]) > .2));
+  assert.ok(limbs.some((child, i) => child.quaternion.angleTo(rest[i]) > .2));
   player.setTargetPose(0, 1.5, 0, 0, 0, false, 0);
   let landingDipSeen = false;
   for (let now = 400; now <= 1200; now += 10) { player.update(now); landingDipSeen ||= avatar.position.y < 0; }

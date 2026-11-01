@@ -25,7 +25,7 @@ public sealed class SceneSeatsTests
         var scene = new MapCatalog(Path.Combine(AppContext.BaseDirectory, "Maps")).Scene("club");
         var location = new LocationScene(scene);
         Assert.Equal(8, location.Items("spawnPoints").Count);
-        Assert.Equal(8, location.Seats.Count);
+        Assert.Equal(8, location.Seats.Count());
         foreach (var spawn in location.Items("spawnPoints"))
             Assert.False(location.SolidAt(LocationScene.Point(spawn!)));
         foreach (var seat in location.Seats)
