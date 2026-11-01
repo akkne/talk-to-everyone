@@ -75,8 +75,19 @@ public static class GameLogic
         var npcs = await db.Npcs.AsNoTracking()
             .Where(n => n.SessionId == me.SessionId && (session.Phase == "finished" || !voting.Eliminated.Contains(n.Id)))
             .OrderBy(n => n.Number).ToListAsync();
-        var chat = await db.Messages.AsNoTracking().Where(m => m.SessionId == me.SessionId && !m.IsQuestion && !voting.Eliminated.Contains(m.NpcId)).OrderBy(m => m.At).Select(m => new
-        { m.Id, npc = m.NpcId, m.Text, m.InReplyTo, m.Emotion, m.At }).ToListAsync();
+        var messages = await db.Messages.AsNoTracking()
+            .Where(m => m.SessionId == me.SessionId && !voting.Eliminated.Contains(m.NpcId))
+            .OrderBy(m => m.At).ThenBy(m => m.Id).ToListAsync();
+        var juryQuestions = messages.Where(m => m.IsQuestion && m.InReplyTo != null)
+            .GroupBy(m => m.InReplyTo!).ToDictionary(g => g.Key, g => g.Last());
+        var playerNames = players.ToDictionary(p => p.Id, p => p.Name);
+        var chat = messages.Where(m => !m.IsQuestion).Select(m =>
+        {
+            var question = m.InReplyTo != null && juryQuestions.TryGetValue(m.InReplyTo, out var found) ? found : null;
+            return new { m.Id, npc = m.NpcId, m.Text, m.InReplyTo, m.Emotion, m.At,
+                questionText = question?.Text,
+                questioner = question != null && playerNames.TryGetValue(question.PlayerId, out var name) ? name : null };
+        }).ToList();
         var scoreboard = session.Phase == "finished" ? Scoreboard(players) : null;
         var pause = pauseGate?.CurrentView(session, JsonData.Now) ?? new GamePauseView(false, 0L, session.EndsAt, null);
         var participants = telemetry?.BuildSnapshot(players, session) ?? [];

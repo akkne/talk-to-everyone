@@ -200,6 +200,10 @@ namespace Backend.Migrations
                     b.Property<long>("EndsAt")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("GameId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("KickedUserHashesJson")
                         .IsRequired()
                         .HasColumnType("text");
@@ -207,6 +211,9 @@ namespace Backend.Migrations
                     b.Property<string>("MapId")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<long>("NextDialogueSequence")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("OwnerUserId")
                         .IsRequired()
@@ -237,6 +244,58 @@ namespace Backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Sessions");
+                });
+
+            modelBuilder.Entity("Backend.NpcConversationEvent", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("GameId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsQuestion")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlayerId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SpeakerNpcId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TargetNpcId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("GameId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("ConversationEvents");
                 });
 
             modelBuilder.Entity("Backend.PairChoice", b =>

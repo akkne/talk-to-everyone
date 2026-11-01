@@ -44,7 +44,7 @@ export interface Round { n: number; phase: string; endsAt: number; choiceEndsAt:
 export interface RoundSpec { n: number; phase: string; title: string; durationSec: number }
 export interface Board { pairs: [NpcId, NpcId][]; liars: NpcId[]; locks: Record<string, number>; notes: Record<NpcId, string>; submitted: Record<string, [NpcId, NpcId] | null> }
 export interface QuestionState { remaining: number; askedTo: NpcId[]; pending: boolean }
-export interface ChatMessage { id: string; npc: NpcId; text: string; inReplyTo: string | null; emotion: string | null; at: number }
+export interface ChatMessage { id: string; npc: NpcId; text: string; inReplyTo: string | null; questionText?: string | null; questioner?: string | null; emotion: string | null; at: number }
 export interface RevealData { trueFriends: [NpcId, NpcId][]; actors: NpcId[] }
 export interface ScoreEntry { id: string; score: number; title: string }
 export interface GameInfo { npcCount: number; pairCount: number; actorCount: number; rounds: RoundSpec[]; choiceRounds: number[]; questionLimit: number; questionMaxLength: number; noteMaxLength: number; scoring: { correct: { round: number; points: number }[]; mixed: number; twoActors: number } }

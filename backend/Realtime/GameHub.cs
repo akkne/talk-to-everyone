@@ -323,10 +323,13 @@ public sealed partial class GameHub(
             foreach (var npc in roster) { npc.SessionId = me.SessionId; npc.Id = $"{npc.Id}-{me.SessionId}"; }
             await using var transaction = await db.Database.BeginTransactionAsync();
             db.Messages.RemoveRange(await db.Messages.Where(m => m.SessionId == me.SessionId).ToListAsync());
+            db.ConversationEvents.RemoveRange(await db.ConversationEvents.Where(e => e.SessionId == me.SessionId).ToListAsync());
             db.Choices.RemoveRange(await db.Choices.Where(c => c.SessionId == me.SessionId).ToListAsync());
             db.Npcs.RemoveRange(await db.Npcs.Where(n => n.SessionId == me.SessionId).ToListAsync());
             await db.SaveChangesAsync();
             db.Npcs.AddRange(roster);
+            session.GameId = Guid.NewGuid().ToString("N");
+            session.NextDialogueSequence = 0;
             session.VotingJson = JsonData.Write(new VotingData());
             session.Phase = "playing"; session.Round = 1; session.RoundPhase = "presentation";
             session.EndsAt = JsonData.Now + settings.RoundSeconds * 1000L;
@@ -432,6 +435,7 @@ public sealed partial class GameHub(
             pauseGate.Reset();
             director.CancelCurrentRound(me.SessionId);
             db.Messages.RemoveRange(await db.Messages.Where(m => m.SessionId == me.SessionId).ToListAsync());
+            db.ConversationEvents.RemoveRange(await db.ConversationEvents.Where(e => e.SessionId == me.SessionId).ToListAsync());
             db.Choices.RemoveRange(await db.Choices.Where(c => c.SessionId == me.SessionId).ToListAsync());
             var disconnected = await db.Players.Where(p => p.SessionId == me.SessionId && !p.Connected).ToListAsync();
             db.Players.RemoveRange(disconnected);

@@ -42,6 +42,7 @@ services:
       Ollama__BaseUrl: ${OLLAMA__BASEURL:-http://ollama:11434}
       Ollama__Model: ${OLLAMA__MODEL:-qwen2.5:3b-instruct}
       Ollama__TimeoutSeconds: ${OLLAMA__TIMEOUTSECONDS:-90}
+      Ollama__ContextTokens: ${OLLAMA__CONTEXTTOKENS:-8192}
       LLM_ENDPOINT: ${LLM_ENDPOINT:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}

@@ -40,6 +40,7 @@ public static class LobbyDirectory
         pending.TryRemove(sessionId, out _);
         LocationScene.Drop(sessionId);
         await db.Messages.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
+        await db.ConversationEvents.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
         await db.Choices.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
         await db.Npcs.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
         await db.Players.Where(x => x.SessionId == sessionId).ExecuteDeleteAsync();
