@@ -12,6 +12,7 @@ import { Npc } from './Npc';
 import { NpcLod } from './lod';
 import { npcLabel } from '../shared/npcLabel';
 import { LoftSoundtrack } from './LoftSoundtrack';
+import { DirectorGreeting } from './director';
 
 /** <summary>One visible canvas; subscription callbacks bridge Zustand to the imperative three.js scene and 3D spatial voice audio.</summary> */
 export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }) {
@@ -55,6 +56,8 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const npcs = new Map<string, Npc>();
     const judges = new Map<string, Npc>();
     const loftCharacters: Npc[] = [];
+    const directorGreeting = new DirectorGreeting();
+    let director: Npc | null = null;
     for (const character of [...(spec.functionalNPCs ?? []), ...(spec.ambientNPCs ?? [])]) {
       const position = character.position ?? character.spawnPosition;
       if (!position) continue;
@@ -71,6 +74,12 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         const actor = new Npc({ id: character.id, number: 0, name: character.name ?? (character.type === 'human-bouncer' ? 'Охранник' : 'Гость'), color: character.type === 'functional-service-npc' ? '#ad7962' : '#707a80', anchorId: '' });
         actor.group.position.set(position.x, position.y, position.z);
         actor.group.rotation.y = character.yaw ?? 0;
+        if (character.type === 'human-director') {
+          actor.setTargetPose(position.x, position.y, position.z, character.yaw ?? 0, .12, true);
+          actor.workingAtLaptop = true;
+          actor.group.add(createNpcChair());
+          director = actor;
+        }
         scene.add(actor.group); loftCharacters.push(actor);
       }
     }
@@ -249,6 +258,13 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
 
       const me = state.players.find(p => p.id === state.playerId);
       const others = state.players.filter(p => p.id !== state.playerId && p.connected);
+      if (director && me && state.connection === 'ready' && !state.paused && state.phase === 'playing') {
+        const message = directorGreeting.update(now, {
+          name: me.name,
+          position: { x: camera.position.x, y: me.pose.position.y, z: camera.position.z },
+        }, director.group.position);
+        if (message) director.say(message, 'angry', now);
+      }
       voiceChannel.updateSpatialPositions(
         {
           position: { x: camera.position.x, y: me?.pose.position.y ?? 0, z: camera.position.z },

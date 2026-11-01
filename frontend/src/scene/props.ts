@@ -12,6 +12,23 @@ export function createProp(p:PropSpec){
  const rod=(a:number[],b:number[],r=.025)=>{const start=new T.Vector3(...a),end=new T.Vector3(...b),delta=end.clone().sub(start);const m=new T.Mesh(new T.CylinderGeometry(r,r,delta.length(),6),mat(metal));m.position.copy(start.add(end).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());g.add(m);};
  const tripod=()=>{for(let i=0;i<3;i++){const a=i*Math.PI*2/3;rod([0,h*.68,0],[Math.cos(a)*w*.45,.05,Math.sin(a)*d*.45],.035);}cyl(0,h*.52,0,.045,h*.9);};
  switch(p.type){
+ case 'laptop': {
+  box(0,.025,0,w,.05,d,dark);
+  box(0,.053,-d*.06,w*.83,.008,d*.48,'#65717a');
+  for(let row=0;row<4;row++)for(let col=0;col<9;col++)box((col-4)*w*.08,.06,-d*.23+row*d*.1,w*.06,.008,d*.06,dark);
+  box(0,.057,-d*.34,w*.26,.008,d*.13,metal);
+  const lid=box(0,h/2+.04,d*.43,w,h,.035,dark);lid.rotation.x=-.16;
+  const screen=new T.Mesh(new T.PlaneGeometry(w*.9,h*.82),new T.MeshBasicMaterial({color:'#253746'}));
+  screen.position.set(0,h/2+.04,d*.43-.022);screen.rotation.set(-.16,Math.PI,0);g.add(screen);
+  if(p.screenImage){
+   const texture=new T.TextureLoader().load(p.screenImage);texture.colorSpace=T.SRGBColorSpace;
+   screen.material.map=texture;screen.material.color.set('#ffffff');
+  }else{
+   // Temporary editing timeline until the director's screenshot is supplied.
+   for(let i=0;i<4;i++)box(-w*.07,h*(.24+i*.12),d*.43-.065,w*(.57-i*.08),h*.06,.008,['#0a66c2','#4d9f88','#917bb5','#65717a'][i],true);
+  }
+  break;
+ }
  case 'foosball':
   box(0,h*.78,0,w,.18,d,c);box(0,h*.87,0,w*.87,.04,d*.84,'#2c6846');
   for(const x of [-w*.44,w*.44])for(const z of [-d*.4,d*.4])box(x,h*.38,z,.08,h*.76,.08,dark);

@@ -32,6 +32,7 @@ export class Npc {
   private targetPos: THREE.Vector3 | null = null;
   private targetYaw = 0;
   private targetPitch = 0;
+  workingAtLaptop = false;
 
   constructor(readonly meta: NpcMeta) {
     this.avatar.name = 'avatar'; this.group.add(this.avatar);
@@ -171,6 +172,7 @@ export class Npc {
     this.avatar.rotation.set(0, 0, 0);
     this.avatar.scale.set(1 + dip * .4, 1 - dip, 1 + dip * .4);
     const bodyPose = this.rig.pose(this.seatedAmount, this.seatFit, this.hasChair ? .65 : this.targetSeated ? .75 : 0, pose, tuck, this.targetPitch);
+    if (this.workingAtLaptop) this.rig.typeOnLaptop(now);
     this.label.position.set(0, bodyPose.labelY, bodyPose.hipZ);
     if (speech && now >= speech.at + EMOTION_LEAD_MS && now < speech.at + speech.duration && !speech.shown) {
       speech.shown = true;

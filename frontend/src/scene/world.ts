@@ -14,8 +14,8 @@ export interface SceneSpec {
   npcStands: { id: string; position: Vec3; yaw: number; level: number }[];
   playerSeats: SeatSpec[]; furnitureSeats?: SeatSpec[]; spawnPoints: Vec3[];
 }
-export type PropType = 'column' | 'truss' | 'spotlight' | 'backdrop' | 'softbox' | 'crate' | 'cableTray' | 'sofa' | 'table' | 'camera' | 'tripod' | 'shelf' | 'sign' | 'djBooth' | 'speaker' | 'danceTile' | 'bar' | 'stool' | 'bottle' | 'mirrorball' | 'neon' | 'plant' | 'panel' | 'gate' | 'vent' | 'reflector' | 'monitor' | 'directorChair' | 'cart' | 'reel' | 'lens' | 'battery' | 'charger' | 'foosball' | 'vending';
-export interface PropSpec { id: string; type: PropType; position: Vec3; size: Vec3; yaw?: number; color?: string; label?: string; collidable?: boolean; beam?: boolean; attachment?: { objectId: string; localPosition: Vec3 }; collider?: { center: Vec3; size: Vec3 } }
+export type PropType = 'column' | 'truss' | 'spotlight' | 'backdrop' | 'softbox' | 'crate' | 'cableTray' | 'sofa' | 'table' | 'camera' | 'tripod' | 'shelf' | 'sign' | 'djBooth' | 'speaker' | 'danceTile' | 'bar' | 'stool' | 'bottle' | 'mirrorball' | 'neon' | 'plant' | 'panel' | 'gate' | 'vent' | 'reflector' | 'monitor' | 'directorChair' | 'cart' | 'reel' | 'lens' | 'battery' | 'charger' | 'foosball' | 'vending' | 'laptop';
+export interface PropSpec { id: string; type: PropType; position: Vec3; size: Vec3; yaw?: number; color?: string; label?: string; collidable?: boolean; beam?: boolean; screenImage?: string; attachment?: { objectId: string; localPosition: Vec3 }; collider?: { center: Vec3; size: Vec3 } }
 export interface DoorSpec extends Box { label: string; open: boolean; slide: Vec3; hinge?: Vec3; openAngleDegrees?: number; animationDurationMs?: number; collidableWhileMoving?: boolean; transition?: { startedAt: number; from: number; to: number } }
 export interface FoodSpec { id: string; type: 'apple' | 'sandwich' | 'donut' | 'pizza'; label: string; position: Vec3; eaten?: boolean }
 export interface InteractiveObjectSpec { id: string; targetId: string; type: string; interactionTrigger: Vec3 & { radius: number }; actions: string[] }

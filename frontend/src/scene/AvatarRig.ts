@@ -223,6 +223,17 @@ export class AvatarRig {
       for (const side of [-1, 1]) this.patch(side * .08, 1.26, .012, .24, 'pants');
     }
   }
+  /** Hands remain over the keyboard while the seated director works. */
+  typeOnLaptop(now: number) {
+    this.upper.rotation.x = .08;
+    this.arms.forEach((arm, i) => {
+      const tap = Math.sin(now / 105 + i * Math.PI) * .035;
+      arm.shoulder.rotation.set(-.55, 0, (i ? 1 : -1) * .08);
+      arm.elbow.rotation.set(-1.2 + tap, 0, (i ? -1 : 1) * .1);
+      arm.wrist.rotation.x = .12 + tap;
+    });
+    this.head.rotation.x = .12;
+  }
   pose(amount: number, fit: SeatFit, advance: number, mood: MoodPose, tuck: number, pitch: number) {
     const seated = smooth(amount), stand = 1 - seated;
     const hipY = THREE.MathUtils.lerp(ANATOMY.hip, fit.surface + ANATOMY.pelvisRadius, seated) + (fit.surface > .60 ? .06 * Math.sin(Math.PI * seated) : 0);
