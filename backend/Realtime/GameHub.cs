@@ -415,6 +415,7 @@ public sealed partial class GameHub(
             }
             if (session.EndsAt <= JsonData.Now) return;
             session.EndsAt = JsonData.Now;
+            if (session.RoundPhase != "choice") director.SkipCurrentRound(me.SessionId);
             Remember(me, "SkipRound", request.RequestId);
             await db.SaveChangesAsync();
             await Clients.Group(me.SessionId).SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate));

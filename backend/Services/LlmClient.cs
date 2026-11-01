@@ -88,7 +88,12 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
             ? "Игрок спросил о теме вне правил игры. Кратко верни разговор к дружбе и общим событиям, не повторяя формулировку вопроса."
             : question;
         var userPrompt = promptComposer.Turn(npc, 4, "interrogation", contextBuilder.Build(npc, roster, events), safeQuestion);
-        return await CompleteMeasuredAsync("question", npc, roster, events, systemPrompt, userPrompt, ct);
+        try { return await CompleteMeasuredAsync("question", npc, roster, events, systemPrompt, userPrompt, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            log.LogWarning(ex, "Using fallback answer for {NpcId}", npc.Id);
+            return NpcFallbackSpeech.For(npc, 4);
+        }
     }
 
     public async Task<(string text, string emotion)> GenerateRoundSpeech(
@@ -103,7 +108,12 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         events ??= FromMessages(roomHistory);
         var systemPrompt = promptComposer.System(npc, roster);
         var userPrompt = promptComposer.Turn(npc, round, phase, contextBuilder.Build(npc, roster, events));
-        return await CompleteMeasuredAsync("round_speech", npc, roster, events, systemPrompt, userPrompt, ct);
+        try { return await CompleteMeasuredAsync("round_speech", npc, roster, events, systemPrompt, userPrompt, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            log.LogWarning(ex, "Using fallback round speech for {NpcId} in round {Round}", npc.Id, round);
+            return NpcFallbackSpeech.For(npc, round);
+        }
     }
 
     private static IReadOnlyList<NpcConversationEvent> FromMessages(List<GameMessage> messages) =>
@@ -122,9 +132,17 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
         {
             var previous = events.Where(e => !e.IsQuestion && e.SpeakerNpcId == npc.Id)
                 .OrderByDescending(e => e.Sequence).Take(3).Select(e => e.Text).ToArray();
-            for (var attempt = 0; attempt < 2; attempt++)
+            Exception? lastError = null;
+            for (var attempt = 0; attempt < 3; attempt++)
             {
-                var result = await CompleteAsync(systemPrompt, userPrompt, ct);
+                (string text, string emotion) result;
+                try { result = await CompleteAsync(systemPrompt, userPrompt, ct); }
+                catch (Exception ex) when (!ct.IsCancellationRequested)
+                {
+                    lastError = ex;
+                    log.LogWarning(ex, "NPC generation attempt {Attempt} failed for {NpcId}", attempt + 1, npc.Id);
+                    continue;
+                }
                 var reason = speechPolicy.Reject(npc, roster, result.text, previous);
                 if (reason is null)
                 {
@@ -135,7 +153,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                 log.LogWarning("NPC speech rejected for {NpcId}: {Reason}", npc.Id, reason.Value.Code);
                 userPrompt += $"\nПредыдущий вариант отклонён: {reason.Value.Message} Напиши новую реплику без нарушения.";
             }
-            throw new InvalidOperationException("NPC speech failed policy validation after retry.");
+            throw new InvalidOperationException("NPC speech generation failed after retries.", lastError);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -167,10 +185,11 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                 {
                   "type": "object",
                   "properties": {
-                    "text": { "type": "string" },
+                    "text": { "type": "string", "minLength": 1, "maxLength": 220 },
                     "emotion": { "type": "string", "enum": ["neutral", "happy", "sad", "angry", "surprised"] }
                   },
-                  "required": ["text", "emotion"]
+                  "required": ["text", "emotion"],
+                  "additionalProperties": false
                 }
                 """).RootElement;
 
@@ -189,7 +208,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                     {
                         temperature = 0.75,
                         num_ctx = ContextTokens,
-                        num_predict = 150
+                        num_predict = 256
                     }
                 };
 
@@ -201,6 +220,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                 if (parsed != null) return parsed.Value;
                 log.LogWarning("Ollama returned an empty or invalid reply at {OllamaUrl} (model {Model})", ollamaUrl, ollamaModel);
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 log.LogWarning(ex, "Ollama request failed at {OllamaUrl} (model {Model})", ollamaUrl, ollamaModel);
@@ -238,6 +258,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
                 if (parsed != null) return parsed.Value;
                 log.LogWarning("External LLM endpoint returned an empty or invalid reply");
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 log.LogWarning(ex, "External LLM endpoint failed");
