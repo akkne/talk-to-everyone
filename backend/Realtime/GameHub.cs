@@ -28,8 +28,10 @@ public sealed partial class GameHub(
     RoundDirector director,
     IParticipantTelemetryRegistry telemetry,
     ISessionPauseGate pauseGate,
-    ILogger<GameHub> log) : Hub
+    ILogger<GameHub> log,
+    IVoiceRoomCoordinator? voiceRoomCoordinator = null) : Hub
 {
+    private readonly IVoiceRoomCoordinator voiceRoom = voiceRoomCoordinator ?? new VoiceRoomCoordinator();
     private GamePlayer? Me => db.Players.SingleOrDefault(p => p.ConnectionId == Context.ConnectionId && p.Connected);
 
     public override async Task OnDisconnectedAsync(Exception? exception)
@@ -42,7 +44,9 @@ public sealed partial class GameHub(
             {
                 me.Connected = false;
                 me.ConnectionId = null;
-                telemetry.MarkDisconnected(me.Id, JsonData.Now);
+                var now = JsonData.Now;
+                telemetry.MarkDisconnected(me.Id, now);
+                var wasSpeaking = voiceRoom.ClearSpeaker(me.Id);
                 var session = await db.Sessions.SingleAsync();
                 if (me.Role == "leader" && session.Phase == "lobby")
                 {
@@ -57,6 +61,10 @@ public sealed partial class GameHub(
                 if (session.Phase == "playing" && session.RoundPhase == "choice")
                 {
                     await Voting.Advance(db, Clients, session, settings);
+                }
+                if (wasSpeaking)
+                {
+                    await Clients.All.SendAsync("VoiceSpeakingUpdated", new { playerId = me.Id, speaking = false, at = now });
                 }
                 await BroadcastLobby();
                 await BroadcastPlayers();

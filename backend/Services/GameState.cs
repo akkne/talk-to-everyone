@@ -97,7 +97,8 @@ public static class GameLogic
             reveal = session.Phase == "finished" ? Reveal(npcs) : null,
             paused = pause.Paused,
             pausedRemainingMs = pause.PausedRemainingMs,
-            participants
+            participants,
+            speakingPlayerIds = participants.Where(p => p.Speaking).Select(p => p.Id).ToArray()
         };
     }
 
