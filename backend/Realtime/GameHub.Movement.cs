@@ -49,9 +49,9 @@ public sealed partial class GameHub
             if (request == null || !ValidRequestId(request.RequestId)) { await ActionReject("SitDown", "INVALID_POSE", request?.RequestId); return; }
             if (Seen(me, "SitDown", request.RequestId)) { await BroadcastPlayers(); return; }
             var pose = JsonData.Read<PoseData>(me.PoseJson);
-            var seat = Enumerable.Range(1, 8).FirstOrDefault(n => request.SeatId == $"seat-{n}");
+            var seat = Enumerable.Range(1, GameLogic.PlayerSeatCount).FirstOrDefault(n => request.SeatId == $"seat-{n}");
             if (seat == 0 || pose.Mode != "walking") { await ActionReject("SitDown", "WRONG_MODE", request.RequestId); return; }
-            var seatPos = new Vec3((seat - 4.5) * 1.6, 0, 3.5);
+            var seatPos = new Vec3(GameLogic.SeatX(seat), 0, 3.5);
             if (Distance(pose.Position, seatPos) > 1.6) { await ActionReject("SitDown", "TOO_FAR", request.RequestId); return; }
             if ((await db.Players.Where(p => p.Id != me.Id && p.Connected).Select(p => p.PoseJson).ToListAsync())
                 .Any(json => JsonData.Read<PoseData>(json).SeatId == request.SeatId))

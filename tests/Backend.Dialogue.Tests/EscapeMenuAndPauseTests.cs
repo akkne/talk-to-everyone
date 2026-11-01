@@ -293,7 +293,7 @@ public sealed class EscapeMenuAndPauseTests
 
         // 3. Soft pause allows judge to move, sit down, and edit board notes
         hub.Context = new TestHubCallerContext("conn-judge");
-        await hub.SitDown(new SeatRequest("req-sit-1", "seat-5"));
+        await hub.SitDown(new SeatRequest("req-sit-1", "seat-3"));
         var updatedJudge = await db.Players.AsNoTracking().SingleAsync(p => p.Id == "judge-id");
         Assert.Equal("seated", JsonData.Read<PoseData>(updatedJudge.PoseJson).Mode);
 

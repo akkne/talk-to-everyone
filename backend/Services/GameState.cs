@@ -7,6 +7,8 @@ namespace Backend;
 
 public static class GameLogic
 {
+    public const int PlayerSeatCount = 4;
+    public static double SeatX(int seat) => (seat - (PlayerSeatCount + 1) / 2.0) * 1.6;
     public static readonly object Scene = new
     {
         version = "1", room = new
@@ -30,7 +32,7 @@ public static class GameLogic
                 new { id = "right", center = new Vec3(9, 3, 0), size = new Vec3(0.3, 6, 14) } }
         },
         npcStands = Enumerable.Range(1, 10).Select(n => new { id = $"anchor-{n}", position = new Vec3((n <= 5 ? n - 3 : n - 8) * 2.1 + (n <= 5 ? 0 : 0.45), n <= 5 ? 0 : 1.5, n <= 5 ? -2.5 : -5), yaw = 0, level = n <= 5 ? 0 : 1 }).ToArray(),
-        playerSeats = Enumerable.Range(1, 8).Select(n => new { id = $"seat-{n}", position = new Vec3((n - 4.5) * 1.6, 0, 3.5), yaw = 0, exit = new Vec3((n - 4.5) * 1.6, 0, 5) }).ToArray(),
+        playerSeats = Enumerable.Range(1, PlayerSeatCount).Select(n => new { id = $"seat-{n}", position = new Vec3(SeatX(n), 0, 3.5), yaw = 0, exit = new Vec3(SeatX(n), 0, 5) }).ToArray(),
         spawnPoints = new[] { new Vec3(0, 0, 5) }
     };
 
@@ -61,7 +63,7 @@ public static class GameLogic
         new { n = 4, phase = "interrogation", title = "Допрос", durationSec },
         new { n = 5, phase = "debate", title = "Перепалка", durationSec }
     ];
-    public static object Seats(IEnumerable<GamePlayer> players) => Enumerable.Range(1, 8).Select(n => new
+    public static object Seats(IEnumerable<GamePlayer> players) => Enumerable.Range(1, PlayerSeatCount).Select(n => new
     {
         id = $"seat-{n}", occupiedBy = players.FirstOrDefault(p => p.Connected && JsonData.Read<PoseData>(p.PoseJson).SeatId == $"seat-{n}")?.Id
     }).ToArray();
