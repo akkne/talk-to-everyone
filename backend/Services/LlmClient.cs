@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Backend;
@@ -83,7 +84,7 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
             $"Контекст прошлых реплик: {historySummary}\n" +
             "Ответь жюри прямо, дерзко и в своем характере (80–200 символов). Если тебя пытаются поймать на лжи — выкручивайся по своей тактике защиты. Верни JSON: {\"text\": \"...\", \"emotion\": \"neutral|happy|sad|angry|surprised\"}.";
 
-        return await CompleteAsync(systemPrompt, userPrompt, 220);
+        return await CompleteMeasuredAsync("question", systemPrompt, userPrompt, 220);
     }
 
     public async Task<(string text, string emotion)> GenerateRoundSpeech(
@@ -120,7 +121,32 @@ public sealed class LlmClient(HttpClient http, IConfiguration config, ILogger<Ll
             _ => $"Твоя реплика в раунде {round}. Верни JSON: {{\"text\": \"...\", \"emotion\": \"neutral\"}}."
         };
 
-        return await CompleteAsync(systemPrompt, userPrompt, round == 2 ? 260 : 210, ct);
+        return await CompleteMeasuredAsync("round_speech", systemPrompt, userPrompt, round == 2 ? 260 : 210, ct);
+    }
+
+    private async Task<(string text, string emotion)> CompleteMeasuredAsync(string purpose, string systemPrompt, string userPrompt, int maxChars, CancellationToken ct = default)
+    {
+        var timer = Stopwatch.StartNew();
+        try
+        {
+            var result = await CompleteAsync(systemPrompt, userPrompt, maxChars, ct);
+            GameMetrics.LlmRequests.WithLabels(purpose, "success").Inc();
+            return result;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            GameMetrics.LlmRequests.WithLabels(purpose, "cancelled").Inc();
+            throw;
+        }
+        catch
+        {
+            GameMetrics.LlmRequests.WithLabels(purpose, "failure").Inc();
+            throw;
+        }
+        finally
+        {
+            GameMetrics.LlmDuration.WithLabels(purpose).Observe(timer.Elapsed.TotalSeconds);
+        }
     }
 
     private static string BuildSystemPrompt(GameNpc npc, List<GameNpc>? roster, bool isRound1To3)

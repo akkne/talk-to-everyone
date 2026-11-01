@@ -105,8 +105,62 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command: ['ollama pull "$$OLLAMA_MODEL"']
 
+  prometheus:
+    build:
+      context: ./observability
+      dockerfile: Dockerfile.prometheus
+    restart: unless-stopped
+    volumes:
+      - prometheus_data:/prometheus
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=15d"]
+    depends_on:
+      - backend
+
+  loki:
+    build:
+      context: ./observability
+      dockerfile: Dockerfile.loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - loki_data:/loki
+
+  alloy:
+    build:
+      context: ./observability
+      dockerfile: Dockerfile.alloy
+    restart: unless-stopped
+    command: ["run", "/etc/alloy/config.alloy", "--storage.path=/var/lib/alloy/data"]
+    environment:
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-talk-to-everyone}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      - loki
+
+  grafana:
+    build:
+      context: ./observability
+      dockerfile: Dockerfile.grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+
 volumes:
   postgres_data:
   caddy_data:
   caddy_config:
   ollama_data:
+  prometheus_data:
+  loki_data:
+  alloy_data:
+  grafana_data:

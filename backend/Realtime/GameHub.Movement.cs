@@ -86,6 +86,9 @@ public sealed partial class GameHub
 
     private static bool Finite(double n) => double.IsFinite(n);
     private static double Distance(Vec3 a, Vec3 b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2) + Math.Pow(a.Z - b.Z, 2));
-    private Task ActionReject(string op, string code, string? requestId, long? seq = null) =>
-        Clients.Caller.SendAsync("ActionReject", new { op, code, message = "Действие недоступно.", requestId, seq });
+    private Task ActionReject(string op, string code, string? requestId, long? seq = null)
+    {
+        GameMetrics.HubRejections.WithLabels(op, code).Inc();
+        return Clients.Caller.SendAsync("ActionReject", new { op, code, message = "Действие недоступно.", requestId, seq });
+    }
 }
