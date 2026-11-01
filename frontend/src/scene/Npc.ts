@@ -198,7 +198,7 @@ export class Npc {
       this.emotionBadge.material.opacity = pose.weight;
     }
     if (this.bubble) {
-      this.bubble.position.y = this.label.position.y + 1.24;
+      this.bubble.position.y = this.label.position.y + 0.78 + this.bubble.scale.y / 2;
       this.bubble.material.opacity = pose.weight;
     }
     const age = now - this.reactionAt;
@@ -207,21 +207,37 @@ export class Npc {
     if (speech && now >= speech.at + speech.duration) this.stopSpeaking();
   }
   private text(text: string, bubble: boolean) {
-    const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = bubble ? 192 : 80;
+    const canvas = document.createElement('canvas'); canvas.width = bubble ? 640 : 512;
     const context = canvas.getContext('2d')!;
+    const font = bubble
+      ? '27px -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif'
+      : '600 30px -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif';
+    context.font = font;
+    const lines: string[] = [];
+    if (bubble) {
+      let line = '';
+      for (const word of text.trim().split(/\s+/).filter(Boolean)) {
+        const next = line ? `${line} ${word}` : word;
+        if (context.measureText(next).width <= 580) { line = next; continue; }
+        if (line) { lines.push(line); line = ''; }
+        for (const char of word) {
+          if (line && context.measureText(line + char).width > 580) { lines.push(line); line = ''; }
+          line += char;
+        }
+      }
+      lines.push(line);
+    }
+    canvas.height = bubble ? Math.max(192, 48 + lines.length * 36) : 80;
+    context.font = font;
     context.fillStyle = bubble ? '#fffdf7' : '#fffaf0'; context.fillRect(0, 0, canvas.width, canvas.height);
     context.strokeStyle = '#d9cfbd'; context.lineWidth = 5; context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
-    context.fillStyle = '#34434a'; context.font = bubble
-      ? '25px -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif'
-      : '600 30px -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif';
+    context.fillStyle = '#34434a';
     context.textAlign = 'center';
-    const words = text.slice(0, 125).split(/\s+/); const lines: string[] = []; let line = '';
-    for (const word of words) { if (context.measureText(`${line} ${word}`).width > 465) { lines.push(line); line = word; } else line += `${line ? ' ' : ''}${word}`; }
-    lines.push(line);
-    lines.slice(0, bubble ? 5 : 1).forEach((value, i) => context.fillText(value, 256, (bubble ? 35 : 50) + i * 31, 470));
+    if (bubble) lines.forEach((value, i) => context.fillText(value, canvas.width / 2, (canvas.height - lines.length * 36) / 2 + 27 + i * 36, 580));
+    else context.fillText(text, canvas.width / 2, 50, 470);
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false }));
-    sprite.scale.set(bubble ? 2.8 : 1.55, bubble ? 1.05 : 0.26, 1); return sprite;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: !bubble }));
+    sprite.scale.set(bubble ? 3.35 : 1.55, bubble ? 3.35 * canvas.height / canvas.width : 0.26, 1); return sprite;
   }
   dispose() {
     this.group.traverse(object => {

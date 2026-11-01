@@ -81,3 +81,31 @@ test('stage 2 + movement: speech preserves jump height, ground position and seat
   assert.ok(actor.group.getObjectByName('npc-speech').position.y > actor.group.getObjectByName('npc-emotion').position.y + 0.5);
   actor.dispose();
 });
+
+test('long NPC replies fit in a growing bubble and names respect scene depth', () => {
+  const canvases = [];
+  globalThis.document = { createElement: () => {
+    const canvas = { width: 0, height: 0, lines: [] };
+    canvas.getContext = () => ({
+      fillRect() {}, strokeRect() {},
+      fillText(value) { canvas.lines.push(value); },
+      measureText: value => ({ width: value.length * 12 }),
+    });
+    canvases.push(canvas);
+    return canvas;
+  } };
+  const actor = new Npc({ id: 'npc', number: 1, name: 'Тест', color: '#779bc9', anchorId: 'anchor-0' });
+  const label = actor.group.getObjectByName('avatar').children.find(child => child.isSprite);
+  assert.equal(label.material.depthTest, true);
+
+  const reply = Array.from({ length: 40 }, (_, i) => `слово${i}`).join(' ');
+  actor.say(reply, 'neutral', 0);
+  actor.update(EMOTION_LEAD_MS);
+  const bubble = actor.group.getObjectByName('npc-speech');
+  const speechCanvas = canvases.at(-1);
+  assert.equal(speechCanvas.lines.join(' '), reply);
+  assert.ok(speechCanvas.height > 192);
+  assert.ok(bubble.scale.y > 1.05);
+  assert.ok(bubble.position.y - bubble.scale.y / 2 > label.position.y + 0.7);
+  actor.dispose();
+});
