@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { NpcMeta } from '../shared/types';
+import { npcLabel } from '../shared/npcLabel';
 import { JUMP_HEIGHT, landingDip } from './jump';
 import { EMOTIONS, EMOTION_LEAD_MS, normalizeEmotion, speechDuration, type NpcEmotion } from '../shared/dialogue';
 import { expressionPose } from './expression';
@@ -105,7 +106,7 @@ export class Npc {
       add(this.head, new THREE.CylinderGeometry(0.23, 0.24, 0.13, 14), this.bodyMaterial, 0, 0.22, 0);
       add(this.head, new THREE.BoxGeometry(0.36, 0.035, 0.2), this.bodyMaterial, 0, 0.18, 0.21);
     }
-    this.name = meta.name;
+    this.name = meta.number > 0 ? npcLabel(meta) : meta.name;
     this.label = this.text(this.name, false);
     this.label.position.y = 2.31; this.avatar.add(this.label);
   }

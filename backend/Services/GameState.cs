@@ -80,12 +80,23 @@ public static class GameLogic
         };
     }
 
-    public static object Reveal(List<GameNpc> npcs) => new
+    public static object Reveal(List<GameNpc> npcs)
     {
-        trueFriends = npcs.Where(n => n.Role == "friend" && n.Number < n.RelatedNumber && npcs.Any(other => other.Number == n.RelatedNumber && other.Role == "friend" && other.RelatedNumber == n.Number))
-            .Select(n => new[] { n.Id, npcs.Single(other => other.Number == n.RelatedNumber).Id }).ToArray(),
-        actors = npcs.Where(n => n.Role == "actor").Select(n => n.Id).ToArray()
-    };
+        var friends = npcs.Where(n => n.Role == "friend").ToDictionary(n => n.Number);
+        var pairs = new List<string[]>();
+        var seen = new HashSet<string>();
+        foreach (var friend in friends.Values.OrderBy(n => n.Number))
+        {
+            if (!friends.TryGetValue(friend.RelatedNumber, out var partner) || partner.Id == friend.Id) continue;
+            if (!seen.Add(PairKey(friend.Id, partner.Id))) continue;
+            pairs.Add(friend.Number < partner.Number ? [friend.Id, partner.Id] : [partner.Id, friend.Id]);
+        }
+        return new
+        {
+            trueFriends = pairs.ToArray(),
+            actors = npcs.Where(n => n.Role == "actor").OrderBy(n => n.Number).Select(n => n.Id).ToArray()
+        };
+    }
 
     public static object[] Scoreboard(List<GamePlayer> players) => players.OrderByDescending(p => p.Score)
         .Select(p => (object)new { id = p.Id, score = p.Score, title = p.Score >= 500 ? "Гений дедукции" : "Судья" }).ToArray();

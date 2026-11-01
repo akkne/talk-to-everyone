@@ -6,6 +6,7 @@ import { setupRoom, disposeScene } from './setup';
 import { CameraController } from './CameraController';
 import { Npc } from './Npc';
 import { NpcLod } from './lod';
+import { npcLabel } from '../shared/npcLabel';
 
 /** <summary>One visible canvas; subscription callbacks bridge Zustand to the imperative three.js scene.</summary> */
 export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }) {
@@ -44,7 +45,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         npc.group.rotation.y = stand.yaw;
         npcs.set(meta.id, npc); scene.add(npc.group);
       }
-      for (const meta of state.npcs) npcs.get(meta.id)?.setName(meta.name);
+      for (const meta of state.npcs) npcs.get(meta.id)?.setName(npcLabel(meta));
       if (state.thinkingNpc && state.thinkingAt > lastThinkingAt) {
         lastThinkingAt = state.thinkingAt;
         npcs.get(state.thinkingNpc)?.react(performance.now());

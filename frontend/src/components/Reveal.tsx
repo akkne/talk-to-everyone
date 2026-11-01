@@ -3,14 +3,15 @@ import { C2S } from '../shared/contract';
 import { command, useClient } from '../core/client';
 import { Icon } from './Icon';
 import { Brand } from './Brand';
+import { npcLabel } from '../shared/npcLabel';
 
 /** Show the complete server-provided roster and results after the match. */
 export function Reveal({ onExit }: { onExit: () => void }) {
   const { reveal, teamScore, playerId, players, npcs, scoreboard } = useGameStore();
   const client = useClient();
-  const npc = (id: string) => {
+  const label = (id: string) => {
     const person = npcs.find(n => n.id === id);
-    return { number: String(person?.number ?? '?').padStart(2, '0'), name: person?.name ?? 'Участник' };
+    return person ? npcLabel(person) : '[?] Участник';
   };
   const backToLobby = async () => {
     const ok = await command(client, C2S.RESET_GAME, undefined);
@@ -27,16 +28,16 @@ export function Reveal({ onExit }: { onExit: () => void }) {
 
       {!reveal ? <div className="reveal-wait">Ожидаем итог от сервера.</div> : <div className="reveal-grid">
         <section>
-          <h2>Настоящие друзья</h2>
+          <h2>Настоящие друзья <small>Пар: {reveal.trueFriends.length}</small></h2>
           {reveal.trueFriends.map(([a, b]) => <div className="reveal-pair" key={`${a}:${b}`}>
-            <div><strong>№ {npc(a).number}</strong><small>{npc(a).name}</small></div>
+            <strong>{label(a)}</strong>
             <span>⟷</span>
-            <div><strong>№ {npc(b).number}</strong><small>{npc(b).name}</small></div>
+            <strong>{label(b)}</strong>
           </div>)}
         </section>
         <section>
-          <h2>Играли роль</h2>
-          <div className="reveal-actors">{reveal.actors.map(id => <div key={id}><b>№ {npc(id).number}</b><span>{npc(id).name}</span></div>)}</div>
+          <h2>Играли роль <small>Актёров: {reveal.actors.length}</small></h2>
+          <div className="reveal-actors">{reveal.actors.map(id => <div key={id}><b>{label(id)}</b></div>)}</div>
           <p className="reveal-lesson">Проверяйте общие детали, задавайте уточняющие вопросы и замечайте противоречия. Уверенность — не доказательство.</p>
         </section>
       </div>}

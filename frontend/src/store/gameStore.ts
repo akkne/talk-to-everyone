@@ -58,7 +58,7 @@ const scoreFields = (players: { id: string; score: number; title: string }[]) =>
 });
 const namedNpcs = (npcs: NpcMeta[]) => npcs.map(npc => ({
   ...npc,
-  name: npc.name || `Участник № ${String(npc.number).padStart(2, '0')}`,
+  name: npc.name || 'Участник',
 }));
 const handlers: Handlers = {
   [S2C.VOTING_STATE]: p => set({ voting: p.stage ? p : null, boardOpen: false }),
