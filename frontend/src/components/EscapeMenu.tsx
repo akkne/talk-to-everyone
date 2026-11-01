@@ -28,7 +28,8 @@ export function buildParticipantRows(
   localRole: string,
   localFps: number,
   localRtt: number | null,
-  localActivityCode: ReturnType<typeof PlayerActivityClassifier.resolveCode>
+  localActivityCode: ReturnType<typeof PlayerActivityClassifier.resolveCode>,
+  speakingByPlayer: Record<string, boolean> = {}
 ): ParticipantStatus[] {
   if (participants.length > 0) {
     return participants.map(item =>
@@ -42,8 +43,12 @@ export function buildParticipantRows(
               localActivityCode,
               players.find(p => p.id === localPlayerId)?.pose.mode ?? 'walking'
             ),
+            speaking: Boolean(item.speaking || speakingByPlayer[item.id]),
           }
-        : item
+        : {
+            ...item,
+            speaking: Boolean(item.speaking || speakingByPlayer[item.id]),
+          }
     );
   }
 
@@ -65,7 +70,7 @@ export function buildParticipantRows(
       pingMs: isMe ? (localRtt ?? 0) : 0,
       activityCode: code,
       actionText: PlayerActivityClassifier.describe(code, player.pose.mode),
-      speaking: false,
+      speaking: Boolean(speakingByPlayer[player.id]),
     };
   });
 }
@@ -121,7 +126,8 @@ export function EscapeMenu({ onClose, onExit }: EscapeMenuProps) {
     state.role,
     state.metrics.fps,
     state.rtt,
-    localActivity
+    localActivity,
+    state.speakingByPlayer
   );
 
   return (

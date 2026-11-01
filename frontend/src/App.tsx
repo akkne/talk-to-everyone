@@ -3,6 +3,8 @@ import { SignalRClient } from './core/signalr';
 import { ClientContext, connectionStatus, receiveEvent } from './core/client';
 import { C2S, NET } from './shared/contract';
 import { PlayerActivityClassifier } from './shared/activity';
+import { PushToTalkController } from './audio/PushToTalkController';
+import { setPushToTalkPressed } from './store/voiceSettingsStore';
 import type { GameClient, GameInfo } from './shared/types';
 import { resetGame, useGameStore } from './store/gameStore';
 import { resetCache } from './store/cacheStore';
@@ -111,13 +113,28 @@ export default function App() {
         return;
       }
       if (editing || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (PushToTalkController.isPushToTalkKeyEvent(event)) {
+        setPushToTalkPressed(true);
+      }
       if (event.key === 'Tab' && phase === 'playing' && !escapeOpen) {
         event.preventDefault();
         useGameStore.setState(s => ({ boardOpen: !s.boardOpen }));
       }
     };
+    const keyUp = (event: KeyboardEvent) => {
+      if (PushToTalkController.isPushToTalkKeyEvent(event)) {
+        setPushToTalkPressed(false);
+      }
+    };
+    const blur = () => setPushToTalkPressed(false);
     document.addEventListener('keydown', key);
-    return () => document.removeEventListener('keydown', key);
+    document.addEventListener('keyup', keyUp);
+    window.addEventListener('blur', blur);
+    return () => {
+      document.removeEventListener('keydown', key);
+      document.removeEventListener('keyup', keyUp);
+      window.removeEventListener('blur', blur);
+    };
   }, [phase, boardOpen, escapeOpen, questions]);
 
   useEffect(() => {

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { S2C } from '../shared/contract';
 import { UI } from '../shared/config';
 import { advanceSpeech, emptyDialogue, enqueueSpeech, removeSpeakers, type DialogueState } from '../shared/dialogue';
-import type { Board, ChatMessage, Events, VotingState, GameInfo, LobbyState, NpcMeta, ParticipantStatus, Player, QuestionState, RevealData, Round, RoundSpec, SceneSpec, ScoreEntry, SeatState } from '../shared/types';
+import type { Board, ChatMessage, Events, VotingState, GameInfo, LobbyState, NpcMeta, ParticipantStatus, Player, QuestionState, RevealData, Round, RoundSpec, SceneSpec, ScoreEntry, SeatState, VoiceSignalEnvelope } from '../shared/types';
 
 export type ConnectionStatus = 'offline' | 'connecting' | 'authenticating' | 'syncing' | 'ready' | 'reconnecting';
 interface GameState {
@@ -14,6 +14,8 @@ interface GameState {
   chat: ChatMessage[]; questions: QuestionState; boardOpen: boolean; escapeOpen: boolean;
   paused: boolean; pausedRemainingMs: number; pausedBy: string | null;
   participants: ParticipantStatus[];
+  speakingByPlayer: Record<string, boolean>;
+  incomingVoiceSignal: VoiceSignalEnvelope | null;
   dialogue: DialogueState;
   thinkingNpc: string | null; thinkingAt: number;
   error: string | null; rtt: number | null;
@@ -26,7 +28,8 @@ function initial(): GameState {
     round: null, rounds: [], roundEnded: false, lobby: null, scene: null, players: [], npcs: [], seats: [],
     board: { pairs: [], liars: [], locks: {}, notes: {}, submitted: {} }, score: {}, titles: {}, scoreboard: [], reveal: null,
     chat: [], dialogue: emptyDialogue(), questions: { remaining: 0, askedTo: [], pending: false },
-    boardOpen: false, escapeOpen: false, paused: false, pausedRemainingMs: 0, pausedBy: null, participants: [],
+    boardOpen: false, escapeOpen: false, paused: false, pausedRemainingMs: 0, pausedBy: null,
+    participants: [], speakingByPlayer: {}, incomingVoiceSignal: null,
     thinkingNpc: null, thinkingAt: 0,
     error: null, rtt: null, gameInfo: null, gameInfoError: null, metrics: { fps: 0, calls: 0, triangles: 0, geometries: 0, textures: 0 },
   };
@@ -98,18 +101,25 @@ const handlers: Handlers = {
   })),
   [S2C.ROUND_ENDED]: p => { if (p.n === useGameStore.getState().round?.n) set(s => ({ ...finishDialogue(s), roundEnded: true })); },
   [S2C.GAME_ENDED]: p => set(s => ({ ...finishDialogue(s), phase: 'reveal', reveal: p.reveal, npcs: namedNpcs(p.npcs), scoreboard: p.scoreboard, boardOpen: false, escapeOpen: false, voting: null, paused: false, pausedRemainingMs: 0, pausedBy: null, ...scoreFields(p.scoreboard) })),
-  [S2C.STATE_SNAPSHOT]: p => set({
-    sessionId: p.sessionId, playerId: p.me.id, role: p.me.role,
-    phase: p.phase === 'finished' ? 'reveal' : p.phase,
-    round: p.round, rounds: p.rounds, gameInfo: p.gameInfo, gameInfoError: null, roundEnded: false, scene: p.scene, players: p.players, npcs: namedNpcs(p.npcs), seats: p.seats,
-    voting: p.voting, teamScore: p.teamScore, board: p.board, questions: p.questions, chat: p.chat.slice(-UI.MAX_CHAT), dialogue: emptyDialogue(), thinkingNpc: null, score: p.score,
-    titles: p.scoreboard ? scoreFields(p.scoreboard).titles : {}, scoreboard: p.scoreboard ?? [], reveal: p.reveal,
-    paused: Boolean(p.paused ?? p.round?.paused),
-    pausedRemainingMs: p.pausedRemainingMs ?? p.round?.pausedRemainingMs ?? 0,
-    pausedBy: null,
-    participants: p.participants ?? [],
-    error: null, boardOpen: false,
-  }),
+  [S2C.STATE_SNAPSHOT]: p => {
+    const speakingMap: Record<string, boolean> = {};
+    for (const id of p.speakingPlayerIds ?? []) speakingMap[id] = true;
+    for (const part of p.participants ?? []) if (part.speaking) speakingMap[part.id] = true;
+    set({
+      sessionId: p.sessionId, playerId: p.me.id, role: p.me.role,
+      phase: p.phase === 'finished' ? 'reveal' : p.phase,
+      round: p.round, rounds: p.rounds, gameInfo: p.gameInfo, gameInfoError: null, roundEnded: false, scene: p.scene, players: p.players, npcs: namedNpcs(p.npcs), seats: p.seats,
+      voting: p.voting, teamScore: p.teamScore, board: p.board, questions: p.questions, chat: p.chat.slice(-UI.MAX_CHAT), dialogue: emptyDialogue(), thinkingNpc: null, score: p.score,
+      titles: p.scoreboard ? scoreFields(p.scoreboard).titles : {}, scoreboard: p.scoreboard ?? [], reveal: p.reveal,
+      paused: Boolean(p.paused ?? p.round?.paused),
+      pausedRemainingMs: p.pausedRemainingMs ?? p.round?.pausedRemainingMs ?? 0,
+      pausedBy: null,
+      participants: p.participants ?? [],
+      speakingByPlayer: speakingMap,
+      incomingVoiceSignal: null,
+      error: null, boardOpen: false,
+    });
+  },
   [S2C.CHUNK_DATA]: () => {},
   [S2C.PLAYERS_TICK]: p => set({ players: p.players }),
   [S2C.SEAT_STATE]: p => set({ seats: p.seats }),
@@ -130,12 +140,25 @@ const handlers: Handlers = {
   [S2C.SCORE_UPDATE]: p => set(scoreFields(p.players)),
   [S2C.SERVER_ERROR]: p => set({ error: p.message, thinkingNpc: null }),
   [S2C.PONG]: p => set({ rtt: Math.max(0, Date.now() - p.t) }),
-  [S2C.PARTICIPANTS_UPDATED]: p => set({ participants: p.participants }),
+  [S2C.PARTICIPANTS_UPDATED]: p => set(s => {
+    const nextSpeaking = { ...s.speakingByPlayer };
+    for (const part of p.participants) {
+      nextSpeaking[part.id] = Boolean(part.speaking);
+    }
+    return { participants: p.participants, speakingByPlayer: nextSpeaking };
+  }),
   [S2C.GAME_PAUSE_CHANGED]: p => set(s => ({
     paused: p.paused,
     pausedRemainingMs: p.pausedRemainingMs,
     pausedBy: p.pausedBy,
     round: s.round ? { ...s.round, endsAt: p.endsAt, paused: p.paused, pausedRemainingMs: p.pausedRemainingMs } : null,
+  })),
+  [S2C.VOICE_SIGNAL_RECEIVED]: p => set({ incomingVoiceSignal: p }),
+  [S2C.VOICE_SPEAKING_UPDATED]: p => set(s => ({
+    speakingByPlayer: { ...s.speakingByPlayer, [p.playerId]: p.speaking },
+    participants: s.participants.map(part =>
+      part.id === p.playerId ? { ...part, speaking: p.speaking } : part
+    ),
   })),
 };
 export function applyGameEvent<K extends keyof Events>(event: K, payload: Events[K]) { handlers[event](payload); }

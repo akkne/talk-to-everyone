@@ -98,3 +98,10 @@
 .danger-text { color: #e08b73; }
 @keyframes pulse-mic { from { opacity: 0.65; transform: scale(0.95); } to { opacity: 1; transform: scale(1.1); } }
 @media (max-width: 900px) { .escape-modal.host-layout .escape-body { grid-template-columns: 1fr; } .escape-pause-box { flex-direction: column; align-items: stretch; } }
+
+.voice-speakers-overlay { position: absolute; top: 152px; left: 28px; z-index: 12; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.voice-speaker-chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; background: #19241be8; border: 1px solid #58c977; border-radius: 4px; color: #ebf7ee; font-size: 12px; box-shadow: 0 4px 18px #0006; }
+.voice-speaker-chip small { font-size: 10px; color: #9de2b0; margin-left: 4px; }
+.voice-mic-icon { display: inline-flex; color: #67e088; animation: pulse-mic 0.85s infinite alternate; }
+.hud-mic-status { display: inline-flex; align-items: center; gap: 5px; vertical-align: middle; color: #b8c2ae; }
+.hud-mic-status.speaking { color: #67e088; font-weight: 600; }
