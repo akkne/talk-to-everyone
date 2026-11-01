@@ -42,7 +42,7 @@ export default function App() {
   const activeClient = useRef(client);
   const [questions, setQuestions] = useState(false);
   const [tour, setTour] = useState(false);
-  const { phase, boardOpen, escapeOpen, error, connection, round, voting, paused } = useGameStore();
+  const { phase, boardOpen, escapeOpen, error, connection, round, voting, paused, scene } = useGameStore();
 
   const connect = async (token: string) => {
     await activeClient.current.disconnect();
@@ -174,7 +174,7 @@ export default function App() {
       {phase === 'lobby' && tour && connection === 'ready' ? (
         <div className="hangar-tour">
           <Scene controlsBlocked={escapeOpen} />
-          <div className="hangar-tour-bar"><span>Ангар · 40 × 30 × 12 м · Аппаратная справа</span><button className="secondary" onClick={() => setTour(false)}>Вернуться в лобби</button></div>
+          <div className="hangar-tour-bar"><span>{scene?.name ?? 'Локация'} · {scene?.room.width} × {scene?.room.depth} × {scene?.room.height} м</span><button className="secondary" onClick={() => setTour(false)}>Вернуться в лобби</button></div>
         </div>
       ) : phase === 'lobby' ? (
         <Lobby onConnect={connect} onExit={() => void exit()} onTour={() => setTour(true)} />

@@ -17,10 +17,10 @@ public sealed partial class GameHub
                 await Clients.Caller.SendAsync("BoardSnapshot", new { board = JsonData.Read<BoardData>(me.BoardJson), requestId });
                 return;
             }
-            var session = await db.Sessions.SingleAsync();
+            var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
             if (session.Phase != "playing") { await BoardReject(op, "WRONG_PHASE", requestId); return; }
             var board = JsonData.Read<BoardData>(me.BoardJson);
-            var active = await db.Npcs.Select(n => n.Id).ToListAsync();
+            var active = await db.Npcs.Where(n => n.SessionId == me.SessionId).Select(n => n.Id).ToListAsync();
             var removed = JsonData.Read<VotingData>(session.VotingJson).Eliminated;
             active.RemoveAll(removed.Contains);
             if (!change(board) || board.Pairs.SelectMany(p => p).Concat(board.Liars).Concat(board.Notes.Keys).Any(id => !active.Contains(id))) { await BoardReject(op, "INVALID", requestId); return; }
@@ -33,7 +33,7 @@ public sealed partial class GameHub
     private Task BoardReject(string op, string code, string requestId) =>
         Clients.Caller.SendAsync("BoardReject", new { op, code, message = "Изменение доски отклонено.", requestId });
 
-    private static bool ValidNpc(string? id) => id != null && Enumerable.Range(1, 10).Any(n => id == $"npc-{n}");
+    private static bool ValidNpc(string? id) => id != null && Enumerable.Range(1, 10).Any(n => id == $"npc-{n}" || id.StartsWith($"npc-{n}-", StringComparison.Ordinal));
     private static bool Locked(BoardData b, string id) => b.Locks.Keys.Any(key => key.Split(':').Contains(id));
     private static bool Used(BoardData b, string id) => b.Pairs.Any(pair => pair.Contains(id)) || b.Liars.Contains(id);
 
@@ -71,7 +71,7 @@ public sealed partial class GameHub
         {
             var me = await Authorized(); if (me == null) return;
             if (r == null || !ValidRequestId(r.RequestId)) { await BoardReject("SubmitPair", "INVALID", r?.RequestId ?? ""); return; }
-            var session = await db.Sessions.SingleAsync();
+            var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
             if (Seen(me, "SubmitPair", r.RequestId))
             { await Clients.Caller.SendAsync("VotingState", Voting.View(session, me.Id)); return; }
             if (pauseGate.IsPaused)
@@ -90,7 +90,7 @@ public sealed partial class GameHub
             session.VotingJson = JsonData.Write(data); Remember(me, "SubmitPair", r.RequestId);
             await db.SaveChangesAsync();
             await Voting.Broadcast(db, Clients, session);
-            await BroadcastParticipants();
+            await BroadcastParticipants(me.SessionId);
             await Voting.Advance(db, Clients, session, settings);
         }
         finally { gate.Lock.Release(); }

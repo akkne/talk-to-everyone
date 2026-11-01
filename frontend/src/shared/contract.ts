@@ -3,6 +3,7 @@ export const C2S = {
   INTERACT: 'Interact',
   AUTH: 'Auth',
   START_GAME: 'StartGame',
+  SELECT_MAP: 'SelectMap',
   RESET_GAME: 'ResetGame',
   SKIP_ROUND: 'SkipRound',
   SEND_POSE: 'SendPose',

@@ -23,7 +23,9 @@ export interface ChatMessage { id: string; npc: NpcId; text: string; inReplyTo: 
 export interface RevealData { trueFriends: [NpcId, NpcId][]; actors: NpcId[] }
 export interface ScoreEntry { id: string; score: number; title: string }
 export interface GameInfo { npcCount: number; pairCount: number; actorCount: number; rounds: RoundSpec[]; choiceRounds: number[]; questionLimit: number; questionMaxLength: number; noteMaxLength: number; scoring: { correct: { round: number; points: number }[]; mixed: number; twoActors: number } }
-export interface LobbyState { sessionId: string; players: { id: string; name: string; connected: boolean }[]; leaderId: string | null; minPlayers: number; canStart: boolean; started: boolean }
+export interface MapOption { id: string; name: string; available: boolean }
+export interface LobbySummary { code: string; mapId: string; started: boolean; playerCount: number }
+export interface LobbyState { sessionId: string; roomCode: string; mapId: string; players: { id: string; name: string; connected: boolean }[]; leaderId: string | null; minPlayers: number; canStart: boolean; started: boolean }
 export interface VotingState { round: number; stage: number; candidates: [NpcId, NpcId][]; eligible: boolean; submitted: boolean; received: number; total: number; endsAt: number }
 export interface Snapshot { voting: VotingState | null; teamScore: number; sessionId: string; me: { id: string; role: string }; phase: 'lobby' | 'playing' | 'finished'; round: Round | null; rounds: RoundSpec[]; gameInfo: GameInfo; scene: SceneSpec; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board; questions: QuestionState; chat: ChatMessage[]; worldSizeBytes: number; score: Record<string, number>; scoreboard: ScoreEntry[] | null; reveal: RevealData | null; paused?: boolean; pausedRemainingMs?: number; participants?: ParticipantStatus[]; speakingPlayerIds?: string[] }
 type Request = { requestId: string };
@@ -31,6 +33,7 @@ export interface Commands {
   [C2S.INTERACT]: Request & { id: string };
   [C2S.AUTH]: { token: string; name?: string };
   [C2S.START_GAME]: undefined;
+  [C2S.SELECT_MAP]: string;
   [C2S.RESET_GAME]: undefined;
   [C2S.SKIP_ROUND]: Request;
   [C2S.SEND_POSE]: { seq: number; position: Vec3; yaw: number; pitch: number; jumpOffset?: number };
@@ -60,7 +63,7 @@ export interface Events {
   [S2C.AUTH_OK]: { playerId: string; sessionId: string; role: string };
   [S2C.AUTH_ERR]: Reject;
   [S2C.LOBBY_STATE]: LobbyState;
-  [S2C.GAME_STARTED]: { rounds: RoundSpec[]; npcs: NpcMeta[]; sceneVersion: string };
+  [S2C.GAME_STARTED]: { rounds: RoundSpec[]; npcs: NpcMeta[]; sceneVersion: string; scene: SceneSpec };
   [S2C.ROUND_STARTED]: Round;
   [S2C.ROUND_ENDED]: { n: number; choiceEndsAt: number | null };
   [S2C.GAME_ENDED]: { reveal: RevealData; scoreboard: ScoreEntry[]; npcs: NpcMeta[] };

@@ -7,10 +7,6 @@ namespace Backend;
 
 public static class GameLogic
 {
-    public static int PlayerSeatCount => LocationScene.Seats.Count;
-    public static double SeatX(int seat) => LocationScene.Point(LocationScene.Seats[seat - 1]!["position"]!).X;
-    public static object Scene => LocationScene.Data;
-
     public static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     public static string PairKey(string a, string b) => string.CompareOrdinal(a, b) < 0 ? $"{a}:{b}" : $"{b}:{a}";
     public static object PlayerView(GamePlayer p) => new { id = p.Id, name = p.Name, connected = p.Connected, pose = JsonData.Read<PoseData>(p.PoseJson) };
@@ -38,13 +34,13 @@ public static class GameLogic
         new { n = 4, phase = "interrogation", title = "Допрос", durationSec },
         new { n = 5, phase = "debate", title = "Перепалка", durationSec }
     ];
-    public static object Seats(IEnumerable<GamePlayer> players) => Enumerable.Range(1, PlayerSeatCount).Select(n => new
+    public static object Seats(IEnumerable<GamePlayer> players, LocationScene scene) => scene.Seats.Select(seat => new
     {
-        id = $"seat-{n}", occupiedBy = players.FirstOrDefault(p => p.Connected && JsonData.Read<PoseData>(p.PoseJson).SeatId == $"seat-{n}")?.Id
+        id = (string)seat!["id"]!, occupiedBy = players.FirstOrDefault(p => p.Connected && JsonData.Read<PoseData>(p.PoseJson).SeatId == (string)seat["id"]!)?.Id
     }).ToArray();
     public static object Lobby(IEnumerable<GamePlayer> players, GameSession session) => new
     {
-        sessionId = session.Id, players = players.Select(p => new { id = p.Id, name = p.Name, connected = p.Connected }).ToArray(),
+        sessionId = session.Id, roomCode = session.RoomCode, mapId = session.MapId, players = players.Select(p => new { id = p.Id, name = p.Name, connected = p.Connected }).ToArray(),
         leaderId = players.FirstOrDefault(p => p.Role == "leader" && p.Connected)?.Id ?? players.FirstOrDefault(p => p.Role == "leader")?.Id,
         minPlayers = 1,
         canStart = (session.Phase == "lobby" || session.Phase == "finished") && players.Any(p => p.Role == "leader" && p.Connected),
@@ -55,28 +51,30 @@ public static class GameLogic
         GameDb db,
         GamePlayer me,
         GameSettings settings,
+        MapCatalog maps,
         IParticipantTelemetryRegistry? telemetry = null,
         ISessionPauseGate? pauseGate = null)
     {
-        var session = await db.Sessions.SingleAsync();
-        var players = await db.Players.AsNoTracking().ToListAsync();
+        var session = await db.Sessions.SingleAsync(s => s.Id == me.SessionId);
+        var players = await db.Players.AsNoTracking().Where(p => p.SessionId == me.SessionId).ToListAsync();
         var voting = JsonData.Read<VotingData>(session.VotingJson);
         var npcs = await db.Npcs.AsNoTracking()
-            .Where(n => session.Phase == "finished" || !voting.Eliminated.Contains(n.Id))
+            .Where(n => n.SessionId == me.SessionId && (session.Phase == "finished" || !voting.Eliminated.Contains(n.Id)))
             .OrderBy(n => n.Number).ToListAsync();
-        var chat = await db.Messages.AsNoTracking().Where(m => !m.IsQuestion && !voting.Eliminated.Contains(m.NpcId)).OrderBy(m => m.At).Select(m => new
+        var chat = await db.Messages.AsNoTracking().Where(m => m.SessionId == me.SessionId && !m.IsQuestion && !voting.Eliminated.Contains(m.NpcId)).OrderBy(m => m.At).Select(m => new
         { m.Id, npc = m.NpcId, m.Text, m.InReplyTo, m.Emotion, m.At }).ToListAsync();
         var scoreboard = session.Phase == "finished" ? Scoreboard(players) : null;
         var pause = pauseGate?.CurrentView(session, JsonData.Now) ?? new GamePauseView(false, 0L, session.EndsAt, null);
         var participants = telemetry?.BuildSnapshot(players, session) ?? [];
+        var location = maps.Location(session.Id, session.MapId);
         return new
         {
             sessionId = session.Id, me = new { id = me.Id, role = me.Role }, phase = session.Phase,
-            round = session.Phase == "lobby" ? null : RoundView(session, pauseGate), rounds = RoundSpecs(settings.RoundSeconds), scene = Scene,
+            round = session.Phase == "lobby" ? null : RoundView(session, pauseGate), rounds = RoundSpecs(settings.RoundSeconds), scene = location.Data,
             gameInfo = await GameRules.InfoAsync(db, settings),
-            players = players.Select(PlayerView).ToArray(), npcs = npcs.Select(NpcView).ToArray(), seats = Seats(players),
+            players = players.Select(PlayerView).ToArray(), npcs = npcs.Select(NpcView).ToArray(), seats = Seats(players, location),
             board = JsonData.Read<BoardData>(me.BoardJson), questions = JsonData.Read<QuestionData>(me.QuestionsJson), chat,
-            worldSizeBytes = Encoding.UTF8.GetByteCount(JsonData.Write(Scene))
+            worldSizeBytes = Encoding.UTF8.GetByteCount(JsonData.Write(location.Data))
                 + npcs.Sum(n => Encoding.UTF8.GetByteCount(JsonData.Write(NpcView(n)))
                     + Encoding.UTF8.GetByteCount(JsonData.Write(Details(n)))),
             score = players.ToDictionary(p => p.Id, _ => voting.TeamScore), scoreboard, teamScore = voting.TeamScore,
@@ -110,17 +108,16 @@ public static class GameLogic
     public static object[] Scoreboard(List<GamePlayer> players) => players.OrderByDescending(p => p.Score)
         .Select(p => (object)new { id = p.Id, score = p.Score, title = p.Score >= 500 ? "Гений дедукции" : "Судья" }).ToArray();
 
-    public static async Task Finish(GameDb db, IHubContext<GameHub> hub)
+    public static async Task Finish(GameDb db, IHubContext<GameHub> hub, GameSession session)
     {
-        var session = await db.Sessions.SingleAsync();
-        var players = await db.Players.ToListAsync();
+        var players = await db.Players.Where(p => p.SessionId == session.Id).ToListAsync();
         var voting = JsonData.Read<VotingData>(session.VotingJson);
-        var npcs = await db.Npcs.AsNoTracking().OrderBy(n => n.Number).ToListAsync();
+        var npcs = await db.Npcs.AsNoTracking().Where(n => n.SessionId == session.Id).OrderBy(n => n.Number).ToListAsync();
         foreach (var player in players) player.Score = voting.TeamScore;
         session.Phase = "finished"; session.Round = 5; session.RoundPhase = "reveal"; session.EndsAt = 0;
         await db.SaveChangesAsync();
         var scoreboard = Scoreboard(players);
-        await hub.Clients.All.SendAsync("GameEnded", new { reveal = Reveal(npcs), scoreboard, npcs = npcs.Select(NpcView).ToArray() });
-        await hub.Clients.All.SendAsync("ScoreUpdate", new { players = scoreboard });
+        await hub.Clients.Group(session.Id).SendAsync("GameEnded", new { reveal = Reveal(npcs), scoreboard, npcs = npcs.Select(NpcView).ToArray() });
+        await hub.Clients.Group(session.Id).SendAsync("ScoreUpdate", new { players = scoreboard });
     }
 }

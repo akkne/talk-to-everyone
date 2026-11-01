@@ -26,8 +26,8 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4"') do (
     echo   -^> http://!ip!:5173
 )
 echo.
-echo Код комнаты для друзей: 1234
-echo Для входа как Ведущий (Хост): введите имя и нажмите "Создать лобби (Хост)"
+echo Код комнаты создается автоматически после нажатия "Создать лобби".
+echo Передайте друзьям код из лобби.
 echo ========================================================
 echo.
 
@@ -46,8 +46,6 @@ if %HAS_DOTNET% equ 0 if %HAS_NPM% equ 0 (
     echo [1/2] Запуск игрового сервера Backend ^(порт 5000^)...
     set ASPNETCORE_URLS=http://0.0.0.0:5000
     set OLLAMA_BASE_URL=http://localhost:11434
-    set GAME_HOST_CODE=host
-    set GAME_ROOM_CODE=1234
     start "TalkToEveryone Backend" cmd /k "cd /d "%~dp0backend" && dotnet run --project Backend.csproj"
 
     echo [2/2] Запуск фронтенда Vite на 0.0.0.0:5173...

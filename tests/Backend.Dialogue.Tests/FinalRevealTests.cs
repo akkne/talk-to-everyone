@@ -23,26 +23,27 @@ public sealed class FinalRevealTests
         var options = new DbContextOptionsBuilder<GameDb>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
         await using var db = new GameDb(options);
-        db.Sessions.Add(new GameSession
+        var session = new GameSession
         {
             Phase = "playing", Round = 5, RoundPhase = "debate",
             VotingJson = JsonData.Write(new VotingData { Eliminated = ["friend-1", "friend-2", "actor-7", "actor-8"], TeamScore = 300 })
-        });
-        var me = new GamePlayer { Id = "player-a", Name = "Аня" };
+        };
+        db.Sessions.Add(session);
+        var me = new GamePlayer { Id = "player-a", Name = "Аня", SessionId = session.Id };
         db.Players.Add(me);
         db.Npcs.AddRange(Enumerable.Range(1, 6).Select(number => new GameNpc
         {
-            Id = $"friend-{number}", Number = number, Name = $"Друг {number}", Role = "friend",
+            Id = $"friend-{number}", SessionId = session.Id, Number = number, Name = $"Друг {number}", Role = "friend",
             RelatedNumber = number == 2 ? 0 : number % 2 == 0 ? number - 1 : number + 1
         }));
         db.Npcs.AddRange(Enumerable.Range(7, 4).Select(number => new GameNpc
         {
-            Id = $"actor-{number}", Number = number, Name = $"Актёр {number}", Role = "actor"
+            Id = $"actor-{number}", SessionId = session.Id, Number = number, Name = $"Актёр {number}", Role = "actor"
         }));
         await db.SaveChangesAsync();
 
         var events = new RecordingProxy();
-        await GameLogic.Finish(db, new RecordingHub(events));
+        await GameLogic.Finish(db, new RecordingHub(events), session);
         var ended = await events.Events.Reader.ReadAsync();
         Assert.Equal("GameEnded", ended.method);
         Assert.Equal(10, ended.payload.GetProperty("npcs").GetArrayLength());
@@ -53,7 +54,7 @@ public sealed class FinalRevealTests
         Assert.Equal("actor-7", ended.payload.GetProperty("reveal").GetProperty("actors")[0].GetString());
         Assert.Equal(300, ended.payload.GetProperty("scoreboard")[0].GetProperty("score").GetInt32());
 
-        var snapshot = JsonSerializer.SerializeToElement(await GameLogic.Snapshot(db, me, new GameSettings()));
+        var snapshot = JsonSerializer.SerializeToElement(await GameLogic.Snapshot(db, me, new GameSettings(), new MapCatalog(Path.Combine(AppContext.BaseDirectory, "Maps"))));
         Assert.Equal(10, snapshot.GetProperty("npcs").GetArrayLength());
         Assert.Equal(3, snapshot.GetProperty("reveal").GetProperty("trueFriends").GetArrayLength());
         Assert.Equal(4, snapshot.GetProperty("reveal").GetProperty("actors").GetArrayLength());

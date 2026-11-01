@@ -6,7 +6,7 @@ public static class GameRules
 {
     public static async Task<object> InfoAsync(GameDb db, GameSettings settings, CancellationToken ct = default)
     {
-        var roster = await db.Npcs.AsNoTracking().Select(n => new { n.Role }).ToListAsync(ct);
+        var roster = NpcDatabase.CreateRoster();
         return new
         {
             npcCount = roster.Count,

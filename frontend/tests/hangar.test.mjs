@@ -7,7 +7,7 @@ const {walk,buildSceneObstacles}=await loadModule('src/scene/movement.ts');
 const {nearestInteraction}=await loadModule('src/scene/interactions.ts');
 const {setupRoom}=await loadModule('src/scene/setup.ts');
 const {syncLocationProps}=await loadModule('src/scene/props.ts');
-const original=JSON.parse(readFileSync('public/scenes/hangar.json'));
+const original=JSON.parse(readFileSync('../backend/Maps/hangar.json'));
 const load=()=>structuredClone(original);
 const at=(x,z,y=0)=>({x,y,z});
 test('hangar IDs, finite coordinates, collision bounds, and all renderers',()=>{

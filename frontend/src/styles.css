@@ -169,3 +169,19 @@
 .hangar-tour{position:fixed;inset:0;background:#f4f2ee}.hangar-tour-bar{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;background:#fffffff0;border:1px solid #dcdedb;border-radius:8px;color:#253746;font-size:13px}.hangar-tour .movement-hint{background:#fffffff0;color:#253746;border-color:#dcdedb;max-width:90vw}@media(max-width:600px){.hangar-tour-bar{font-size:11px;align-items:flex-start}.hangar-tour-bar span{max-width:45%}}
 
 .hangar-tour-bar .secondary{background:#fff;color:#0a66c2;border:1px solid #dcdedb;font-family:inherit;border-radius:6px}
+/* Lobby directory and map selection follow the home page controls. */
+.home-shell .lobby-list{padding:24px 0 48px;border-top:1px solid var(--line)}
+.home-shell .lobby-list .section-head{margin-bottom:18px}
+.home-shell .lobby-list-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+.home-shell .lobby-list-card{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px}
+.home-shell .lobby-list-card div{display:grid;gap:4px}
+.home-shell .lobby-list-card strong{font-weight:600}
+.home-shell .lobby-list-card span{font-size:12px;color:var(--muted)}
+.home-shell .lobby-list-card .btn{min-height:38px;padding:7px 12px;white-space:nowrap}
+.home-shell .map-picker{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:16px 0;padding:12px;background:#e5edf3;border-radius:8px}
+.home-shell .map-picker .btn{min-height:36px;padding:6px 12px;font-size:12px}
+.home-shell .map-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+.home-shell .map-option{display:flex;justify-content:space-between;align-items:center;gap:5px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px 12px;text-align:left}
+.home-shell .map-option.selected{border-color:var(--blue);color:var(--blue)}
+.home-shell .map-option small{color:var(--muted)}
+@media(max-width:620px){.home-shell .header-nav{gap:8px;flex-wrap:wrap;justify-content:flex-end}.home-shell .header-nav .btn{min-height:36px;padding:7px 10px;font-size:11px}.home-shell .lobby-list-card{align-items:flex-start;flex-direction:column}.home-shell .lobby-list-card .btn{width:100%}}

@@ -1,0 +1,4 @@
+[
+  { "id": "hangar", "name": "Hangar", "sceneFile": "hangar.json", "available": true },
+  { "id": "club", "name": "Club", "sceneFile": null, "available": false }
+]

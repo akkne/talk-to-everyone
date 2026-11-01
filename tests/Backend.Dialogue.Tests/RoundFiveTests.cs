@@ -18,20 +18,25 @@ public sealed class RoundFiveTests
         var databaseName = Guid.NewGuid().ToString();
         services.AddDbContext<GameDb>(o => o.UseInMemoryDatabase(databaseName));
         using var provider = services.BuildServiceProvider();
+        string sessionId;
         using (var scope = provider.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<GameDb>();
-            db.Sessions.Add(new GameSession { Phase = "playing", Round = 5, RoundPhase = "debate", EndsAt = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds() });
-            db.Npcs.AddRange(LlmEmotionTests.Speaker, LlmEmotionTests.Partner);
+            var session = new GameSession { Phase = "playing", Round = 5, RoundPhase = "debate", EndsAt = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds() };
+            db.Sessions.Add(session);
+            sessionId = session.Id;
+            var speaker = LlmEmotionTests.Speaker; var partner = LlmEmotionTests.Partner;
+            speaker.SessionId = session.Id; partner.SessionId = session.Id;
+            db.Npcs.AddRange(speaker, partner);
             await db.SaveChangesAsync();
         }
         var events = new RecordingProxy();
         var transport = new ModelTransport("angry");
         var director = new RoundDirector(provider.GetRequiredService<IServiceScopeFactory>(), new RecordingHub(events),
-            new GameGate(), new GameSettings(), LlmEmotionTests.Client(transport), NullLogger<RoundDirector>.Instance);
+            new GameGate(), new GameSettings(), LlmEmotionTests.Client(transport), NullLogger<RoundDirector>.Instance, new SessionPauseRegistry());
         try
         {
-            director.TriggerRound(5, "debate");
+            director.TriggerRound(sessionId, 5, "debate");
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
             var replies = new List<JsonElement>();
             var sequence = new List<string>();
@@ -50,7 +55,7 @@ public sealed class RoundFiveTests
             Assert.All(saved, m => Assert.Equal("angry", m.Emotion));
             Assert.Contains(ModelTransport.Reply, transport.Requests[1].GetProperty("messages")[1].GetProperty("content").GetString());
         }
-        finally { director.CancelCurrentRound(); }
+        finally { director.CancelCurrentRound(sessionId); }
     }
 }
 

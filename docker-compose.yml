@@ -18,8 +18,8 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: talk-to-everyone-backend
     restart: unless-stopped
     depends_on:
@@ -35,8 +35,6 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://0.0.0.0:5000
       DATABASE_URL: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-talk_to_everyone};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
-      GAME_HOST_CODE: ${GAME_HOST_CODE:-host}
-      GAME_ROOM_CODE: ${GAME_ROOM_CODE:-1234}
       GAME_ROUND_SECONDS: ${GAME_ROUND_SECONDS:-120}
       GAME_CHOICE_SECONDS: ${GAME_CHOICE_SECONDS:-45}
       CADDY_DOMAIN: ${CADDY_DOMAIN:-}
