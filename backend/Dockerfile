@@ -1,9 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY Backend.csproj ./
+COPY backend/Backend.csproj ./
 RUN dotnet restore Backend.csproj
-COPY . .
+COPY backend/ .
 RUN dotnet publish Backend.csproj -c Release -o /app/publish --no-restore /p:UseAppHost=false
+
+COPY frontend/public/scenes/hangar.json /app/publish/Data/hangar.json
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app

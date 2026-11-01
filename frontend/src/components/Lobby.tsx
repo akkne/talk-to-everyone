@@ -16,8 +16,8 @@ interface HostInfo {
   ollama?: { connected: boolean; baseUrl: string; model: string; availableModels: string[] };
 }
 
-interface Props { onConnect: (token: string) => Promise<void>; onExit: () => void }
-export function Lobby({ onConnect, onExit }: Props) {
+interface Props { onConnect: (token: string) => Promise<void>; onExit: () => void; onTour: () => void }
+export function Lobby({ onConnect, onExit, onTour }: Props) {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [loginInput, setLoginInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -162,6 +162,7 @@ export function Lobby({ onConnect, onExit }: Props) {
       <main><section className="lobby"><button className="back" onClick={onExit}>← Вернуться на главную</button><div className="lobby-title"><div><h1>Теперь можно занять<br />своё место в студии.</h1></div><div className="room-code" onClick={() => copyText(hostInfo?.roomCode || '1234', 'code')} style={{ cursor: 'pointer' }} title="Нажмите, чтобы скопировать код комнаты">Код для друзей<b>{hostInfo?.roomCode || '1234'}</b>{copied === 'code' && <small style={{ display: 'block', fontSize: '0.75rem' }}>Скопировано!</small>}</div></div>
         <div className="lobby-grid"><div className="people"><div className="people-head"><span>Игроки в комнате</span><span>{lobby?.players.filter(p => p.connected).length ?? 0} онлайн (всего {lobby?.players.length ?? 0})</span></div>{lobby?.players.map(p => <div className="player" key={p.id}><span className="avatar">{initials(p.name)}</span><div><div className="player-name">{p.name}{p.id === playerId && <span className="muted"> · Вы</span>}</div><div className="player-role">{p.id === lobby.leaderId ? 'Ведущий комнаты (Хост)' : 'Судья'}</div></div><span className="player-ready"><i />{p.connected ? 'В комнате' : 'Нет связи'}</span></div>)}</div>
           <aside className="launch"><h2>Компания готова к игре?</h2><p>Вы окажетесь в общей студии, где участники начнут знакомиться с жюри и рассказывать свои истории.</p>
+            <button className="btn ghost block" onClick={onTour}>Осмотреть ангар</button>
             <button className="btn block" onClick={() => void start()} disabled={!lobby?.canStart || !leader || starting}>{starting ? 'Начинаем…' : leader ? 'Начать игру' : 'Ожидаем ведущего'}<Icon name="arrow" /></button>
             {!lobby?.canStart && <p className="subtle">Нужно игроков: {lobby?.minPlayers ?? '1'}</p>}
             {hostInfo?.endpoints && hostInfo.endpoints.length > 0 && (

@@ -186,7 +186,7 @@ public sealed partial class GameHub(
                 var idx = allPlayers.Count;
                 var initialPose = new PoseData
                 {
-                    Position = new Vec3(((idx % 4) - 1.5) * 1.4, 0, 5.0 + ((idx / 4) % 2) * 0.8)
+                    Position = LocationScene.Spawn(idx)
                 };
 
                 me = new GamePlayer
@@ -266,7 +266,7 @@ public sealed partial class GameHub(
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
             var npcs = await db.Npcs.OrderBy(n => n.Number).ToListAsync();
-            await Clients.All.SendAsync("GameStarted", new { rounds = GameLogic.RoundSpecs(settings.RoundSeconds), npcs = npcs.Select(GameLogic.NpcView).ToArray(), sceneVersion = "1" });
+            await Clients.All.SendAsync("GameStarted", new { rounds = GameLogic.RoundSpecs(settings.RoundSeconds), npcs = npcs.Select(GameLogic.NpcView).ToArray(), sceneVersion = (string?)LocationScene.Data["version"] });
             await Clients.All.SendAsync("GamePauseChanged", pauseGate.CurrentView(session, JsonData.Now));
             await Clients.All.SendAsync("RoundStarted", GameLogic.RoundView(session, pauseGate));
             foreach (var p in players.Where(p => p.Connected && p.ConnectionId != null))
@@ -339,7 +339,7 @@ public sealed partial class GameHub(
                 p.BoardJson = JsonData.Write(new BoardData());
                 p.QuestionsJson = JsonData.Write(new QuestionData());
                 p.ProcessedJson = "[]";
-                p.PoseJson = JsonData.Write(new PoseData { Position = new Vec3(((idx % 4) - 1.5) * 1.4, 0, 5.0 + ((idx / 4) % 2) * 0.8) });
+                p.PoseJson = JsonData.Write(new PoseData { Position = LocationScene.Spawn(idx) });
                 idx++;
             }
             if (connectedPlayers.Count > 0 && !connectedPlayers.Any(p => p.Role == "leader"))

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { addLocationProps, syncLocationProps } from './props';
 import type { SceneSpec } from '../shared/types';
 
 const material = (color: string, roughness = 0.88, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
@@ -8,22 +9,22 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
   const width = spec.room.width, depth = spec.room.depth, height = spec.room.height;
   scene.background = new THREE.Color('#eef5f4');
   scene.fog = new THREE.Fog('#eef5f4', Math.max(21, depth * 1.6), Math.max(40, depth * 2.7));
-  scene.add(new THREE.HemisphereLight('#ffffff', '#b9c9c6', 3.1));
-  const sun = new THREE.DirectionalLight('#fff9ed', 3.2);
+  scene.add(new THREE.HemisphereLight('#ffffff', '#b9c9c6', spec.lighting?.ambient ?? 3.1));
+  const sun = new THREE.DirectionalLight('#fff9ed', spec.lighting?.key ?? 3.2);
   sun.position.set(-4, height + 3, 6); scene.add(sun);
-  const fill = new THREE.DirectionalLight('#d2e9ed', 1.6);
+  const fill = new THREE.DirectionalLight('#d2e9ed', spec.lighting?.fill ?? 1.6);
   fill.position.set(6, 4, -5); scene.add(fill);
   const addBox = (x: number, y: number, z: number, w: number, h: number, d: number, mat: THREE.Material) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     mesh.position.set(x, y, z); scene.add(mesh); return mesh;
   };
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material('#e8eee9'));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material(spec.lighting?.floor ?? '#e8eee9'));
   floor.rotation.x = -Math.PI / 2; floor.position.y = -0.035; scene.add(floor);
   const tileLine = material('#d1ded9');
   for (let x = -width / 2 + 1; x < width / 2; x += 2) addBox(x, -0.022, 0, 0.012, 0.008, depth - 0.5, tileLine);
   for (let z = -depth / 2 + 1; z < depth / 2; z += 2) addBox(0, -0.02, z, width - 0.5, 0.008, 0.012, tileLine);
 
-  const wallMat = material('#f9f7ef');
+  const wallMat = material(spec.lighting?.walls ?? '#f9f7ef');
   const platformMat = material('#d9e8e6');
   const edgeMat = material('#78a9a8', 0.55);
   for (const part of spec.room.walls) addBox(part.center.x, part.center.y, part.center.z, part.size.x, part.size.y, part.size.z, wallMat);
@@ -91,24 +92,10 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
     scene.add(chair);
   }
 
-  // Inset panels and trim frame the back wall without occupying the walkable floor.
-  const backZ = -depth / 2 + 0.2;
-  const panel = material('#d7e8e4');
-  const rail = material('#a7bbb5');
-  addBox(0, height * 0.62, backZ + 0.05, width * 0.7, height * 0.53, 0.04, panel);
-  for (const x of [-width * 0.37, width * 0.37]) {
-    addBox(x, height * 0.55, backZ + 0.1, 0.06, height * 0.83, 0.08, rail);
-    addBox(x, height * 0.55, -backZ - 0.1, 0.06, height * 0.83, 0.08, rail);
-  }
-  for (const z of [backZ + 0.1, -backZ - 0.1]) {
-    addBox(0, 0.18, z, width - 0.45, 0.25, 0.07, wood);
-    addBox(0, height - 0.38, z, width - 0.45, 0.07, 0.07, wood);
-  }
-  // Ceiling light boxes make the studio feel evenly lit without heavy real-time shadows.
-  for (const x of [-width * 0.25, 0, width * 0.25]) for (const z of [-depth * 0.22, depth * 0.22]) {
-    addBox(x, height - 0.12, z, 2.35, 0.08, 0.72, material('#e1e7e0'));
-    addBox(x, height - 0.17, z, 2.1, 0.02, 0.52, new THREE.MeshBasicMaterial({ color: '#fffdf2' }));
-  }
+  if (spec.theme === 'studio') addBox(0, height + .12, 0, width, .2, depth, material(spec.lighting?.ceiling ?? '#46535e'));
+  addLocationProps(scene, spec);
+  syncLocationProps(scene, spec);
+
 }
 
 /** Release all GPU resources created by the scene, including text sprites. */

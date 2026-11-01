@@ -32,6 +32,9 @@ function isInRampCorridor(p: Vec3, r: Ramp): boolean {
 export function buildSceneObstacles(scene: SceneSpec, extraObstacles: Box[] = []): Box[] {
   const obstacles: Box[] = [...(scene.room?.obstacles ?? [])];
 
+  for (const p of scene.objects ?? []) if (p.collider) obstacles.push({ id:p.id, ...p.collider });
+  for (const d of scene.doors ?? []) if (!d.open) obstacles.push(d);
+
   // 1. Chairs (Player seats)
   if (scene.playerSeats) {
     for (const seat of scene.playerSeats) {

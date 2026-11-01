@@ -5,6 +5,7 @@ import { tickDialogue, useGameStore } from '../store/gameStore';
 import { useVoiceSettingsStore } from '../store/voiceSettingsStore';
 import { SpatialVoiceChannel } from '../audio/SpatialVoiceChannel';
 import { setupRoom, disposeScene, createNpcChair } from './setup';
+import { syncLocationProps } from './props';
 import { CameraController } from './CameraController';
 import { Npc } from './Npc';
 import { NpcLod } from './lod';
@@ -39,7 +40,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     }
     const scene = new THREE.Scene();
     setupRoom(scene, spec);
-    const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 40);
+    const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 100);
     const controller = new CameraController(
       camera,
       element,
@@ -89,6 +90,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
 
     const sync = () => {
       const state = useGameStore.getState();
+      if(state.scene){ controller.syncLocation(state.scene);syncLocationProps(scene,state.scene); }
       controller.setOccupied(
         state.seats.filter(seat => seat.occupiedBy && seat.occupiedBy !== state.playerId).map(seat => seat.id)
       );
@@ -259,7 +261,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         ref={canvas}
         className="h-full w-full outline-none"
         tabIndex={0}
-        aria-label="Комната расследования. WASD — ходьба, Space — прыжок, мышь — обзор, E — сесть или встать, G — рация."
+        aria-label="Комната расследования. WASD — ходьба, Space — прыжок, мышь — обзор, E — взаимодействовать, сесть или встать, G — рация."
       />
       {error && (
         <div className="scene-error" role="alert">

@@ -3,12 +3,16 @@ import type { GameClient, Pose, Vec3 } from '../shared/types';
 import { UI } from '../shared/config';
 import { createId } from '../shared/id';
 import { C2S } from '../shared/contract';
+import { nearestInteraction } from './interactions';
 import { walk, WALK_SPEED } from './movement';
 import { jumpHeight, landingDip, JUMP_DURATION, LANDING_DURATION } from './jump';
 import type { Box, SceneSpec, SeatSpec } from './world';
 
 /** Camera and keyboard controls. The server confirms every pose. */
 export class CameraController {
+  private feedback = '';
+  private feedbackUntil = 0;
+  private feedbackEvent = (event: Event) => { this.feedback = (event as CustomEvent<string>).detail; this.feedbackUntil = performance.now()+2500; };
   private yaw = 0;
   private pitch = 0;
   private position: Vec3 = { x: 0, y: 0, z: 5 };
@@ -27,6 +31,7 @@ export class CameraController {
   private landingElapsed = LANDING_DURATION;
   constructor(private readonly camera: PerspectiveCamera, private readonly canvas: HTMLCanvasElement, private readonly client: GameClient,
     private readonly scene: SceneSpec, private readonly onHint: (hint: string) => void, private readonly onError: (message: string) => void) {
+    window.addEventListener('location-feedback', this.feedbackEvent);
     canvas.addEventListener('click', this.lock);
     document.addEventListener('mousemove', this.move);
     document.addEventListener('keydown', this.keyDown);
@@ -53,7 +58,7 @@ export class CameraController {
       const held = this.keys.has(event.code);
       event.preventDefault(); this.keys.add(event.code);
       if (event.code.startsWith('Arrow')) this.rotate(event.code === 'ArrowLeft' ? -0.06 : event.code === 'ArrowRight' ? 0.06 : 0, event.code === 'ArrowUp' ? -0.04 : event.code === 'ArrowDown' ? 0.04 : 0);
-      if (event.code === 'KeyE' && !event.repeat) void this.toggleSeat();
+      if (event.code === 'KeyE' && !event.repeat) void this.interact();
       if (event.code === 'Space' && !held && !event.repeat && this.mode === 'walking' && this.jumpElapsed === null && !this.pending) {
         this.jumpElapsed = 0; this.landingElapsed = LANDING_DURATION;
       }
@@ -85,7 +90,7 @@ export class CameraController {
   }
   update(now: number) {
     const dt = this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.05) : 0; this.lastFrame = now;
-    this.onHint(!this.enabled ? '' : this.seat ? 'E — встать' : `WASD — ходьба · Space — прыжок · Мышь — обзор${this.nearestSeat() ? ' · E — сесть' : ''}`);
+    this.onHint(!this.enabled ? '' : now < this.feedbackUntil ? this.feedback : this.seat ? 'E — встать' : nearestInteraction(this.scene,this.position)?.hint ?? `WASD — ходьба · Space — прыжок · Мышь — обзор${this.nearestSeat() ? ' · E — сесть' : ''}`);
     if (this.mode !== 'walking' || !dt) return;
     // Finish a jump even if focus is lost or a panel opens mid-air.
     const animating = this.jumpElapsed !== null || this.landingElapsed < LANDING_DURATION;
@@ -113,6 +118,16 @@ export class CameraController {
     }));
     this.position = walk(this.position, dx, dz, this.scene, dynamicObstacles);
     this.apply();
+  }
+  syncLocation(spec: SceneSpec) { this.scene.doors=spec.doors;this.scene.foods=spec.foods; }
+  private async interact() {
+    if(this.pending || this.jumpElapsed !== null)return;
+    const item = this.seat ? null : nearestInteraction(this.scene,this.position);
+    if(!item){await this.toggleSeat();return;}
+    this.pending=true;
+    try { await this.client.send(C2S.INTERACT,{requestId:createId(),id:item.id}); }
+    catch(error) { this.feedback=error instanceof Error ? error.message : 'Действие не выполнено';this.feedbackUntil=performance.now()+2500; }
+    finally {this.pending=false;}
   }
   private nearestSeat() {
     return this.scene.playerSeats.filter(s => !this.occupied.has(s.id))
@@ -144,6 +159,7 @@ export class CameraController {
   }
   dispose() {
     if (document.pointerLockElement === this.canvas) document.exitPointerLock();
+    window.removeEventListener('location-feedback',this.feedbackEvent);
     this.canvas.removeEventListener('click', this.lock); document.removeEventListener('mousemove', this.move);
     document.removeEventListener('keydown', this.keyDown); document.removeEventListener('keyup', this.keyUp);
     document.removeEventListener('pointerlockchange', this.clearKeys);

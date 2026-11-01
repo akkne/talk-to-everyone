@@ -120,6 +120,8 @@ const handlers: Handlers = {
       error: null, boardOpen: false,
     });
   },
+  [S2C.LOCATION_STATE]: p => set(s => ({ scene:s.scene ? {...s.scene,doors:p.doors,foods:p.foods}:null })),
+  [S2C.INTERACTION_FEEDBACK]: p => { window.dispatchEvent(new CustomEvent('location-feedback', {detail:p.message})); },
   [S2C.CHUNK_DATA]: () => {},
   [S2C.PLAYERS_TICK]: p => set({ players: p.players }),
   [S2C.SEAT_STATE]: p => set({ seats: p.seats }),

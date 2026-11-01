@@ -12,7 +12,8 @@ export interface NpcAppearance { style: 'sport' | 'tech' | 'creative' | 'smart' 
 export interface NpcMeta { id: NpcId; number: number; name: string; color: string; anchorId: string; appearance?: NpcAppearance }
 export interface NpcDetails { displayName: string; photoColor: string; voiceHint: string }
 export interface Chunk { id: NpcId; details: NpcDetails; sizeBytes: number }
-export interface SceneSpec { version: string; room: { width: number; depth: number; height: number; platforms: { id: string; center: Vec3; size: Vec3 }[]; ramps: { id: string; from: Vec3; to: Vec3; width: number }[]; obstacles: { id: string; center: Vec3; size: Vec3 }[]; walls: { id: string; center: Vec3; size: Vec3 }[] }; npcStands: { id: string; position: Vec3; yaw: number; level: number }[]; playerSeats: { id: string; position: Vec3; yaw: number; exit: Vec3 }[]; spawnPoints: Vec3[] }
+export type { SceneSpec } from '../scene/world';
+import type { SceneSpec } from '../scene/world';
 export interface SeatState { id: string; occupiedBy: string | null }
 export interface Round { n: number; phase: string; endsAt: number; choiceEndsAt: number | null; paused?: boolean; pausedRemainingMs?: number }
 export interface RoundSpec { n: number; phase: string; title: string; durationSec: number }
@@ -27,6 +28,7 @@ export interface VotingState { round: number; stage: number; candidates: [NpcId,
 export interface Snapshot { voting: VotingState | null; teamScore: number; sessionId: string; me: { id: string; role: string }; phase: 'lobby' | 'playing' | 'finished'; round: Round | null; rounds: RoundSpec[]; gameInfo: GameInfo; scene: SceneSpec; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board; questions: QuestionState; chat: ChatMessage[]; worldSizeBytes: number; score: Record<string, number>; scoreboard: ScoreEntry[] | null; reveal: RevealData | null; paused?: boolean; pausedRemainingMs?: number; participants?: ParticipantStatus[]; speakingPlayerIds?: string[] }
 type Request = { requestId: string };
 export interface Commands {
+  [C2S.INTERACT]: Request & { id: string };
   [C2S.AUTH]: { token: string; name?: string };
   [C2S.START_GAME]: undefined;
   [C2S.RESET_GAME]: undefined;
@@ -51,6 +53,8 @@ export interface Commands {
 }
 interface Reject { code: string; message: string; requestId?: string | null }
 export interface Events {
+  [S2C.LOCATION_STATE]: { doors: NonNullable<SceneSpec['doors']>; foods: NonNullable<SceneSpec['foods']> };
+  [S2C.INTERACTION_FEEDBACK]: { message: string };
   [S2C.VOTING_STATE]: VotingState;
   [S2C.NPCS_REMOVED]: { ids: NpcId[]; teamScore: number };
   [S2C.AUTH_OK]: { playerId: string; sessionId: string; role: string };

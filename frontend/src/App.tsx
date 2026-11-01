@@ -41,6 +41,7 @@ export default function App() {
   const [client, setClient] = useState<GameClient>(() => new SignalRClient(receiveEvent, connectionStatus));
   const activeClient = useRef(client);
   const [questions, setQuestions] = useState(false);
+  const [tour, setTour] = useState(false);
   const { phase, boardOpen, escapeOpen, error, connection, round, voting, paused } = useGameStore();
 
   const connect = async (token: string) => {
@@ -57,6 +58,7 @@ export default function App() {
     await activeClient.current.disconnect();
     resetGame();
     resetCache();
+    setTour(false);
     setQuestions(false);
   };
 
@@ -169,8 +171,13 @@ export default function App() {
 
   return (
     <ClientContext.Provider value={client}>
-      {phase === 'lobby' ? (
-        <Lobby onConnect={connect} onExit={() => void exit()} />
+      {phase === 'lobby' && tour && connection === 'ready' ? (
+        <div className="hangar-tour">
+          <Scene controlsBlocked={escapeOpen} />
+          <div className="hangar-tour-bar"><span>Ангар · 40 × 30 × 12 м · Аппаратная справа</span><button className="secondary" onClick={() => setTour(false)}>Вернуться в лобби</button></div>
+        </div>
+      ) : phase === 'lobby' ? (
+        <Lobby onConnect={connect} onExit={() => void exit()} onTour={() => setTour(true)} />
       ) : phase === 'reveal' ? (
         <Reveal onExit={() => void exit()} />
       ) : (

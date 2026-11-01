@@ -1,5 +1,6 @@
 export const HUB = '/hubs/game';
 export const C2S = {
+  INTERACT: 'Interact',
   AUTH: 'Auth',
   START_GAME: 'StartGame',
   RESET_GAME: 'ResetGame',
@@ -26,6 +27,8 @@ export const C2S = {
 export const S2C = {
   VOTING_STATE: 'VotingState',
   NPCS_REMOVED: 'NpcsRemoved',
+  LOCATION_STATE: 'LocationState',
+  INTERACTION_FEEDBACK: 'InteractionFeedback',
   AUTH_OK: 'AuthOk',
   AUTH_ERR: 'AuthErr',
   LOBBY_STATE: 'LobbyState',

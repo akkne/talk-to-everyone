@@ -7,34 +7,9 @@ namespace Backend;
 
 public static class GameLogic
 {
-    public const int PlayerSeatCount = 4;
-    public static double SeatX(int seat) => (seat - (PlayerSeatCount + 1) / 2.0) * 1.6;
-    public static readonly object Scene = new
-    {
-        version = "1", room = new
-        {
-            width = 18, depth = 14, height = 6,
-            platforms = new[] { new { id = "upper", center = new Vec3(0, 1.35, -4.5), size = new Vec3(14, 0.3, 2.5) } },
-            ramps = new[] { new { id = "left-ramp", from = new Vec3(-6.5, 0, 0), to = new Vec3(-6.5, 1.5, -4), width = 1.3 },
-                new { id = "right-ramp", from = new Vec3(6.5, 0, 0), to = new Vec3(6.5, 1.5, -4), width = 1.3 } },
-            obstacles = Enumerable.Range(1, 8).Select(n => (object)new {
-                id = $"chair-seat-{n}",
-                center = new Vec3((n - 4.5) * 1.6, 0.5, 3.5),
-                size = new Vec3(0.75, 1.0, 0.72)
-            }).Concat(Enumerable.Range(1, 10).Select(n => (object)new {
-                id = $"npc-anchor-{n}",
-                center = new Vec3((n <= 5 ? n - 3 : n - 8) * 2.1 + (n <= 5 ? 0 : 0.45), (n <= 5 ? 0 : 1.5) + 0.9, n <= 5 ? -2.5 : -5),
-                size = new Vec3(0.7, 1.8, 0.7)
-            })).ToArray(), walls = new[] {
-                new { id = "back", center = new Vec3(0, 3, -7), size = new Vec3(18, 6, 0.3) },
-                new { id = "front", center = new Vec3(0, 3, 7), size = new Vec3(18, 6, 0.3) },
-                new { id = "left", center = new Vec3(-9, 3, 0), size = new Vec3(0.3, 6, 14) },
-                new { id = "right", center = new Vec3(9, 3, 0), size = new Vec3(0.3, 6, 14) } }
-        },
-        npcStands = Enumerable.Range(1, 10).Select(n => new { id = $"anchor-{n}", position = new Vec3((n <= 5 ? n - 3 : n - 8) * 2.1 + (n <= 5 ? 0 : 0.45), n <= 5 ? 0 : 1.5, n <= 5 ? -2.5 : -5), yaw = 0, level = n <= 5 ? 0 : 1 }).ToArray(),
-        playerSeats = Enumerable.Range(1, PlayerSeatCount).Select(n => new { id = $"seat-{n}", position = new Vec3(SeatX(n), 0, 3.5), yaw = 0, exit = new Vec3(SeatX(n), 0, 5) }).ToArray(),
-        spawnPoints = new[] { new Vec3(0, 0, 5) }
-    };
+    public static int PlayerSeatCount => LocationScene.Seats.Count;
+    public static double SeatX(int seat) => LocationScene.Point(LocationScene.Seats[seat - 1]!["position"]!).X;
+    public static object Scene => LocationScene.Data;
 
     public static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     public static string PairKey(string a, string b) => string.CompareOrdinal(a, b) < 0 ? $"{a}:{b}" : $"{b}:{a}";

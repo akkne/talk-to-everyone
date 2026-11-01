@@ -242,7 +242,7 @@ public sealed class EscapeMenuAndPauseTests
             ConnectionId = "conn-judge",
             BoardJson = JsonData.Write(new BoardData()),
             QuestionsJson = JsonData.Write(new QuestionData()),
-            PoseJson = JsonData.Write(new PoseData { Position = new Vec3(0.8, 0, 3.5), Mode = "walking" })
+            PoseJson = JsonData.Write(new PoseData { Position = LocationScene.Point(LocationScene.Seat("seat-3")["exit"]!), Mode = "walking" })
         };
 
         db.Sessions.Add(session);
