@@ -12,6 +12,7 @@ import { Npc } from './Npc';
 import { NpcLod } from './lod';
 import { npcLabel } from '../shared/npcLabel';
 import { LoftSoundtrack } from './LoftSoundtrack';
+import { BartenderWaveController, type JuryEntity } from './BartenderWaveController';
 import { sampleDirector } from './director';
 
 /** <summary>One visible canvas; subscription callbacks bridge Zustand to the imperative three.js scene and 3D spatial voice audio.</summary> */
@@ -56,6 +57,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     const npcs = new Map<string, Npc>();
     const judges = new Map<string, Npc>();
     const loftCharacters: Npc[] = [];
+    let bartenderController: BartenderWaveController | null = null;
     let lastDirectorSpeech = 0;
     let directorPausedAt = 0;
     let director: Npc | null = null;
@@ -84,6 +86,9 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
           director = actor;
         }
         scene.add(actor.group); loftCharacters.push(actor);
+        if (character.id === 'bartender-mark' || character.type === 'functional-service-npc' || character.id.includes('bartender')) {
+          bartenderController = new BartenderWaveController(actor, position);
+        }
       }
     }
     const lod = new NpcLod(camera, npcs, client);
@@ -254,14 +259,14 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       tickDialogue(now);
       npcs.forEach(npc => npc.update(now));
       judges.forEach(judge => judge.update(now));
-      loftCharacters.forEach(character => { if (character !== director || !state.scene?.directorRun) character.update(now); });
+// handled below
       const fan = scene.getObjectByName('loft-ceiling-fan');
       if (fan && state.scene?.fanOn) fan.rotation.y += .14;
       lod.update(now, state.connection === 'ready');
 
       const me = state.players.find(p => p.id === state.playerId);
       const others = state.players.filter(p => p.id !== state.playerId && p.connected);
-      if (director && state.scene?.directorRun) {
+if (director && state.scene?.directorRun) {
         const run = state.scene.directorRun;
         if (state.paused && !directorPausedAt) directorPausedAt = Date.now();
         if (!state.paused) directorPausedAt = 0;
@@ -279,6 +284,15 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
         }
         if (!state.paused) director.update(now);
       }
+      if (bartenderController) {
+        const mePos = { x: camera.position.x, y: me?.pose.position.y ?? 0, z: camera.position.z };
+        const juryList: JuryEntity[] = [
+          { id: state.playerId ?? 'local-me', position: mePos },
+          ...others.map(p => ({ id: p.id, position: p.pose.position })),
+        ];
+        bartenderController.update(now, juryList);
+      }
+      loftCharacters.forEach(character => { if (character !== director || !state.scene?.directorRun) character.update(now); });
       voiceChannel.updateSpatialPositions(
         {
           position: { x: camera.position.x, y: me?.pose.position.y ?? 0, z: camera.position.z },

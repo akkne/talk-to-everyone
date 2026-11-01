@@ -2005,5 +2005,24 @@
       }
     }
   ],
-  "foods": []
+  "foods": [],
+  "functionalNPCs": [
+    {
+      "id": "bartender-mark",
+      "name": "Марк",
+      "type": "functional-service-npc",
+      "position": {
+        "x": -14.5,
+        "y": 0,
+        "z": 0.0
+      },
+      "yaw": 1.570796,
+      "lookTarget": {
+        "x": -12.0,
+        "y": 1.2,
+        "z": 0.0
+      },
+      "fsmState": "WIPING_GLASS"
+    }
+  ]
 }

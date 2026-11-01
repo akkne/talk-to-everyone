@@ -10,6 +10,7 @@ import { AvatarRig, characterLook, NPC_SEAT, type SeatFit } from './AvatarRig';
 export class Npc {
   readonly group = new THREE.Group();
   get head() { return this.rig.head; }
+  get avatarRig() { return this.rig; }
   private rig: AvatarRig;
   private avatarKey = '';
   private targetSeated = false;
@@ -32,6 +33,9 @@ export class Npc {
   private targetPos: THREE.Vector3 | null = null;
   private targetYaw = 0;
   private targetPitch = 0;
+  private waveActive = false;
+  private waveStartedAt = 0;
+  private waveDuration = 4000;
   workingAtLaptop = false;
   walking = false;
   takingFood = false;
@@ -148,6 +152,30 @@ export class Npc {
     this.avatar.add(this.voiceMicBadge);
   }
   react(at: number) { this.reactionAt = at; }
+  /** Triggers a greeting wave animation for the specified duration in ms (default 4000ms / 4s). */
+  wave(durationMs = 4000, now = performance.now()) {
+    this.waveActive = true;
+    this.waveStartedAt = now;
+    this.waveDuration = durationMs;
+  }
+  stopWaving() {
+    this.waveActive = false;
+  }
+  isWaving(now = performance.now()): boolean {
+    return this.waveActive && now >= this.waveStartedAt && now < this.waveStartedAt + this.waveDuration;
+  }
+  getWaveWeight(now = performance.now()): number {
+    if (!this.waveActive || now < this.waveStartedAt || now >= this.waveStartedAt + this.waveDuration) {
+      return 0;
+    }
+    const elapsed = now - this.waveStartedAt;
+    const remaining = (this.waveStartedAt + this.waveDuration) - now;
+    const easeIn = Math.min(1, Math.max(0, elapsed / 350));
+    const easeOut = Math.min(1, Math.max(0, remaining / 450));
+    const smoothIn = easeIn * easeIn * (3 - 2 * easeIn);
+    const smoothOut = easeOut * easeOut * (3 - 2 * easeOut);
+    return Math.min(smoothIn, smoothOut);
+  }
   update(now: number) {
     const dt = this.lastUpdate ? Math.max(0, Math.min((now - this.lastUpdate) / 1000, 0.05)) : 1 / 60;
     this.lastUpdate = now;
@@ -173,7 +201,17 @@ export class Npc {
     this.avatar.position.y = this.jumpOffset - dip;
     this.avatar.rotation.set(0, 0, 0);
     this.avatar.scale.set(1 + dip * .4, 1 - dip, 1 + dip * .4);
-    const bodyPose = this.rig.pose(this.seatedAmount, this.seatFit, this.hasChair ? .65 : this.targetSeated ? .75 : 0, pose, tuck, this.targetPitch);
+    let waveWeight = 0;
+    let waveTime = 0;
+    if (this.waveActive) {
+      if (now >= this.waveStartedAt + this.waveDuration) {
+        this.waveActive = false;
+      } else {
+        waveWeight = this.getWaveWeight(now);
+        waveTime = (now - this.waveStartedAt) / 1000;
+      }
+    }
+    const bodyPose = this.rig.pose(this.seatedAmount, this.seatFit, this.hasChair ? .65 : this.targetSeated ? .75 : 0, pose, tuck, this.targetPitch, waveWeight, waveTime);
     if (this.workingAtLaptop) this.rig.typeOnLaptop(now);
     if (this.walking) this.rig.walkCycle(now);
     if (this.takingFood) this.rig.reachForFood(now);

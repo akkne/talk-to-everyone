@@ -59,6 +59,8 @@ export class AvatarRig {
   private readonly arms: Arm[] = [];
   private readonly lowerLip: THREE.Mesh;
   private readonly materials: Record<MaterialKey, THREE.MeshStandardMaterial>;
+  get rightArm() { return this.arms[1]; }
+  get leftArm() { return this.arms[0]; }
   constructor(readonly look: CharacterLook) {
     const colors: Record<MaterialKey, string> = { skin: look.skin, hair: look.hairColor, shirt: look.color, pants: look.pants,
       shoe: '#eee9df', sole: '#77818a', trim: '#e9e2ef', lip: '#a76e67', mouth: '#704b46', accent: look.color, eye: '#30343a' };
@@ -223,6 +225,7 @@ export class AvatarRig {
       for (const side of [-1, 1]) this.patch(side * .08, 1.26, .012, .24, 'pants');
     }
   }
+
   /** Hands remain over the keyboard while the seated director works. */
   typeOnLaptop(now: number) {
     this.upper.rotation.x = .08;
@@ -250,7 +253,7 @@ export class AvatarRig {
     this.upper.rotation.x = .12;
     this.head.rotation.x = .15;
   }
-  pose(amount: number, fit: SeatFit, advance: number, mood: MoodPose, tuck: number, pitch: number) {
+  pose(amount: number, fit: SeatFit, advance: number, mood: MoodPose, tuck: number, pitch: number, waveWeight = 0, waveTime = 0) {
     const seated = smooth(amount), stand = 1 - seated;
     const hipY = THREE.MathUtils.lerp(ANATOMY.hip, fit.surface + ANATOMY.pelvisRadius, seated) + (fit.surface > .60 ? .06 * Math.sin(Math.PI * seated) : 0);
     const hipZ = THREE.MathUtils.lerp(advance, fit.hipZ, seated);
@@ -274,6 +277,35 @@ export class AvatarRig {
     this.head.rotation.x = THREE.MathUtils.clamp(pitch + mood.headX, seated > .1 ? -.12 : -.5, seated > .1 ? .12 : .5);
     this.head.rotation.z = mood.headZ * gesture;
     this.brows.forEach((brow, i) => { brow.rotation.z = (i ? -1 : 1) * mood.brow; });
+    if (waveWeight > 0) {
+      const rightArm = this.arms[1];
+      if (rightArm) {
+        const wavePhase = waveTime * 9.5;
+        const waveCycle = Math.sin(wavePhase);
+        const waveCycleCos = Math.cos(wavePhase);
+        const targetShoulderX = -1.35;
+        const targetShoulderY = -0.15;
+        const targetShoulderZ = 0.75 + Math.sin(wavePhase * 0.5) * 0.08;
+        const targetElbowX = -1.3;
+        const targetElbowY = waveCycleCos * 0.12;
+        const targetElbowZ = waveCycle * 0.42;
+        const targetWristX = 0.15;
+        const targetWristZ = waveCycle * 0.28;
+
+        rightArm.shoulder.rotation.x = THREE.MathUtils.lerp(rightArm.shoulder.rotation.x, targetShoulderX, waveWeight);
+        rightArm.shoulder.rotation.y = THREE.MathUtils.lerp(rightArm.shoulder.rotation.y, targetShoulderY, waveWeight);
+        rightArm.shoulder.rotation.z = THREE.MathUtils.lerp(rightArm.shoulder.rotation.z, targetShoulderZ, waveWeight);
+
+        rightArm.elbow.rotation.x = THREE.MathUtils.lerp(rightArm.elbow.rotation.x, targetElbowX, waveWeight);
+        rightArm.elbow.rotation.y = THREE.MathUtils.lerp(rightArm.elbow.rotation.y, targetElbowY, waveWeight);
+        rightArm.elbow.rotation.z = THREE.MathUtils.lerp(rightArm.elbow.rotation.z, targetElbowZ, waveWeight);
+
+        rightArm.wrist.rotation.x = THREE.MathUtils.lerp(rightArm.wrist.rotation.x, targetWristX, waveWeight);
+        rightArm.wrist.rotation.z = THREE.MathUtils.lerp(0, targetWristZ, waveWeight);
+      }
+      this.head.rotation.z += Math.cos(waveTime * 9.5) * 0.05 * waveWeight;
+      this.brows.forEach((brow, i) => { brow.rotation.z += (i ? -1 : 1) * 0.08 * waveWeight; });
+    }
     this.mouth.scale.y = (this.look.custom?.mouth === 'surprised' ? .019 : this.look.custom?.mouth === 'grin' ? .008 : .0035) * (1 + mood.mouthOpen * 5);
     this.lowerLip.position.y = -.087 - mood.mouthOpen * .012;
     return { labelY: hipY + 1.03, hipY, hipZ };
