@@ -12,14 +12,7 @@ public sealed class RoundDirector(
     ILogger<RoundDirector> log,
     SessionPauseRegistry pauseRegistry)
 {
-    private sealed class RoundRun(int round)
-    {
-        public int Round { get; } = round;
-        public CancellationTokenSource Cts { get; } = new();
-        public bool Complete { get; set; }
-    }
-
-    private readonly Dictionary<string, RoundRun> active = new();
+    private readonly Dictionary<string, (int Round, CancellationTokenSource Cts)> active = new();
     private readonly object sync = new();
 
     public void CancelCurrentRound(string sessionId)
@@ -32,26 +25,10 @@ public sealed class RoundDirector(
         }
     }
 
-    public void SkipCurrentRound(string sessionId)
-    {
-        lock (sync)
-        {
-            if (!active.TryGetValue(sessionId, out var current)) return;
-            current.Complete = true;
-            current.Cts.Cancel();
-        }
-    }
-
-    public bool IsRoundComplete(string sessionId, int round)
-    {
-        lock (sync)
-            return active.TryGetValue(sessionId, out var current) && current.Round == round && current.Complete;
-    }
-
     public void TriggerRound(string sessionId, int round, string phase)
     {
         if (round is not (1 or 2 or 3 or 5)) return;
-        RoundRun run;
+        CancellationToken token;
         lock (sync)
         {
             if (active.TryGetValue(sessionId, out var current))
@@ -60,17 +37,16 @@ public sealed class RoundDirector(
                 current.Cts.Cancel();
                 current.Cts.Dispose();
             }
-            run = new RoundRun(round);
-            active[sessionId] = run;
+            var cts = new CancellationTokenSource();
+            active[sessionId] = (round, cts);
+            token = cts.Token;
         }
-        var token = run.Cts.Token;
-        _ = Task.Run(() => RunRoundSpeechesAsync(sessionId, round, phase, run, token), token);
+        _ = Task.Run(() => RunRoundSpeechesAsync(sessionId, round, phase, token), token);
     }
 
-    private async Task RunRoundSpeechesAsync(string sessionId, int round, string phase, RoundRun run, CancellationToken ct)
+    private async Task RunRoundSpeechesAsync(string sessionId, int round, string phase, CancellationToken ct)
     {
         var pauseGate = pauseRegistry.For(sessionId);
-        var completed = false;
         try
         {
             await Task.Delay(1200, ct);
@@ -86,23 +62,13 @@ public sealed class RoundDirector(
                 activeNpcs = fullRoster.Where(n => !eliminated.Contains(n.Id)).ToList();
             }
 
-            if (activeNpcs.Count == 0) { completed = true; return; }
+            if (activeNpcs.Count == 0) return;
             var paceDelayMs = Math.Clamp((settings.RoundSeconds * 1000) / Math.Max(2, activeNpcs.Count + 2), 1800, 6500);
 
             foreach (var npc in activeNpcs)
             {
                 ct.ThrowIfCancellationRequested();
                 await pauseGate.WaitWhilePausedAsync(ct);
-
-                // A restarted worker must resume at the first missing slot, never repeat a saved turn.
-                using (var scope = scopes.CreateScope())
-                {
-                    var db = scope.ServiceProvider.GetRequiredService<GameDb>();
-                    var currentSession = await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == sessionId, ct);
-                    if (currentSession.Phase != "playing" || currentSession.Round != round || currentSession.RoundPhase == "choice") return;
-                    if (await db.ConversationEvents.AsNoTracking().AnyAsync(e => e.GameId == currentSession.GameId && e.Round == round &&
-                        e.SpeakerNpcId == npc.Id && !e.IsQuestion, ct)) continue;
-                }
 
                 await hub.Clients.Group(sessionId).SendAsync("NpcThinking", new { npc = npc.Id, questionId = $"r{round}:{npc.Id}" }, ct);
 
@@ -131,7 +97,7 @@ public sealed class RoundDirector(
                 catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
                     log.LogWarning(ex, "NPC speech failed for {NpcId} in round {Round}", npc.Id, round);
-                    throw;
+                    continue;
                 }
 
                 await pauseGate.WaitWhilePausedAsync(ct);
@@ -175,9 +141,8 @@ public sealed class RoundDirector(
                     gate.Lock.Release();
                 }
 
-                if (!ReferenceEquals(npc, activeNpcs[^1])) await Task.Delay(paceDelayMs, ct);
+                await Task.Delay(paceDelayMs, ct);
             }
-            completed = true;
         }
         catch (OperationCanceledException)
         {
@@ -186,21 +151,6 @@ public sealed class RoundDirector(
         catch (Exception ex)
         {
             log.LogWarning(ex, "Error while running round {Round} speeches", round);
-        }
-        finally
-        {
-            lock (sync)
-            {
-                if (active.TryGetValue(sessionId, out var current) && ReferenceEquals(current, run))
-                {
-                    current.Complete |= completed;
-                    if (!completed && !ct.IsCancellationRequested)
-                    {
-                        active.Remove(sessionId);
-                        current.Cts.Dispose();
-                    }
-                }
-            }
         }
     }
 }
@@ -240,11 +190,6 @@ public sealed class RoundClock(
                 }
                 else if (session.RoundPhase != "resolved")
                 {
-                    if (session.Round is 1 or 2 or 3 or 5)
-                    {
-                        director.TriggerRound(session.Id, session.Round, session.RoundPhase);
-                        if (!director.IsRoundComplete(session.Id, session.Round)) continue;
-                    }
                     director.CancelCurrentRound(session.Id);
                     var choice = Voting.IsChoiceRound(session.Round);
                     await hub.Clients.Group(session.Id).SendAsync("RoundEnded", new { n = session.Round, choiceEndsAt = choice ? JsonData.Now + settings.ChoiceSeconds * 1000L : (long?)null }, ct);

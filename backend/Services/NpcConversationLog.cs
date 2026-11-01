@@ -1,10 +1,10 @@
 namespace Backend;
 
-/// <summary>Appends accepted public utterances in game order.</summary>
+/// <summary>Appends accepted public utterances in game order into Redis.</summary>
 public static class NpcConversationLog
 {
-    /// <summary>Stages an event together with its visible message while the game lock is held.</summary>
-    public static NpcConversationEvent Append(GameDb db, GameSession session, string text, string? speakerNpcId,
+    /// <summary>Stages an event into Redis while the game lock is held.</summary>
+    public static NpcConversationEvent Append(IGameRedisStore redisStore, GameSession session, string text, string? speakerNpcId,
         string? targetNpcId = null, string? playerId = null, bool isQuestion = false)
     {
         var entry = new NpcConversationEvent
@@ -21,7 +21,7 @@ public static class NpcConversationLog
             Text = text,
             CreatedAt = JsonData.Now
         };
-        db.ConversationEvents.Add(entry);
+        _ = redisStore.AddConversationEventAsync(session.Id, entry);
         return entry;
     }
 }

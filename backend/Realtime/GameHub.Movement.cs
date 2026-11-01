@@ -12,7 +12,7 @@ public sealed partial class GameHub
         {
             var me = await Authorized(); if (me == null) return;
             var location = await Location(me);
-            var pose = JsonData.Read<PoseData>(me.PoseJson);
+            var pose = await redisStore.GetPlayerPoseAsync(me.SessionId, me.Id) ?? JsonData.Read<PoseData>(me.PoseJson);
             // Jump animation is an offset above the validated navigation surface.
             if (!Finite(request.JumpOffset) || request.JumpOffset is < 0 or > 0.83 || (pose.Mode == "seated" && request.JumpOffset != 0))
             { await ActionReject("SendPose", "INVALID_POSE", null, request.Seq); return; }
@@ -34,8 +34,10 @@ public sealed partial class GameHub
                 pose.Position = p; pose.Yaw = request.Yaw; pose.Pitch = request.Pitch;
             }
             pose.JumpOffset = request.JumpOffset;
-            pose.Seq = request.Seq; pose.UpdatedAt = now; me.PoseJson = JsonData.Write(pose);
-            await db.SaveChangesAsync(); await BroadcastPlayers(me.SessionId);
+            pose.Seq = request.Seq; pose.UpdatedAt = now;
+            await redisStore.SetPlayerPoseAsync(me.SessionId, me.Id, pose);
+            me.PoseJson = JsonData.Write(pose);
+            await BroadcastPlayers(me.SessionId);
         }
         finally { gate.Lock.Release(); }
     }
@@ -48,18 +50,22 @@ public sealed partial class GameHub
             var me = await Authorized(); if (me == null) return;
             var location = await Location(me);
             if (request == null || !ValidRequestId(request.RequestId)) { await ActionReject("SitDown", "INVALID_POSE", request?.RequestId); return; }
-            if (Seen(me, "SitDown", request.RequestId)) { await BroadcastPlayers(me.SessionId); return; }
-            var pose = JsonData.Read<PoseData>(me.PoseJson);
+            if (await redisStore.HasSeenCommandAsync(me.SessionId, me.Id, "SitDown", request.RequestId)) { await BroadcastPlayers(me.SessionId); return; }
+            var pose = await redisStore.GetPlayerPoseAsync(me.SessionId, me.Id) ?? JsonData.Read<PoseData>(me.PoseJson);
             var seat = location.Seats.FirstOrDefault(n => (string?)n!["id"] == request.SeatId);
             if (seat == null || pose.Mode != "walking") { await ActionReject("SitDown", "WRONG_MODE", request.RequestId); return; }
             var seatPos = LocationScene.Point(location.Seat(request.SeatId)["position"]!);
             if (Distance(pose.Position, seatPos) > 1.6) { await ActionReject("SitDown", "TOO_FAR", request.RequestId); return; }
-            if ((await db.Players.Where(p => p.SessionId == me.SessionId && p.Id != me.Id && p.Connected).Select(p => p.PoseJson).ToListAsync())
-                .Any(json => JsonData.Read<PoseData>(json).SeatId == request.SeatId))
+            var otherPoses = await redisStore.GetPlayerPosesAsync(me.SessionId);
+            var activePlayerIds = await db.Players.Where(p => p.SessionId == me.SessionId && p.Id != me.Id && p.Connected).Select(p => p.Id).ToListAsync();
+            if (activePlayerIds.Any(id => (otherPoses.TryGetValue(id, out var op) ? op.SeatId : null) == request.SeatId))
             { await ActionReject("SitDown", "SEAT_TAKEN", request.RequestId); return; }
             pose.Position = seatPos; pose.Mode = "seated"; pose.SeatId = request.SeatId; pose.Yaw = LocationScene.N(seat, "yaw"); pose.JumpOffset = 0;
-            me.PoseJson = JsonData.Write(pose); Remember(me, "SitDown", request.RequestId);
-            await db.SaveChangesAsync(); await BroadcastPlayers(me.SessionId); await BroadcastParticipants(me.SessionId);
+            await redisStore.SetPlayerPoseAsync(me.SessionId, me.Id, pose);
+            me.PoseJson = JsonData.Write(pose);
+            await redisStore.RememberCommandAsync(me.SessionId, me.Id, "SitDown", request.RequestId);
+            await db.SaveChangesAsync();
+            await BroadcastPlayers(me.SessionId); await BroadcastParticipants(me.SessionId);
         }
         finally { gate.Lock.Release(); }
     }
@@ -72,14 +78,17 @@ public sealed partial class GameHub
             var me = await Authorized(); if (me == null) return;
             var location = await Location(me);
             if (request == null || !ValidRequestId(request.RequestId)) { await ActionReject("StandUp", "INVALID_POSE", request?.RequestId); return; }
-            if (Seen(me, "StandUp", request.RequestId)) { await BroadcastPlayers(me.SessionId); return; }
-            var pose = JsonData.Read<PoseData>(me.PoseJson);
+            if (await redisStore.HasSeenCommandAsync(me.SessionId, me.Id, "StandUp", request.RequestId)) { await BroadcastPlayers(me.SessionId); return; }
+            var pose = await redisStore.GetPlayerPoseAsync(me.SessionId, me.Id) ?? JsonData.Read<PoseData>(me.PoseJson);
             if (pose.Mode != "seated") { await ActionReject("StandUp", "WRONG_MODE", request.RequestId); return; }
             var exit = LocationScene.Point(location.Seat(pose.SeatId!)["exit"]!);
             if (location.SolidAt(exit)) { await ActionReject("StandUp", "COLLISION", request.RequestId); return; }
             pose.Position = exit; pose.Mode = "walking"; pose.SeatId = null;
-            me.PoseJson = JsonData.Write(pose); Remember(me, "StandUp", request.RequestId);
-            await db.SaveChangesAsync(); await BroadcastPlayers(me.SessionId); await BroadcastParticipants(me.SessionId);
+            await redisStore.SetPlayerPoseAsync(me.SessionId, me.Id, pose);
+            me.PoseJson = JsonData.Write(pose);
+            await redisStore.RememberCommandAsync(me.SessionId, me.Id, "StandUp", request.RequestId);
+            await db.SaveChangesAsync();
+            await BroadcastPlayers(me.SessionId); await BroadcastParticipants(me.SessionId);
         }
         finally { gate.Lock.Release(); }
     }
