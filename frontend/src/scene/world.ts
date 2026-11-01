@@ -14,7 +14,7 @@ export interface SceneSpec {
 }
 export type PropType = 'column' | 'truss' | 'spotlight' | 'backdrop' | 'softbox' | 'crate' | 'cableTray' | 'sofa' | 'table' | 'camera' | 'tripod' | 'shelf' | 'sign' | 'djBooth' | 'speaker' | 'danceTile' | 'bar' | 'stool' | 'bottle' | 'mirrorball' | 'neon' | 'plant' | 'panel' | 'gate' | 'vent' | 'reflector' | 'monitor' | 'directorChair' | 'cart' | 'reel' | 'lens' | 'battery' | 'charger';
 export interface PropSpec { id: string; type: PropType; position: Vec3; size: Vec3; yaw?: number; color?: string; label?: string; collidable?: boolean; beam?: boolean; attachment?: { objectId: string; localPosition: Vec3 }; collider?: { center: Vec3; size: Vec3 } }
-export interface DoorSpec extends Box { label: string; open: boolean; slide: Vec3 }
+export interface DoorSpec extends Box { label: string; open: boolean; slide: Vec3; animationDurationMs?: number; transition?: { startedAt: number; from: number; to: number } }
 export interface FoodSpec { id: string; type: 'apple' | 'sandwich' | 'donut' | 'pizza'; label: string; position: Vec3; eaten?: boolean }
 
 /** Furniture supplies its own model; all seats use the same occupancy and interaction commands. */

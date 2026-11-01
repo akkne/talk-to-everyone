@@ -24,6 +24,18 @@ public sealed class LocationScene
         var dx = Math.Max(Math.Abs(p.X-c.X)-s.X/2, 0); var dz = Math.Max(Math.Abs(p.Z-c.Z)-s.Z/2, 0);
         return p.Y < c.Y+s.Y/2-.01 && p.Y+1.8 > c.Y-s.Y/2 && dx*dx+dz*dz < .09-1e-8;
     }
+    public static bool DoorMoving(JsonNode door) => door["transition"] is JsonNode motion && JsonData.Now < (long)motion["startedAt"]! + ((double?)door["animationDurationMs"] ?? 900);
+    public static JsonObject DoorBounds(JsonNode door, bool swept = false)
+    {
+        var center = Point(door["center"]!); var size = Point(door["size"]!); var slide = Point(door["slide"]!);
+        // Keep the travel corridor clear until the moving panel has finished.
+        bool reserve = swept || DoorMoving(door);
+        var progress = reserve ? .5 : ((bool)door["open"]! ? 1d : 0d);
+        return new JsonObject {
+            ["center"] = new JsonObject { ["x"] = center.X + slide.X * progress, ["y"] = center.Y + slide.Y * progress, ["z"] = center.Z + slide.Z * progress },
+            ["size"] = new JsonObject { ["x"] = size.X + (reserve ? Math.Abs(slide.X) : 0), ["y"] = size.Y + (reserve ? Math.Abs(slide.Y) : 0), ["z"] = size.Z + (reserve ? Math.Abs(slide.Z) : 0) }
+        };
+    }
     public bool SolidAt(Vec3 p)
     {
         var room = Data["room"]!;
@@ -31,7 +43,7 @@ public sealed class LocationScene
         foreach (var key in new[]{"walls","obstacles"})
             if (room[key]!.AsArray().Any(b => Hits(p,b!))) return true;
         if (Items("objects").Any(o => o!["collider"] is JsonNode b && Hits(p,b))) return true;
-        if (Items("doors").Any(d => !(bool)d!["open"]! && Hits(p,d))) return true;
+        if (Items("doors").Any(d => Hits(p, DoorBounds(d!)))) return true;
         return false;
     }
     public bool ValidHeight(Vec3 p)

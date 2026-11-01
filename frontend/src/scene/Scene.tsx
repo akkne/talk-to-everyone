@@ -5,7 +5,7 @@ import { tickDialogue, useGameStore } from '../store/gameStore';
 import { useVoiceSettingsStore } from '../store/voiceSettingsStore';
 import { SpatialVoiceChannel } from '../audio/SpatialVoiceChannel';
 import { setupRoom, disposeScene, createNpcChair } from './setup';
-import { syncLocationProps } from './props';
+import { syncLocationProps, animateLocationDoors } from './props';
 import { CameraController } from './CameraController';
 import { Npc } from './Npc';
 import { NpcLod } from './lod';
@@ -204,6 +204,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       const state = useGameStore.getState();
       controller.setEnabled(!blocked.current && !state.boardOpen && state.connection === 'ready');
       frame = requestAnimationFrame(animate);
+      if(state.scene)animateLocationDoors(scene,state.scene);
       controller.update(now);
       tickDialogue(now);
       npcs.forEach(npc => npc.update(now));

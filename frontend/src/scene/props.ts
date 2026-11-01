@@ -1,3 +1,4 @@
+import { doorProgress } from './doors';
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { PropSpec, SceneSpec } from './world';
@@ -68,7 +69,7 @@ export function addLocationProps(scene:T.Scene,spec:SceneSpec){
 }
 
 export function syncLocationProps(scene:T.Scene,spec:SceneSpec){
- for(const d of spec.doors??[]){const mesh=scene.getObjectByName(d.id);if(mesh)mesh.position.set(d.center.x+(d.open?d.slide.x:0),d.center.y+(d.open?d.slide.y:0),d.center.z+(d.open?d.slide.z:0));}
+ animateLocationDoors(scene,spec);
  for(const f of spec.foods??[]){const mesh=scene.getObjectByName(f.id);if(mesh)mesh.visible=!f.eaten;}
 }
 
@@ -87,4 +88,14 @@ function batchProp(group:T.Group){
  });
  group.clear();if(preserved.length)group.add(...preserved);
  for(const {material,geometries} of batches.values()){const merged=mergeGeometries(geometries,false);if(merged)group.add(new T.Mesh(merged,material));for(const geometry of geometries)geometry.dispose();}
+}
+
+/** Evaluate the same timestamped motion used by server and client collisions on every frame. */
+export function animateLocationDoors(scene:T.Scene,spec:SceneSpec){
+ const now=Date.now();
+ for(const door of spec.doors??[]){
+  const mesh=scene.getObjectByName(door.id);if(!mesh)continue;
+  const progress=doorProgress(door,now);
+  mesh.position.set(door.center.x+door.slide.x*progress,door.center.y+door.slide.y*progress,door.center.z+door.slide.z*progress);
+ }
 }

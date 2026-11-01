@@ -23,20 +23,20 @@ c.on('StateSnapshot',s=>{snapshot=s;me=s.me.id;pose=s.players.find(p=>p.id===me)
 c.on('PlayersTick',s=>{pose=s.players.find(p=>p.id===me)?.pose??pose;});
 c.on('LocationState',s=>{lastState=s;});c.on('InteractionFeedback',s=>{feedback=s.message;});c.on('ActionReject',s=>{reject=s;});
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
-const interact=id=>c.invoke('Interact',{id,requestId:crypto.randomUUID()});
+const interact=async id=>{await c.invoke('Interact',{id,requestId:crypto.randomUUID()});await delay(950);};
 async function step(position){reject=null;await delay(90);await c.invoke('SendPose',{seq:++seq,position,yaw:0,pitch:0,jumpOffset:0});return !reject;}
 async function go(x,z){const start={...pose.position},dist=Math.hypot(x-start.x,z-start.z),n=Math.ceil(dist/.2);for(let i=1;i<=n;i++){const next={x:start.x+(x-start.x)*i/n,y:0,z:start.z+(z-start.z)*i/n};assert.ok(await step(next),JSON.stringify(reject));}assert.ok(Math.hypot(pose.position.x-x,pose.position.z-z)<.05);}
 try{
  await c.start();await c.invoke('Auth',{token:code});
  await observer.start();await observer.invoke('Auth',{token:code});
- await isolated.start();await isolated.invoke('Auth',{token:otherCode});assert.ok(snapshot);assert.equal(snapshot.scene.version,'4');assert.equal(snapshot.scene.room.width,40);
- await assert.rejects(interact('equipment-door'));console.log('PASS: JSON v4 loaded; remote interactions rejected');
+ await isolated.start();await isolated.invoke('Auth',{token:otherCode});assert.ok(snapshot);assert.equal(snapshot.scene.version,'5');assert.equal(snapshot.scene.room.width,40);
+ await assert.rejects(interact('equipment-door'));console.log('PASS: JSON v5 loaded; remote interactions rejected');
  // Fresh test accounts spawn in the open southern aisle. Existing QA account resumes there after cleanup.
  await go(pose.position.x,11.8);await go(9.5,11.8);await go(9.5,7.2);
  if(snapshot.scene.doors[0].open)await interact('equipment-door');
  await go(10.4,7.2);
  assert.equal(await step({x:10.9,y:0,z:7.2}),false);assert.equal(reject.code,'COLLISION');
- await interact('equipment-door');assert.equal(lastState.doors[0].open,true);assert.equal(feedback,'Дверь открыта');
+ await interact('equipment-door');assert.equal(lastState.doors[0].open,true);assert.equal(feedback,'Дверь открывается');
  await go(11,7.2);await assert.rejects(interact('equipment-door'),/Проём занят/);
  await go(12.5,7.2);await interact('equipment-door');assert.equal(lastState.doors[0].open,false);
  await interact('equipment-door');await go(12.5,9.5);await go(13.75,9.5);
