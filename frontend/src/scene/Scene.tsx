@@ -76,7 +76,8 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
           player.pose.position.z,
           Math.PI - player.pose.yaw,
           player.pose.pitch,
-          player.pose.mode === 'seated'
+          player.pose.mode === 'seated',
+          player.pose.jumpOffset ?? 0
         );
       });
     };
@@ -110,7 +111,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       element.removeEventListener('webglcontextlost', lost); controller.dispose(); lod.dispose(); disposeScene(scene); renderer.dispose();
     };
   }, [client]);
-  return <div className="absolute inset-0"><canvas ref={canvas} className="h-full w-full outline-none" tabIndex={0} aria-label="Комната расследования. WASD — ходьба, мышь — обзор, E — сесть или встать." />
+  return <div className="absolute inset-0"><canvas ref={canvas} className="h-full w-full outline-none" tabIndex={0} aria-label="Комната расследования. WASD — ходьба, Space — прыжок, мышь — обзор, E — сесть или встать." />
     {error && <div className="scene-error" role="alert">{error}</div>}
     <div className="movement-hint" role="status">{hint}</div>
   </div>;

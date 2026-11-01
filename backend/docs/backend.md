@@ -6,7 +6,9 @@
 
 `StateSnapshot = {sessionId,me:{id,role},phase,round,rounds,gameInfo,scene,players,npcs,seats,board,questions,chat,worldSizeBytes,score,scoreboard,reveal,teamScore,voting}`. В лобби `round=null`; до финала `scoreboard` и `reveal` равны `null`. `round={n,phase,endsAt,choiceEndsAt}`; `rounds` содержит серверные названия и длительности этапов. `npcs` содержит `{id,number,name,color,anchorId,appearance}`; имя и `appearance={style,accessory,hair,skin}` — публичные данные персонажа, без роли и связей. `board={pairs,liars,locks,notes,submitted}` и `questions={remaining,askedTo,pending}` персональные. `chat` содержит серверные `{id,npc,text,inReplyTo,emotion,at}`. Роли, связи и легенды не выдаются до финала.
 
-`scene={version,room,npcStands,playerSeats,spawnPoints}`. `players` содержит `{id,name,connected,pose}`; `pose={position,yaw,pitch,mode,seatId,seq}`. `seats={id,occupiedBy}[]`. Клиент строит сцену по `scene` и отображает только подтверждённые сервером изменения.
+`scene={version,room,npcStands,playerSeats,spawnPoints}`. `players` содержит `{id,name,connected,pose}`; `pose={position,yaw,pitch,mode,seatId,seq,jumpOffset}`. `seats={id,occupiedBy}[]`. Клиент строит сцену по `scene` и отображает только подтверждённые сервером изменения.
+
+`Space` запускает одиночный прыжок с подъёмом до 0,823 м за 0,686 с и мягким приземлением. `position` остаётся точкой на поверхности навигации; `jumpOffset` — отдельная высота анимации камеры и модели, поэтому прыжок сохраняет проверки коллизий и не позволяет обходить мебель или края платформ. Сервер принимает конечный `jumpOffset` от 0 до 0,83 м, сидя — только 0, и передаёт его в `PlayersTick`. Если поле отсутствует, используется 0 для совместимости со старыми клиентами. Анимация модели включает подъём рук, поджатие ног и смягчение приземления. Удержание пробела не повторяет прыжок; сидя и при открытом интерфейсе новые прыжки отключены.
 
 Публичный `GET /api/game-info` возвращает тот же `gameInfo`, что и снимок: численность состава, раунды, лимиты вопросов и заметок, очки за выбор пары.
 
@@ -17,7 +19,7 @@
 | `Auth {token,name}` | `AuthOk` → `StateSnapshot` → `LobbyState` или `AuthErr` |
 | `StartGame` без аргумента, только ведущий | `GameStarted`, `RoundStarted` |
 | `SkipRound {requestId}`, только ведущий во время игры | Текущий таймер завершается; `RoundStarted` обновляет срок, затем штатный переход раунда или голосования |
-| `SendPose {seq,position,yaw,pitch}` | `PlayersTick {players,serverTime}` или `ActionReject` |
+| `SendPose {seq,position,yaw,pitch,jumpOffset?}` | `PlayersTick {players,serverTime}` или `ActionReject` |
 | `SitDown {requestId,seatId}`, `StandUp {requestId}` | `SeatState`, `PlayersTick` или `ActionReject` |
 | `RequestChunk {reqId,ids}`, `ReleaseChunk {ids}` | `ChunkData {reqId,npcs:[{id,details,sizeBytes}]}`; детали публичные |
 | `PairNpcs`, `UnpairNpcs` с `{requestId,a,b}`; `MarkLiar`, `UnmarkLiar` с `{requestId,npc}`; `SaveNote {requestId,npc,text}` | Личный `BoardSnapshot {board,requestId}` или `BoardReject` |

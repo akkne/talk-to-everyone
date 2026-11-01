@@ -14,6 +14,8 @@ const load = p => import(moduleUrl(resolve('src/scene', p + '.ts')));
 const { walk } = await load('movement');
 const { previewScene } = await import(moduleUrl(resolve('tests/fixtures/previewScene.ts')));
 const { CameraController } = await load('CameraController');
+const { Npc } = await load('Npc');
+const { JUMP_HEIGHT } = await load('jump');
 const empty = () => ({ ...structuredClone(previewScene), room: { width: 20, depth: 24, height: 7, walls: [], obstacles: [], platforms: [], ramps: [] } });
 test('walls and thin furniture stop a long movement without tunneling', () => {
   const scene = empty(); scene.room.obstacles.push({ id: 'table', center: { x: 0, y: .6, z: 0 }, size: { x: 2, y: 1.2, z: .1 } });
@@ -41,7 +43,7 @@ function harness(scene = previewScene) {
   const client = { send: async (...args) => { calls.push(args); }, setPose: (...args) => { poses.push(args); }, syncPose: () => {} };
   const controller = new CameraController(camera, canvas, client, scene, value => { hint = value; }, assert.fail);
   controller.setEnabled(true);
-  const key = (code, type = 'keydown') => { const event = new Event(type, { cancelable: true }); Object.assign(event, { code }); document.dispatchEvent(event); };
+  const key = (code, type = 'keydown', options = {}) => { const event = new Event(type, { cancelable: true }); Object.assign(event, { code, ...options }); document.dispatchEvent(event); return event; };
   const mouse = (movementX, movementY) => {
     document.pointerLockElement = canvas;
     const event = new Event('mousemove'); Object.assign(event, { movementX, movementY }); document.dispatchEvent(event);
@@ -151,4 +153,101 @@ test('jury tables leave a clear view above the seated eye height', () => {
   for (const box of previewScene.room.obstacles.filter(b => b.id.startsWith('table-'))) {
     assert.ok(box.center.y + box.size.y / 2 < 1.15);
   }
+});
+
+test('Space jumps once per press, sends height separately, and lands without changing the navigation surface', () => {
+  const h = harness(empty());
+  h.controller.syncPose({ position: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, seatId: null, seq: 0, mode: 'walking' });
+  h.controller.update(100);
+  assert.equal(h.key('Space').defaultPrevented, true);
+  let peak = 0;
+  for (let now = 110; now <= 1100; now += 10) {
+    h.controller.update(now);
+    peak = Math.max(peak, h.camera.position.y - 1.65);
+    assert.equal(h.poses.at(-1)[0].y, 0);
+    assert.ok(h.poses.at(-1)[3] >= 0 && h.poses.at(-1)[3] <= JUMP_HEIGHT);
+    h.key('Space', 'keydown', { repeat: true });
+  }
+  assert.ok(Math.abs(peak - JUMP_HEIGHT) < .001);
+  assert.equal(h.camera.position.y, 1.65);
+  h.key('Space'); h.controller.update(1110); assert.equal(h.camera.position.y, 1.65);
+  h.key('Space', 'keyup'); h.key('Space'); h.controller.update(1120);
+  assert.ok(h.camera.position.y > 1.65);
+  h.controller.dispose();
+});
+
+test('jumping preserves camera-relative movement and settles even when controls lose focus', () => {
+  const h = harness(empty());
+  h.controller.syncPose({ position: { x: 0, y: 0, z: 0 }, yaw: Math.PI / 2, pitch: Math.PI / 3, seatId: null, seq: 0, mode: 'walking' });
+  h.controller.update(100); h.key('KeyW'); h.key('Space');
+  h.controller.update(150);
+  assert.ok(Math.abs(h.camera.position.x - .125) < 1e-9);
+  assert.ok(h.camera.position.y > 1.65);
+  h.controller.setEnabled(false); window.dispatchEvent(new Event('blur'));
+  assert.equal(h.key('Space').defaultPrevented, false);
+  for (let now = 200; now <= 1200; now += 50) h.controller.update(now);
+  assert.ok(Math.abs(h.camera.position.x - .125) < 1e-9);
+  assert.equal(h.camera.position.y, 1.65);
+  assert.equal(h.poses.at(-1)[3], 0);
+  h.controller.dispose();
+});
+
+test('jump cannot start seated, from unfocused input, or with shortcuts, and sitting waits for landing', () => {
+  const h = harness();
+  const pose = { position: { x: 0, y: 0, z: 7.3 }, yaw: 0, pitch: 0, seatId: null, seq: 0, mode: 'walking' };
+  h.controller.syncPose(pose); h.controller.update(100);
+  document.activeElement = null;
+  assert.equal(h.key('Space').defaultPrevented, false);
+  h.controller.update(150); assert.equal(h.camera.position.y, 1.65);
+  h.key('Escape'); h.controller.dispose();
+  const s = harness();
+  s.controller.syncPose({ ...pose, seatId: 'seat-2', mode: 'seated' }); s.controller.update(100);
+  s.key('Space'); s.controller.update(150); assert.equal(s.camera.position.y, 1.2);
+  s.controller.syncPose(pose); s.key('Space', 'keyup');
+  assert.equal(s.key('Space', 'keydown', { ctrlKey: true }).defaultPrevented, false);
+  s.controller.update(200); assert.equal(s.camera.position.y, 1.65);
+  s.key('Space'); s.controller.update(250); s.key('KeyE'); assert.equal(s.calls.length, 0);
+  s.controller.syncPose({ ...pose, mode: 'seated', seatId: 'seat-2' });
+  assert.equal(s.camera.position.y, 1.2); assert.equal(s.poses.at(-1)[3], 0);
+  s.controller.dispose();
+});
+
+test('jump on an upper platform lands at the same height and retains collision checks', () => {
+  const scene = empty();
+  scene.room.platforms = [{ id: 'tier', center: { x: 0, y: .75, z: 0 }, size: { x: 8, y: 1.5, z: 8 } }];
+  scene.room.walls = [{ id: 'wall', center: { x: 0, y: 3, z: -1 }, size: { x: 8, y: 6, z: .1 } }];
+  const h = harness(scene);
+  h.controller.syncPose({ position: { x: 0, y: 1.5, z: 0 }, yaw: 0, pitch: 0, seatId: null, seq: 0, mode: 'walking' });
+  h.controller.update(100); h.key('Space'); h.key('KeyW');
+  for (let now = 150; now <= 1150; now += 50) h.controller.update(now);
+  assert.equal(h.camera.position.y, 3.15);
+  assert.ok(h.camera.position.z >= -.65 - 1e-6);
+  assert.equal(h.poses.at(-1)[0].y, 1.5);
+  h.controller.dispose();
+});
+
+test('other players rise, tuck limbs and animate landing without moving their ground position', () => {
+  globalThis.document = { createElement: () => ({ getContext: () => ({
+    fillRect() {}, strokeRect() {}, fillText() {}, measureText: text => ({ width: text.length * 12 }),
+  }) }) };
+  const player = new Npc({ id: 'judge', number: 0, name: 'Игрок', color: '#dfbf63', anchorId: '' });
+  player.setTargetPose(0, 1.5, 0, 0, 0, false);
+  player.update(100);
+  const avatar = player.group.getObjectByName('avatar');
+  const rest = avatar.children.map(child => child.quaternion.clone());
+  player.setTargetPose(0, 1.5, 0, 0, 0, false, JUMP_HEIGHT);
+  for (let now = 150; now <= 350; now += 50) player.update(now);
+  assert.ok(avatar.position.y > .8);
+  assert.equal(player.group.position.y, 1.5);
+  assert.ok(avatar.children.some((child, i) => child.quaternion.angleTo(rest[i]) > .2));
+  player.setTargetPose(0, 1.5, 0, 0, 0, false, 0);
+  let landingDipSeen = false;
+  for (let now = 400; now <= 1200; now += 10) { player.update(now); landingDipSeen ||= avatar.position.y < 0; }
+  assert.ok(landingDipSeen);
+  assert.equal(avatar.position.y, 0);
+  assert.equal(avatar.scale.y, 1);
+  assert.equal(player.group.position.y, 1.5);
+  player.setTargetPose(0, 1.5, 0, 0, 0, true, JUMP_HEIGHT); player.update(1250);
+  assert.equal(avatar.position.y, 0);
+  player.dispose();
 });

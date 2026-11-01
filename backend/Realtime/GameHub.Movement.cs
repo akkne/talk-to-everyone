@@ -12,6 +12,9 @@ public sealed partial class GameHub
         {
             var me = await Authorized(); if (me == null) return;
             var pose = JsonData.Read<PoseData>(me.PoseJson);
+            // Jump animation is an offset above the validated navigation surface.
+            if (!Finite(request.JumpOffset) || request.JumpOffset is < 0 or > 0.83 || (pose.Mode == "seated" && request.JumpOffset != 0))
+            { await ActionReject("SendPose", "INVALID_POSE", null, request.Seq); return; }
             if (request.Seq <= pose.Seq || request.Position == null || !Finite(request.Yaw) || !Finite(request.Pitch) || !Finite(request.Position.X) || !Finite(request.Position.Y) || !Finite(request.Position.Z) || Math.Abs(request.Pitch) > Math.PI / 3 + 0.05)
             { await ActionReject("SendPose", "INVALID_POSE", null, request.Seq); return; }
             var now = JsonData.Now;
@@ -30,6 +33,7 @@ public sealed partial class GameHub
                 { await ActionReject("SendPose", "COLLISION", null, request.Seq); return; }
                 pose.Position = p; pose.Yaw = request.Yaw; pose.Pitch = request.Pitch;
             }
+            pose.JumpOffset = request.JumpOffset;
             pose.Seq = request.Seq; pose.UpdatedAt = now; me.PoseJson = JsonData.Write(pose);
             await db.SaveChangesAsync(); await BroadcastPlayers();
         }
@@ -52,7 +56,7 @@ public sealed partial class GameHub
             if ((await db.Players.Where(p => p.Id != me.Id && p.Connected).Select(p => p.PoseJson).ToListAsync())
                 .Any(json => JsonData.Read<PoseData>(json).SeatId == request.SeatId))
             { await ActionReject("SitDown", "SEAT_TAKEN", request.RequestId); return; }
-            pose.Position = seatPos; pose.Mode = "seated"; pose.SeatId = request.SeatId; pose.Yaw = 0;
+            pose.Position = seatPos; pose.Mode = "seated"; pose.SeatId = request.SeatId; pose.Yaw = 0; pose.JumpOffset = 0;
             me.PoseJson = JsonData.Write(pose); Remember(me, "SitDown", request.RequestId);
             await db.SaveChangesAsync(); await BroadcastPlayers();
         }

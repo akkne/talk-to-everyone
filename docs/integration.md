@@ -48,7 +48,7 @@ JSON использует `camelCase`. Все даты и дедлайны — U
 | --- | --- | --- |
 | `Auth` | `{token,name}` | `AuthOk`, `StateSnapshot` / `AuthErr` |
 | `StartGame` | без аргумента, только ведущий | `GameStarted`, `RoundStarted` |
-| `SendPose` | `{seq,position:{x,y,z},yaw,pitch}` | `PlayersTick`, `SeatState` / `ActionReject` |
+| `SendPose` | `{seq,position:{x,y,z},yaw,pitch,jumpOffset?}` | `PlayersTick`, `SeatState` / `ActionReject` |
 | `SitDown`, `StandUp` | `{requestId,seatId}` / `{requestId}` | `PlayersTick`, `SeatState` / `ActionReject` |
 | `RequestChunk`, `ReleaseChunk` | `{reqId,ids}` / `{ids}` | `ChunkData` / `ServerError` |
 | `PairNpcs`, `UnpairNpcs` | `{requestId,a,b}` | `BoardSnapshot` / `BoardReject` |

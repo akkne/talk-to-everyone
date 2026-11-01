@@ -2,7 +2,7 @@ import { C2S, S2C } from './contract';
 
 export type NpcId = string;
 export interface Vec3 { x: number; y: number; z: number }
-export interface Pose { position: Vec3; yaw: number; pitch: number; mode: 'walking' | 'seated'; seatId: string | null; seq: number }
+export interface Pose { position: Vec3; yaw: number; pitch: number; mode: 'walking' | 'seated'; seatId: string | null; seq: number; jumpOffset?: number }
 export interface Player { id: string; name: string; connected: boolean; pose: Pose }
 export interface NpcAppearance { style: 'sport' | 'tech' | 'creative' | 'smart' | 'polished' | 'casual'; accessory: 'headphones' | 'glasses' | 'beanie' | 'cap' | 'none'; hair: number; skin: number }
 export interface NpcMeta { id: NpcId; number: number; name: string; color: string; anchorId: string; appearance?: NpcAppearance }
@@ -27,7 +27,7 @@ export interface Commands {
   [C2S.START_GAME]: undefined;
   [C2S.RESET_GAME]: undefined;
   [C2S.SKIP_ROUND]: Request;
-  [C2S.SEND_POSE]: { seq: number; position: Vec3; yaw: number; pitch: number };
+  [C2S.SEND_POSE]: { seq: number; position: Vec3; yaw: number; pitch: number; jumpOffset?: number };
   [C2S.SIT_DOWN]: Request & { seatId: string };
   [C2S.STAND_UP]: Request;
   [C2S.REQUEST_CHUNK]: { reqId: string; ids: NpcId[] };
@@ -71,4 +71,4 @@ export interface Events {
   [S2C.PONG]: { t: number; serverTime: number };
 }
 export type EventHandler = <K extends keyof Events>(event: K, payload: Events[K]) => void;
-export interface GameClient { connect(token: string): Promise<void>; disconnect(): Promise<void>; send<K extends keyof Commands>(method: K, payload: Commands[K]): Promise<void>; setPose(position: Vec3, yaw: number, pitch: number): void; syncPose(pose: Pose): void }
+export interface GameClient { connect(token: string): Promise<void>; disconnect(): Promise<void>; send<K extends keyof Commands>(method: K, payload: Commands[K]): Promise<void>; setPose(position: Vec3, yaw: number, pitch: number, jumpOffset?: number): void; syncPose(pose: Pose): void }

@@ -9,7 +9,7 @@ namespace Backend;
 public sealed record AuthRequest(string Token, string? Name = null);
 public sealed record ChunkRequest(string ReqId, string[] Ids);
 public sealed record ReleaseRequest(string[] Ids);
-public sealed record PoseRequest(long Seq, Vec3 Position, double Yaw, double Pitch);
+public sealed record PoseRequest(long Seq, Vec3 Position, double Yaw, double Pitch, double JumpOffset = 0);
 public sealed record SeatRequest(string RequestId, string SeatId);
 public sealed record CommandRequest(string RequestId);
 public sealed record PairRequest(string RequestId, string A, string B);

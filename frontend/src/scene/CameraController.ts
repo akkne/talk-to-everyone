@@ -4,6 +4,7 @@ import { UI } from '../shared/config';
 import { createId } from '../shared/id';
 import { C2S } from '../shared/contract';
 import { walk, WALK_SPEED } from './movement';
+import { jumpHeight, landingDip, JUMP_DURATION, LANDING_DURATION } from './jump';
 import type { SceneSpec, SeatSpec } from './world';
 
 /** Camera and keyboard controls. The server confirms every pose. */
@@ -20,6 +21,9 @@ export class CameraController {
   private walkForward = new Vector3();
   private walkRight = new Vector3();
   private lastFrame = 0;
+  private jumpElapsed: number | null = null;
+  private jumpOffset = 0;
+  private landingElapsed = LANDING_DURATION;
   constructor(private readonly camera: PerspectiveCamera, private readonly canvas: HTMLCanvasElement, private readonly client: GameClient,
     private readonly scene: SceneSpec, private readonly onHint: (hint: string) => void, private readonly onError: (message: string) => void) {
     canvas.addEventListener('click', this.lock);
@@ -36,7 +40,7 @@ export class CameraController {
     try { const result = this.canvas.requestPointerLock(); if (result) void result.catch(this.lockError); }
     catch { this.lockError(); }
   };
-  private lockError = () => { this.canvas.title = 'Нажмите на сцену: WASD — ходьба, стрелки — обзор.'; };
+  private lockError = () => { this.canvas.title = 'Нажмите на сцену: WASD — ходьба, Space — прыжок, стрелки — обзор.'; };
   private focused() { return this.enabled && (document.pointerLockElement === this.canvas || document.activeElement === this.canvas); }
   private move = (event: MouseEvent) => {
     if (this.enabled && document.pointerLockElement === this.canvas) this.rotate(event.movementX * UI.MOUSE_SENSITIVITY, event.movementY * UI.MOUSE_SENSITIVITY);
@@ -44,10 +48,14 @@ export class CameraController {
   private keyDown = (event: KeyboardEvent) => {
     if (event.code === 'Escape') { this.clearKeys(); this.canvas.blur(); return; }
     if (!this.focused() || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyW','KeyA','KeyS','KeyD','KeyE'].includes(event.code)) {
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyW','KeyA','KeyS','KeyD','KeyE','Space'].includes(event.code)) {
+      const held = this.keys.has(event.code);
       event.preventDefault(); this.keys.add(event.code);
       if (event.code.startsWith('Arrow')) this.rotate(event.code === 'ArrowLeft' ? -0.06 : event.code === 'ArrowRight' ? 0.06 : 0, event.code === 'ArrowUp' ? -0.04 : event.code === 'ArrowDown' ? 0.04 : 0);
       if (event.code === 'KeyE' && !event.repeat) void this.toggleSeat();
+      if (event.code === 'Space' && !held && !event.repeat && this.mode === 'walking' && this.jumpElapsed === null && !this.pending) {
+        this.jumpElapsed = 0; this.landingElapsed = LANDING_DURATION;
+      }
     }
   };
   private keyUp = (event: KeyboardEvent) => { this.keys.delete(event.code); };
@@ -63,6 +71,7 @@ export class CameraController {
     this.apply();
   }
   syncPose(pose: Pose) {
+    this.jumpElapsed = null; this.jumpOffset = 0; this.landingElapsed = LANDING_DURATION;
     this.position = { ...pose.position }; this.mode = pose.mode; this.yaw = pose.yaw; this.pitch = pose.pitch;
     this.seat = this.scene.playerSeats.find(s => s.id === pose.seatId) ?? null;
     this.client.syncPose(pose); this.apply();
@@ -72,8 +81,17 @@ export class CameraController {
   }
   update(now: number) {
     const dt = this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.05) : 0; this.lastFrame = now;
-    this.onHint(!this.enabled ? '' : this.seat ? 'E — встать' : this.nearestSeat() ? 'E — сесть' : 'Нажмите на сцену · WASD — ходьба · Мышь — обзор');
-    if (!this.focused() || this.mode !== 'walking' || !dt) return;
+    this.onHint(!this.enabled ? '' : this.seat ? 'E — встать' : `WASD — ходьба · Space — прыжок · Мышь — обзор${this.nearestSeat() ? ' · E — сесть' : ''}`);
+    if (this.mode !== 'walking' || !dt) return;
+    // Finish a jump even if focus is lost or a panel opens mid-air.
+    const animating = this.jumpElapsed !== null || this.landingElapsed < LANDING_DURATION;
+    if (this.jumpElapsed !== null) {
+      this.jumpElapsed += dt;
+      this.jumpOffset = jumpHeight(this.jumpElapsed);
+      if (this.jumpElapsed >= JUMP_DURATION) { this.landingElapsed = this.jumpElapsed - JUMP_DURATION; this.jumpElapsed = null; }
+    } else this.landingElapsed = Math.min(LANDING_DURATION, this.landingElapsed + dt);
+    if (animating) this.apply();
+    if (!this.focused()) return;
     const forward = Number(this.keys.has('KeyW')) - Number(this.keys.has('KeyS'));
     const side = Number(this.keys.has('KeyD')) - Number(this.keys.has('KeyA'));
     if (!forward && !side) return;
@@ -93,7 +111,7 @@ export class CameraController {
       .filter(item => item.distance <= 1.5).sort((a, b) => a.distance - b.distance)[0]?.seat;
   }
   private async toggleSeat() {
-    if (this.pending) return;
+    if (this.pending || this.jumpElapsed !== null) return;
     const next = this.nearestSeat();
     if (!this.seat && !next) return;
     this.pending = true;
@@ -105,9 +123,10 @@ export class CameraController {
   }
   setOccupied(ids: string[]) { this.occupied = new Set(ids); }
   private apply() {
-    this.camera.position.set(this.position.x, this.position.y + (this.mode === 'seated' ? 1.2 : 1.65), this.position.z);
+    const eyeHeight = this.mode === 'seated' ? 1.2 : 1.65 + this.jumpOffset - landingDip(this.landingElapsed);
+    this.camera.position.set(this.position.x, this.position.y + eyeHeight, this.position.z);
     this.camera.rotation.set(-this.pitch, -this.yaw, 0, 'YXZ');
-    this.client.setPose(this.position, this.yaw, this.pitch);
+    this.client.setPose(this.position, this.yaw, this.pitch, this.jumpOffset);
   }
   setEnabled(enabled: boolean) {
     if (this.enabled === enabled) return;

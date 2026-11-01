@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { NpcMeta } from '../shared/types';
+import { JUMP_HEIGHT, landingDip } from './jump';
 
 const skinTones = ['#e9bd9e', '#c78f6c', '#f0cfb4', '#ad7659', '#dca984'];
 const hairTones = ['#332b2a', '#6a4937', '#241f25', '#9b7050'];
@@ -9,6 +10,13 @@ const cloth = (color: string, roughness = 0.86) => new THREE.MeshStandardMateria
 export class Npc {
   readonly group = new THREE.Group();
   readonly head = new THREE.Group();
+  private readonly avatar = new THREE.Group();
+  private readonly legs: THREE.Group[] = [];
+  private readonly arms: THREE.Group[] = [];
+  private targetJumpOffset = 0;
+  private jumpOffset = 0;
+  private landingAt = -Infinity;
+  private lastUpdate = 0;
   private readonly body: THREE.Mesh;
   private readonly bodyMaterial: THREE.MeshStandardMaterial;
   private label: THREE.Sprite;
@@ -21,6 +29,7 @@ export class Npc {
   private targetPitch = 0;
 
   constructor(readonly meta: NpcMeta) {
+    this.avatar.name = 'avatar'; this.group.add(this.avatar);
     const profile = meta.appearance;
     const skin = cloth(skinTones[(profile?.skin ?? meta.number) % skinTones.length]);
     const hair = cloth(hairTones[(profile?.hair ?? meta.number) % hairTones.length]);
@@ -34,14 +43,16 @@ export class Npc {
     };
     // Feet, trousers and the tapered jacket create a clear silhouette even from the rear row.
     for (const side of [-1, 1]) {
-      add(this.group, new THREE.CapsuleGeometry(0.095, 0.34, 3, 7), dark, side * 0.14, 0.35, 0);
-      add(this.group, new THREE.BoxGeometry(0.21, 0.12, 0.33), shoe, side * 0.14, 0.095, 0.09);
-      const arm = add(this.group, new THREE.CapsuleGeometry(0.105, 0.38, 3, 7), this.bodyMaterial, side * 0.38, 1.04, 0);
-      arm.rotation.z = side * 0.16;
-      add(this.group, new THREE.SphereGeometry(0.105, 9, 7), skin, side * 0.42, 0.71, 0.02);
+      const leg = new THREE.Group(); leg.position.set(side * 0.14, 0.62, 0); this.avatar.add(leg); this.legs.push(leg);
+      add(leg, new THREE.CapsuleGeometry(0.095, 0.34, 3, 7), dark, 0, -0.27, 0);
+      add(leg, new THREE.BoxGeometry(0.21, 0.12, 0.33), shoe, 0, -0.525, 0.09);
+      const arm = new THREE.Group(); arm.position.set(side * 0.34, 1.32, 0); this.avatar.add(arm); this.arms.push(arm);
+      const sleeve = add(arm, new THREE.CapsuleGeometry(0.105, 0.38, 3, 7), this.bodyMaterial, side * 0.04, -0.28, 0);
+      sleeve.rotation.z = side * 0.16;
+      add(arm, new THREE.SphereGeometry(0.105, 9, 7), skin, side * 0.08, -0.61, 0.02);
     }
-    this.body = add(this.group, new THREE.CylinderGeometry(0.32, 0.39, 0.76, 12), this.bodyMaterial, 0, 1.07, 0);
-    add(this.group, new THREE.CylinderGeometry(0.12, 0.12, 0.14, 10), skin, 0, 1.5, 0);
+    this.body = add(this.avatar, new THREE.CylinderGeometry(0.32, 0.39, 0.76, 12), this.bodyMaterial, 0, 1.07, 0);
+    add(this.avatar, new THREE.CylinderGeometry(0.12, 0.12, 0.14, 10), skin, 0, 1.5, 0);
     this.head.position.y = 1.75;
     add(this.head, new THREE.SphereGeometry(0.245, 16, 12), skin, 0, 0, 0);
     const hairCap = add(this.head, new THREE.SphereGeometry(0.251, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.49), hair, 0, 0.025, 0);
@@ -52,26 +63,26 @@ export class Npc {
     const eye = cloth('#34343a');
     for (const side of [-1, 1]) add(this.head, new THREE.SphereGeometry(0.016, 7, 6), eye, side * 0.083, 0.005, 0.231);
     add(this.head, new THREE.BoxGeometry(0.065, 0.012, 0.012), cloth('#986b62'), 0, -0.1, 0.229);
-    this.group.add(this.head);
+    this.avatar.add(this.head);
 
     const style = profile?.style ?? 'casual';
     if (style === 'sport') {
-      add(this.group, new THREE.BoxGeometry(0.52, 0.09, 0.025), trim, 0, 1.24, 0.32);
-      add(this.group, new THREE.BoxGeometry(0.09, 0.33, 0.025), trim, 0, 1.02, 0.335);
+      add(this.avatar, new THREE.BoxGeometry(0.52, 0.09, 0.025), trim, 0, 1.24, 0.32);
+      add(this.avatar, new THREE.BoxGeometry(0.09, 0.33, 0.025), trim, 0, 1.02, 0.335);
     } else if (style === 'tech') {
-      add(this.group, new THREE.BoxGeometry(0.49, 0.075, 0.025), dark, 0, 1.25, 0.31);
-      add(this.group, new THREE.BoxGeometry(0.13, 0.1, 0.03), trim, 0.18, 1.02, 0.33);
+      add(this.avatar, new THREE.BoxGeometry(0.49, 0.075, 0.025), dark, 0, 1.25, 0.31);
+      add(this.avatar, new THREE.BoxGeometry(0.13, 0.1, 0.03), trim, 0.18, 1.02, 0.33);
     } else if (style === 'creative') {
-      add(this.group, new THREE.TorusGeometry(0.1, 0.025, 5, 12), trim, 0, 1.33, 0.29);
-      add(this.group, new THREE.SphereGeometry(0.055, 8, 6), dark, -0.2, 1.07, 0.33);
+      add(this.avatar, new THREE.TorusGeometry(0.1, 0.025, 5, 12), trim, 0, 1.33, 0.29);
+      add(this.avatar, new THREE.SphereGeometry(0.055, 8, 6), dark, -0.2, 1.07, 0.33);
     } else if (style === 'smart' || style === 'polished') {
       for (const side of [-1, 1]) {
-        const lapel = add(this.group, new THREE.BoxGeometry(0.14, 0.38, 0.025), style === 'smart' ? trim : dark, side * 0.13, 1.2, 0.305);
+        const lapel = add(this.avatar, new THREE.BoxGeometry(0.14, 0.38, 0.025), style === 'smart' ? trim : dark, side * 0.13, 1.2, 0.305);
         lapel.rotation.z = side * 0.26;
       }
-      add(this.group, new THREE.SphereGeometry(0.027, 7, 6), trim, 0, 0.99, 0.36);
+      add(this.avatar, new THREE.SphereGeometry(0.027, 7, 6), trim, 0, 0.99, 0.36);
     } else {
-      add(this.group, new THREE.BoxGeometry(0.37, 0.055, 0.025), trim, 0, 1.34, 0.285);
+      add(this.avatar, new THREE.BoxGeometry(0.37, 0.055, 0.025), trim, 0, 1.34, 0.285);
     }
     const accessory = profile?.accessory;
     if (accessory === 'glasses') {
@@ -88,15 +99,17 @@ export class Npc {
     }
     this.name = meta.name;
     this.label = this.text(this.name, false);
-    this.label.position.y = 2.31; this.group.add(this.label);
+    this.label.position.y = 2.31; this.avatar.add(this.label);
   }
   setName(name: string) {
     const next = name;
     if (next === this.name) return;
     this.name = next; this.removeSprite(this.label);
-    this.label = this.text(next, false); this.label.position.y = 2.31; this.group.add(this.label);
+    this.label = this.text(next, false); this.label.position.y = 2.31; this.avatar.add(this.label);
   }
-  setTargetPose(x: number, y: number, z: number, yaw: number, pitch: number, seated: boolean) {
+  setTargetPose(x: number, y: number, z: number, yaw: number, pitch: number, seated: boolean, jumpOffset = 0) {
+    this.targetJumpOffset = seated ? 0 : Math.max(0, Math.min(JUMP_HEIGHT, jumpOffset));
+    if (seated) { this.jumpOffset = 0; this.landingAt = -Infinity; }
     if (!this.targetPos) {
       this.targetPos = new THREE.Vector3(x, y, z);
       this.group.position.set(x, y, z);
@@ -116,17 +129,31 @@ export class Npc {
   }
   say(text: string) {
     if (this.bubble) this.removeSprite(this.bubble);
-    this.bubble = this.text(text, true); this.bubble.position.y = 2.91; this.group.add(this.bubble);
+    this.bubble = this.text(text, true); this.bubble.position.y = 2.91; this.avatar.add(this.bubble);
     this.bubbleUntil = performance.now() + 6500;
   }
   react(at: number) { this.reactionAt = at; }
   update(now: number) {
+    const dt = this.lastUpdate ? Math.max(0, Math.min((now - this.lastUpdate) / 1000, 0.05)) : 1 / 60;
+    this.lastUpdate = now;
     if (this.targetPos) {
       this.group.position.lerp(this.targetPos, 0.22);
       const dyaw = Math.atan2(Math.sin(this.targetYaw - this.group.rotation.y), Math.cos(this.targetYaw - this.group.rotation.y));
       this.group.rotation.y += dyaw * 0.25;
       this.head.rotation.x += (this.targetPitch - this.head.rotation.x) * 0.25;
     }
+    const wasAirborne = this.jumpOffset > 0;
+    this.jumpOffset = THREE.MathUtils.damp(this.jumpOffset, this.targetJumpOffset, 24, dt);
+    if (this.targetJumpOffset === 0 && this.jumpOffset < 0.005) {
+      this.jumpOffset = 0;
+      if (wasAirborne) this.landingAt = now;
+    }
+    const dip = landingDip((now - this.landingAt) / 1000);
+    const tuck = this.jumpOffset / JUMP_HEIGHT;
+    this.avatar.position.y = this.jumpOffset - dip;
+    this.avatar.scale.set(1 + dip * 0.4, 1 - dip, 1 + dip * 0.4);
+    this.legs.forEach(leg => { leg.rotation.x = -0.5 * tuck; });
+    this.arms.forEach((arm, i) => { arm.rotation.x = -0.8 * tuck; arm.rotation.z = (i ? 1 : -1) * 0.5 * tuck; });
     const age = now - this.reactionAt;
     this.bodyMaterial.emissive.set('#f6b84b');
     this.bodyMaterial.emissiveIntensity = age < 2400 ? (0.5 + Math.sin(age / 110) * 0.5) * 0.45 : 0;
@@ -161,5 +188,5 @@ export class Npc {
     });
     this.group.clear();
   }
-  private removeSprite(sprite: THREE.Sprite) { this.group.remove(sprite); sprite.material.map?.dispose(); sprite.material.dispose(); }
+  private removeSprite(sprite: THREE.Sprite) { this.avatar.remove(sprite); sprite.material.map?.dispose(); sprite.material.dispose(); }
 }

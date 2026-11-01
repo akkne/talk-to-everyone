@@ -92,6 +92,7 @@ public sealed class PoseData
     public Vec3 Position { get; set; } = new(0, 0, 5);
     public double Yaw { get; set; }
     public double Pitch { get; set; }
+    public double JumpOffset { get; set; }
     public string Mode { get; set; } = "walking";
     public string? SeatId { get; set; }
     public long Seq { get; set; }
