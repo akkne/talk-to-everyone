@@ -15,6 +15,9 @@ export class Npc {
   readonly head = new THREE.Group();
   private readonly avatar = new THREE.Group();
   private readonly legs: THREE.Group[] = [];
+  private readonly knees: THREE.Group[] = [];
+  private hasChair = false;
+  private seatedAmount = 0;
   private readonly arms: THREE.Group[] = [];
   private readonly brows: THREE.Mesh[] = [];
   private readonly mouth: THREE.Mesh;
@@ -52,8 +55,10 @@ export class Npc {
     // Feet, trousers and the tapered jacket create a clear silhouette even from the rear row.
     for (const side of [-1, 1]) {
       const leg = new THREE.Group(); leg.position.set(side * 0.14, 0.62, 0); this.avatar.add(leg); this.legs.push(leg);
-      add(leg, new THREE.CapsuleGeometry(0.095, 0.34, 3, 7), dark, 0, -0.27, 0);
-      add(leg, new THREE.BoxGeometry(0.21, 0.12, 0.33), shoe, 0, -0.525, 0.09);
+      add(leg, new THREE.CapsuleGeometry(0.095, 0.08, 3, 7), dark, 0, -0.135, 0);
+      const knee = new THREE.Group(); knee.position.y = -0.27; leg.add(knee); this.knees.push(knee);
+      add(knee, new THREE.CapsuleGeometry(0.095, 0.08, 3, 7), dark, 0, -0.135, 0);
+      add(knee, new THREE.BoxGeometry(0.21, 0.12, 0.33), shoe, 0, -0.255, 0.09);
       const arm = new THREE.Group(); arm.position.set(side * 0.34, 1.32, 0); this.avatar.add(arm); this.arms.push(arm);
       const sleeve = add(arm, new THREE.CapsuleGeometry(0.105, 0.38, 3, 7), this.bodyMaterial, side * 0.04, -0.28, 0);
       sleeve.rotation.z = side * 0.16;
@@ -111,6 +116,11 @@ export class Npc {
     this.name = meta.number > 0 ? npcLabel(meta) : meta.name;
     this.label = this.text(this.name, false);
     this.label.position.y = 2.31; this.avatar.add(this.label);
+  }
+  enableChair() {
+    this.hasChair = true;
+    this.seatedAmount = 1;
+    this.update(performance.now());
   }
   setName(name: string) {
     const next = name;
@@ -206,10 +216,14 @@ export class Npc {
     const speech = this.speech;
     const speechAge = speech ? now - speech.at : -1;
     const pose = expressionPose(speech?.emotion ?? 'neutral', speechAge, speech?.duration ?? 0);
-    this.avatar.position.y = this.jumpOffset - dip;
+    if (this.hasChair) this.seatedAmount = THREE.MathUtils.damp(this.seatedAmount, speech ? 0 : 1, 14, dt);
+    const seated = this.seatedAmount;
+    this.avatar.position.y = this.jumpOffset - dip - seated * 0.1;
+    this.avatar.position.z = this.hasChair ? (1 - seated) * 0.65 : 0;
     this.avatar.rotation.set(pose.lean, 0, pose.sway);
     this.avatar.scale.set(1 + dip * 0.4, 1 - dip, 1 + dip * 0.4);
-    this.legs.forEach(leg => { leg.rotation.x = -0.5 * tuck; });
+    this.legs.forEach(leg => { leg.rotation.x = -0.5 * tuck - seated * Math.PI / 2; });
+    this.knees.forEach(knee => { knee.rotation.x = seated * Math.PI / 2; });
     this.arms.forEach((arm, i) => {
       arm.rotation.x = -0.8 * tuck + (i ? pose.rightX : pose.leftX) * (1 - tuck);
       arm.rotation.z = (i ? 1 : -1) * 0.5 * tuck + (i ? pose.rightZ : pose.leftZ) * (1 - tuck);

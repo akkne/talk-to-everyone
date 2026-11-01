@@ -125,3 +125,25 @@ test('stage 3: round changes keep received text, cancel stale poses, and reset d
   assert.deepEqual(useGameStore.getState().chat, []);
   assert.equal(useGameStore.getState().dialogue.current, null);
 });
+
+test('four chair occupants sit by default; only the current speaker stands and sits again after the reply', () => {
+  mockCanvas();
+  const actors = roster.slice(0, 4).map(meta => new Npc(meta));
+  const settle = (actor, from) => { for (let t = from; t < from + 1000; t += 16) actor.update(t); };
+  try {
+    actors.forEach(actor => actor.enableChair());
+    for (const actor of actors) assert.equal(actor.group.getObjectByName('avatar').position.y, -0.1);
+    actors[1].say('Ответ', 'happy', 2000);
+    actors.forEach(actor => settle(actor, 2000));
+    assert.ok(Math.abs(actors[1].group.getObjectByName('avatar').position.y) < 0.001);
+    for (const i of [0, 2, 3]) assert.equal(actors[i].group.getObjectByName('avatar').position.y, -0.1);
+    const end = 2000 + speechDuration('Ответ');
+    actors[1].update(end);
+    settle(actors[1], end + 16);
+    assert.ok(Math.abs(actors[1].group.getObjectByName('avatar').position.y + 0.1) < 0.001);
+    actors[2].say('Следующая реплика', 'neutral', end + 2000);
+    actors[2].stopSpeaking();
+    settle(actors[2], end + 2000);
+    assert.equal(actors[2].group.getObjectByName('avatar').position.y, -0.1);
+  } finally { actors.forEach(actor => actor.dispose()); }
+});

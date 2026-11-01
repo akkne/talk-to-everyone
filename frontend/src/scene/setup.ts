@@ -67,7 +67,7 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
     scene.add(chair);
   }
 
-  // Inset panels, trim and a large show sign frame the back wall without occupying the walkable floor.
+  // Inset panels and trim frame the back wall without occupying the walkable floor.
   const backZ = -depth / 2 + 0.2;
   const panel = material('#d7e8e4');
   const rail = material('#a7bbb5');
@@ -80,16 +80,6 @@ export function setupRoom(scene: THREE.Scene, spec: SceneSpec) {
     addBox(0, 0.18, z, width - 0.45, 0.25, 0.07, wood);
     addBox(0, height - 0.38, z, width - 0.45, 0.07, 0.07, wood);
   }
-  const signCanvas = document.createElement('canvas'); signCanvas.width = 1024; signCanvas.height = 256;
-  const ctx = signCanvas.getContext('2d')!;
-  ctx.fillStyle = '#f9f7f0'; ctx.fillRect(0, 0, 1024, 256);
-  ctx.fillStyle = '#0a66c2'; ctx.textAlign = 'center'; ctx.font = '600 82px -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif';
-  ctx.fillText('УГАДАЙ ДРУЗЕЙ', 512, 153);
-  ctx.fillStyle = '#c88e5d'; ctx.fillRect(276, 188, 472, 8);
-  const texture = new THREE.CanvasTexture(signCanvas); texture.colorSpace = THREE.SRGBColorSpace;
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(7, width * 0.43), 1.75), new THREE.MeshBasicMaterial({ map: texture }));
-  sign.position.set(0, height * 0.7, backZ + 0.102); scene.add(sign);
-
   // Ceiling light boxes make the studio feel evenly lit without heavy real-time shadows.
   for (const x of [-width * 0.25, 0, width * 0.25]) for (const z of [-depth * 0.22, depth * 0.22]) {
     addBox(x, height - 0.12, z, 2.35, 0.08, 0.72, material('#e1e7e0'));
@@ -109,4 +99,22 @@ export function disposeScene(scene: THREE.Scene) {
     }
   });
   scene.clear();
+}
+
+/** An armchair faces the same local +Z direction as its occupant. */
+export function createNpcChair() {
+  const chair = new THREE.Group(); chair.name = 'npc-chair';
+  const upholstery = material('#a6c8c3');
+  const wood = material('#b9a994');
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, mat = upholstery) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    mesh.position.set(x, y, z); chair.add(mesh);
+  };
+  box(0.82, 0.14, 0.74, 0, 0.47, -0.06);
+  box(0.96, 0.94, 0.16, 0, 0.92, -0.46);
+  for (const side of [-1, 1]) {
+    box(0.14, 0.32, 0.78, side * 0.48, 0.7, -0.06);
+    for (const z of [-0.32, 0.22]) box(0.07, 0.4, 0.07, side * 0.35, 0.2, z, wood);
+  }
+  return chair;
 }

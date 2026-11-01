@@ -4,7 +4,7 @@ import { useClient } from '../core/client';
 import { tickDialogue, useGameStore } from '../store/gameStore';
 import { useVoiceSettingsStore } from '../store/voiceSettingsStore';
 import { SpatialVoiceChannel } from '../audio/SpatialVoiceChannel';
-import { setupRoom, disposeScene } from './setup';
+import { setupRoom, disposeScene, createNpcChair } from './setup';
 import { CameraController } from './CameraController';
 import { Npc } from './Npc';
 import { NpcLod } from './lod';
@@ -104,6 +104,8 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
           const stand = spec.npcStands.find(x => x.id === meta.anchorId);
           if (!stand) continue;
           const npc = new Npc(meta);
+          npc.enableChair();
+          npc.group.add(createNpcChair());
           npc.group.position.set(stand.position.x, stand.position.y, stand.position.z);
           npc.group.rotation.y = stand.yaw;
           npcs.set(meta.id, npc);
