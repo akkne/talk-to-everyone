@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Backend;
 
-public sealed record RegisterRequest(string Login, string Password, string Name);
+public sealed record RegisterRequest(string Login, string Password, string Name, AvatarData? Avatar = null);
 public sealed record LoginRequest(string Login, string Password);
 
 public sealed class JwtAuthService(IConfiguration config)

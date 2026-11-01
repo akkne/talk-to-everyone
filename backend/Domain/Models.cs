@@ -6,6 +6,7 @@ public sealed class UserAccount
     public string Login { get; set; } = "";
     public string PasswordHash { get; set; } = "";
     public string Name { get; set; } = "";
+    public string AvatarJson { get; set; } = "{}";
     public long CreatedAt { get; set; }
 }
 
@@ -35,7 +36,28 @@ public sealed class GamePlayer
     public string QuestionsJson { get; set; } = "{}";
     public string PoseJson { get; set; } = "{}";
     public string ProcessedJson { get; set; } = "[]";
+    public string AvatarJson { get; set; } = "{}";
     public int Score { get; set; }
+}
+
+public sealed class AvatarAsset
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Category { get; set; } = ""; // "bodyColor", "hairStyle", "hairColor", "eyes", "mouth", "skinTone", "accessory"
+    public string Name { get; set; } = "";
+    public string Value { get; set; } = "";
+    public int SortOrder { get; set; }
+}
+
+public sealed class AvatarData
+{
+    public string BodyColor { get; set; } = "#dfbf63";
+    public string HairStyle { get; set; } = "short";
+    public string HairColor { get; set; } = "#332b2a";
+    public string Eyes { get; set; } = "dots";
+    public string Mouth { get; set; } = "smile";
+    public string SkinTone { get; set; } = "#e9bd9e";
+    public string Accessory { get; set; } = "none";
 }
 
 public sealed class GameNpc

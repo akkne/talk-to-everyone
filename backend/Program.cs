@@ -5,6 +5,7 @@ using System.Security.Claims;
 using Backend;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -87,6 +88,15 @@ app.MapGet("/health/db", async (GameDb db, CancellationToken ct) =>
     await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok" }) : Results.StatusCode(503)).AllowAnonymous();
 app.MapGet("/api/game-info", GameRules.InfoAsync).AllowAnonymous();
 app.MapGet("/api/maps", (MapCatalog maps) => Results.Ok(maps.List())).AllowAnonymous();
+app.MapGet("/api/avatar/assets", async (GameDb db, CancellationToken ct) =>
+{
+    var assets = await db.AvatarAssets.AsNoTracking()
+        .OrderBy(a => a.Category)
+        .ThenBy(a => a.SortOrder)
+        .ToListAsync(ct);
+    return Results.Ok(assets);
+}).AllowAnonymous();
+
 app.MapGet("/api/lobbies", async (GameDb db) => Results.Ok(await db.Sessions.AsNoTracking()
     .Select(s => new { code = s.RoomCode, mapId = s.MapId, started = s.Phase == "playing", playerCount = db.Players.Count(p => p.SessionId == s.Id && p.Connected) })
     .Where(s => s.playerCount > 0).OrderBy(s => s.code).ToListAsync())).AllowAnonymous();
@@ -135,6 +145,7 @@ app.MapPost("/api/auth/register", async (RegisterRequest? req, GameDb db, JwtAut
         Login = login,
         PasswordHash = JwtAuthService.HashPassword(password),
         Name = name,
+        AvatarJson = req?.Avatar != null ? JsonData.Write(req.Avatar) : JsonData.Write(new AvatarData()),
         CreatedAt = JsonData.Now
     };
     db.Users.Add(user);
@@ -144,7 +155,7 @@ app.MapPost("/api/auth/register", async (RegisterRequest? req, GameDb db, JwtAut
     return Results.Ok(new
     {
         token,
-        user = new { id = user.Id, login = user.Login, name = user.Name }
+        user = new { id = user.Id, login = user.Login, name = user.Name, avatar = JsonData.Read<AvatarData>(user.AvatarJson) }
     });
 }).AllowAnonymous();
 
@@ -168,7 +179,7 @@ app.MapPost("/api/auth/login", async (LoginRequest? req, GameDb db, JwtAuthServi
     return Results.Ok(new
     {
         token,
-        user = new { id = user.Id, login = user.Login, name = user.Name }
+        user = new { id = user.Id, login = user.Login, name = user.Name, avatar = JsonData.Read<AvatarData>(user.AvatarJson) }
     });
 }).AllowAnonymous();
 
@@ -184,7 +195,46 @@ app.MapGet("/api/auth/me", async (ClaimsPrincipal principal, GameDb db, Cancella
     {
         return Results.Unauthorized();
     }
-    return Results.Ok(new { id = user.Id, login = user.Login, name = user.Name });
+    return Results.Ok(new { id = user.Id, login = user.Login, name = user.Name, avatar = JsonData.Read<AvatarData>(user.AvatarJson) });
+}).RequireAuthorization();
+
+app.MapPost("/api/user/avatar", async (AvatarData avatar, ClaimsPrincipal principal, GameDb db, IHubContext<GameHub> hub, GameGate gate, CancellationToken ct) =>
+{
+    var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? principal.FindFirst("sub")?.Value;
+    if (string.IsNullOrWhiteSpace(userId)) return Results.Unauthorized();
+
+    await gate.Lock.WaitAsync(ct);
+    try
+    {
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, ct);
+        if (user == null) return Results.Unauthorized();
+
+        var json = JsonData.Write(avatar ?? new AvatarData());
+        user.AvatarJson = json;
+
+        var userHash = GameLogic.HashToken($"user:{user.Id}");
+        var activePlayers = await db.Players.Where(p => p.TokenHash == userHash).ToListAsync(ct);
+        foreach (var p in activePlayers)
+        {
+            p.AvatarJson = json;
+        }
+        await db.SaveChangesAsync(ct);
+
+        var sessionIds = activePlayers.Select(p => p.SessionId).Distinct().ToList();
+        foreach (var session in sessionIds)
+        {
+            var playersInSession = await db.Players.AsNoTracking().Where(p => p.SessionId == session).ToListAsync(ct);
+            await hub.Clients.Group(session).SendAsync("PlayersTick", new { players = playersInSession.Select(GameLogic.PlayerView).ToArray(), serverTime = JsonData.Now }, ct);
+            var s = await db.Sessions.SingleOrDefaultAsync(x => x.Id == session, ct);
+            if (s != null)
+            {
+                await hub.Clients.Group(session).SendAsync("LobbyState", GameLogic.Lobby(playersInSession, s), ct);
+            }
+        }
+
+        return Results.Ok(new { success = true, avatar = JsonData.Read<AvatarData>(json) });
+    }
+    finally { gate.Lock.Release(); }
 }).RequireAuthorization();
 
 app.MapGet("/api/host-info", async (HttpContext ctx, LlmClient llm, CancellationToken ct) =>

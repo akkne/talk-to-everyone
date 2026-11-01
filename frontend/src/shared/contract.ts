@@ -23,6 +23,7 @@ export const C2S = {
   SET_GAME_PAUSE: 'SetGamePause',
   SEND_VOICE_SIGNAL: 'SendVoiceSignal',
   SET_VOICE_SPEAKING: 'SetVoiceSpeaking',
+  UPDATE_AVATAR: 'UpdateAvatar',
 } as const;
 
 export const S2C = {

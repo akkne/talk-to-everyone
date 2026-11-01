@@ -9,7 +9,14 @@ public static class GameLogic
 {
     public static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     public static string PairKey(string a, string b) => string.CompareOrdinal(a, b) < 0 ? $"{a}:{b}" : $"{b}:{a}";
-    public static object PlayerView(GamePlayer p) => new { id = p.Id, name = p.Name, connected = p.Connected, pose = JsonData.Read<PoseData>(p.PoseJson) };
+    public static object PlayerView(GamePlayer p) => new
+    {
+        id = p.Id,
+        name = p.Name,
+        connected = p.Connected,
+        pose = JsonData.Read<PoseData>(p.PoseJson),
+        avatar = JsonData.Read<AvatarData>(p.AvatarJson)
+    };
     public static object NpcView(GameNpc n) => new { id = n.Id, number = n.Number, name = n.Name, color = n.Color, anchorId = $"anchor-{n.Number}", appearance = NpcAppearance.From(n) };
     public static object Details(GameNpc n) => new { displayName = n.Name, photoColor = n.Color, voiceHint = "neutral" };
     public static object RoundView(GameSession s, ISessionPauseGate? pauseGate = null)
@@ -40,7 +47,14 @@ public static class GameLogic
     }).ToArray();
     public static object Lobby(IEnumerable<GamePlayer> players, GameSession session) => new
     {
-        sessionId = session.Id, roomCode = session.RoomCode, mapId = session.MapId, players = players.Select(p => new { id = p.Id, name = p.Name, connected = p.Connected }).ToArray(),
+        sessionId = session.Id, roomCode = session.RoomCode, mapId = session.MapId,
+        players = players.Select(p => new
+        {
+            id = p.Id,
+            name = p.Name,
+            connected = p.Connected,
+            avatar = JsonData.Read<AvatarData>(p.AvatarJson)
+        }).ToArray(),
         leaderId = players.FirstOrDefault(p => p.Role == "leader" && p.Connected)?.Id ?? players.FirstOrDefault(p => p.Role == "leader")?.Id,
         minPlayers = 1,
         canStart = (session.Phase == "lobby" || session.Phase == "finished") && players.Any(p => p.Role == "leader" && p.Connected),

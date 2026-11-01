@@ -186,6 +186,10 @@ public sealed partial class GameHub(
             {
                 me.Name = name;
                 me.TokenHash = userHash;
+                if (!string.IsNullOrWhiteSpace(account.AvatarJson) && account.AvatarJson != "{}")
+                {
+                    me.AvatarJson = account.AvatarJson;
+                }
             }
             else
             {
@@ -217,6 +221,7 @@ public sealed partial class GameHub(
                     Role = "judge",
                     SessionId = session.Id,
                     TokenHash = userHash,
+                    AvatarJson = string.IsNullOrWhiteSpace(account.AvatarJson) ? "{}" : account.AvatarJson,
                     Score = JsonData.Read<VotingData>(session.VotingJson).TeamScore,
                     BoardJson = JsonData.Write(new BoardData()),
                     QuestionsJson = JsonData.Write(new QuestionData()),
@@ -253,6 +258,39 @@ public sealed partial class GameHub(
         finally { gate.Lock.Release(); }
     }
 
+    public async Task UpdateAvatar(AvatarData request)
+    {
+        await gate.Lock.WaitAsync();
+        try
+        {
+            var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? Context.User?.FindFirst("sub")?.Value;
+            if (string.IsNullOrWhiteSpace(userId)) return;
+
+            var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId);
+            if (user == null) return;
+
+            var json = JsonData.Write(request ?? new AvatarData());
+            user.AvatarJson = json;
+
+            var userHash = GameLogic.HashToken($"user:{user.Id}");
+            var activePlayers = await db.Players.Where(p => p.TokenHash == userHash).ToListAsync();
+            foreach (var p in activePlayers)
+            {
+                p.AvatarJson = json;
+            }
+            await db.SaveChangesAsync();
+
+            var sessionIds = activePlayers.Select(p => p.SessionId).Distinct().ToList();
+            foreach (var sid in sessionIds)
+            {
+                await BroadcastPlayers(sid);
+                await BroadcastLobby(sid);
+            }
+        }
+        finally { gate.Lock.Release(); }
+    }
+
     public async Task StartGame()
     {
         await gate.Lock.WaitAsync();
@@ -280,12 +318,15 @@ public sealed partial class GameHub(
             session.EndsAt = JsonData.Now + settings.RoundSeconds * 1000L;
 
             var players = await db.Players.Where(p => p.SessionId == me.SessionId).ToListAsync();
+            var idx = 0;
             foreach (var p in players)
             {
                 p.Score = 0;
                 p.BoardJson = JsonData.Write(new BoardData());
                 p.QuestionsJson = JsonData.Write(new QuestionData());
                 p.ProcessedJson = "[]";
+                p.PoseJson = JsonData.Write(new PoseData { Position = maps.Location(session.Id, session.MapId).Spawn(idx) });
+                idx++;
             }
 
             await db.SaveChangesAsync();
@@ -302,6 +343,7 @@ public sealed partial class GameHub(
             }
             await BroadcastLobby(me.SessionId);
             await BroadcastParticipants(me.SessionId);
+            await BroadcastPlayers(me.SessionId);
             director.TriggerRound(me.SessionId, 1, "presentation");
         }
         finally { gate.Lock.Release(); }
@@ -321,8 +363,16 @@ public sealed partial class GameHub(
             }
             session.MapId = mapId;
             LocationScene.Drop(session.Id);
+            var players = await db.Players.Where(p => p.SessionId == session.Id).ToListAsync();
+            var idx = 0;
+            foreach (var p in players)
+            {
+                p.PoseJson = JsonData.Write(new PoseData { Position = maps.Location(session.Id, mapId).Spawn(idx) });
+                idx++;
+            }
             await db.SaveChangesAsync();
             await BroadcastLobby(session.Id);
+            await BroadcastPlayers(session.Id);
         }
         finally { gate.Lock.Release(); }
     }

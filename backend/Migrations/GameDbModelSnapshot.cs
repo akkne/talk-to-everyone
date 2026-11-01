@@ -21,6 +21,33 @@ namespace Backend.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Backend.AvatarAsset", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category", "SortOrder");
+
+                    b.ToTable("AvatarAssets");
+                });
+
             modelBuilder.Entity("Backend.GameMessage", b =>
                 {
                     b.Property<string>("Id")
@@ -107,6 +134,10 @@ namespace Backend.Migrations
             modelBuilder.Entity("Backend.GamePlayer", b =>
                 {
                     b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AvatarJson")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("BoardJson")
@@ -240,6 +271,10 @@ namespace Backend.Migrations
             modelBuilder.Entity("Backend.UserAccount", b =>
                 {
                     b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AvatarJson")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<long>("CreatedAt")
