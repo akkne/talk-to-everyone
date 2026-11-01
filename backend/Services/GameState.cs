@@ -58,7 +58,9 @@ public static class GameLogic
         var session = await db.Sessions.SingleAsync();
         var players = await db.Players.AsNoTracking().ToListAsync();
         var voting = JsonData.Read<VotingData>(session.VotingJson);
-        var npcs = await db.Npcs.AsNoTracking().Where(n => !voting.Eliminated.Contains(n.Id)).OrderBy(n => n.Number).ToListAsync();
+        var npcs = await db.Npcs.AsNoTracking()
+            .Where(n => session.Phase == "finished" || !voting.Eliminated.Contains(n.Id))
+            .OrderBy(n => n.Number).ToListAsync();
         var chat = await db.Messages.AsNoTracking().Where(m => !m.IsQuestion && !voting.Eliminated.Contains(m.NpcId)).OrderBy(m => m.At).Select(m => new
         { m.Id, npc = m.NpcId, m.Text, m.InReplyTo, m.Emotion, m.At }).ToListAsync();
         var scoreboard = session.Phase == "finished" ? Scoreboard(players) : null;
@@ -80,8 +82,8 @@ public static class GameLogic
 
     public static object Reveal(List<GameNpc> npcs) => new
     {
-        trueFriends = npcs.Where(n => n.Role == "friend" && n.Number < n.RelatedNumber && npcs.Any(other => other.Number == n.RelatedNumber))
-            .Select(n => new[] { n.Id, $"npc-{n.RelatedNumber}" }).ToArray(),
+        trueFriends = npcs.Where(n => n.Role == "friend" && n.Number < n.RelatedNumber && npcs.Any(other => other.Number == n.RelatedNumber && other.Role == "friend" && other.RelatedNumber == n.Number))
+            .Select(n => new[] { n.Id, npcs.Single(other => other.Number == n.RelatedNumber).Id }).ToArray(),
         actors = npcs.Where(n => n.Role == "actor").Select(n => n.Id).ToArray()
     };
 
@@ -93,12 +95,12 @@ public static class GameLogic
         var session = await db.Sessions.SingleAsync();
         var players = await db.Players.ToListAsync();
         var voting = JsonData.Read<VotingData>(session.VotingJson);
-        var npcs = await db.Npcs.Where(n => !voting.Eliminated.Contains(n.Id)).ToListAsync();
+        var npcs = await db.Npcs.AsNoTracking().OrderBy(n => n.Number).ToListAsync();
         foreach (var player in players) player.Score = voting.TeamScore;
         session.Phase = "finished"; session.Round = 5; session.RoundPhase = "reveal"; session.EndsAt = 0;
         await db.SaveChangesAsync();
         var scoreboard = Scoreboard(players);
-        await hub.Clients.All.SendAsync("GameEnded", new { reveal = Reveal(npcs), scoreboard });
+        await hub.Clients.All.SendAsync("GameEnded", new { reveal = Reveal(npcs), scoreboard, npcs = npcs.Select(NpcView).ToArray() });
         await hub.Clients.All.SendAsync("ScoreUpdate", new { players = scoreboard });
     }
 }

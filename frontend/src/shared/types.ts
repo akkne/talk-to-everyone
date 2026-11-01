@@ -51,7 +51,7 @@ export interface Events {
   [S2C.GAME_STARTED]: { rounds: RoundSpec[]; npcs: NpcMeta[]; sceneVersion: string };
   [S2C.ROUND_STARTED]: Round;
   [S2C.ROUND_ENDED]: { n: number; choiceEndsAt: number | null };
-  [S2C.GAME_ENDED]: { reveal: RevealData; scoreboard: ScoreEntry[] };
+  [S2C.GAME_ENDED]: { reveal: RevealData; scoreboard: ScoreEntry[]; npcs: NpcMeta[] };
   [S2C.STATE_SNAPSHOT]: Snapshot;
   [S2C.CHUNK_DATA]: { reqId: string; npcs: Chunk[] };
   [S2C.PLAYERS_TICK]: { players: Player[]; serverTime: number };

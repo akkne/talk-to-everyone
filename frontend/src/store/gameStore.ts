@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { S2C } from '../shared/contract';
 import { UI } from '../shared/config';
 import { advanceSpeech, emptyDialogue, enqueueSpeech, removeSpeakers, type DialogueState } from '../shared/dialogue';
-import type { Board, ChatMessage, Events, VotingState, GameInfo, LobbyState, NpcMeta, Player, QuestionState, RevealData, Round, RoundSpec, SceneSpec, SeatState } from '../shared/types';
+import type { Board, ChatMessage, Events, VotingState, GameInfo, LobbyState, NpcMeta, Player, QuestionState, RevealData, Round, RoundSpec, SceneSpec, ScoreEntry, SeatState } from '../shared/types';
 
 export type ConnectionStatus = 'offline' | 'connecting' | 'authenticating' | 'syncing' | 'ready' | 'reconnecting';
 interface GameState {
@@ -10,7 +10,7 @@ interface GameState {
   phase: 'lobby' | 'playing' | 'reveal'; round: Round | null; rounds: RoundSpec[]; roundEnded: boolean;
   lobby: LobbyState | null; scene: SceneSpec | null; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board;
   voting: VotingState | null; teamScore: number;
-  score: Record<string, number>; titles: Record<string, string>; reveal: RevealData | null;
+  score: Record<string, number>; titles: Record<string, string>; scoreboard: ScoreEntry[]; reveal: RevealData | null;
   chat: ChatMessage[]; questions: QuestionState; boardOpen: boolean;
   dialogue: DialogueState;
   thinkingNpc: string | null; thinkingAt: number;
@@ -22,7 +22,7 @@ function initial(): GameState {
   return {
     voting: null, teamScore: 0, connection: 'offline', sessionId: '', playerId: '', role: '', phase: 'lobby',
     round: null, rounds: [], roundEnded: false, lobby: null, scene: null, players: [], npcs: [], seats: [],
-    board: { pairs: [], liars: [], locks: {}, notes: {}, submitted: {} }, score: {}, titles: {}, reveal: null,
+    board: { pairs: [], liars: [], locks: {}, notes: {}, submitted: {} }, score: {}, titles: {}, scoreboard: [], reveal: null,
     chat: [], dialogue: emptyDialogue(), questions: { remaining: 0, askedTo: [], pending: false }, boardOpen: false,
     thinkingNpc: null, thinkingAt: 0,
     error: null, rtt: null, gameInfo: null, gameInfoError: null, metrics: { fps: 0, calls: 0, triangles: 0, geometries: 0, textures: 0 },
@@ -77,16 +77,16 @@ const handlers: Handlers = {
   [S2C.AUTH_OK]: p => set({ playerId: p.playerId, sessionId: p.sessionId, role: p.role }),
   [S2C.AUTH_ERR]: p => set({ error: p.message, connection: 'offline' }),
   [S2C.LOBBY_STATE]: p => set(s => ({ lobby: p, role: p.leaderId === s.playerId ? 'leader' : s.role })),
-  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: namedNpcs(p.npcs), reveal: null, chat: [], dialogue: emptyDialogue(), thinkingNpc: null, voting: null, teamScore: 0 }),
+  [S2C.GAME_STARTED]: p => set({ phase: 'playing', rounds: p.rounds, npcs: namedNpcs(p.npcs), reveal: null, scoreboard: [], chat: [], dialogue: emptyDialogue(), thinkingNpc: null, voting: null, teamScore: 0 }),
   [S2C.ROUND_STARTED]: p => set(s => ({ ...finishDialogue(s), round: p, roundEnded: false, phase: 'playing' })),
   [S2C.ROUND_ENDED]: p => { if (p.n === useGameStore.getState().round?.n) set(s => ({ ...finishDialogue(s), roundEnded: true })); },
-  [S2C.GAME_ENDED]: p => set(s => ({ ...finishDialogue(s), phase: 'reveal', reveal: p.reveal, boardOpen: false, voting: null, ...scoreFields(p.scoreboard) })),
+  [S2C.GAME_ENDED]: p => set(s => ({ ...finishDialogue(s), phase: 'reveal', reveal: p.reveal, npcs: namedNpcs(p.npcs), scoreboard: p.scoreboard, boardOpen: false, voting: null, ...scoreFields(p.scoreboard) })),
   [S2C.STATE_SNAPSHOT]: p => set({
     sessionId: p.sessionId, playerId: p.me.id, role: p.me.role,
     phase: p.phase === 'finished' ? 'reveal' : p.phase,
     round: p.round, rounds: p.rounds, gameInfo: p.gameInfo, gameInfoError: null, roundEnded: false, scene: p.scene, players: p.players, npcs: namedNpcs(p.npcs), seats: p.seats,
     voting: p.voting, teamScore: p.teamScore, board: p.board, questions: p.questions, chat: p.chat.slice(-UI.MAX_CHAT), dialogue: emptyDialogue(), thinkingNpc: null, score: p.score,
-    titles: p.scoreboard ? scoreFields(p.scoreboard).titles : {}, reveal: p.reveal,
+    titles: p.scoreboard ? scoreFields(p.scoreboard).titles : {}, scoreboard: p.scoreboard ?? [], reveal: p.reveal,
     error: null, boardOpen: false,
   }),
   [S2C.CHUNK_DATA]: () => {},
