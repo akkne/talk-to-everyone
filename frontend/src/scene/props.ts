@@ -11,6 +11,15 @@ export function createProp(p:PropSpec){
  const rod=(a:number[],b:number[],r=.025)=>{const start=new T.Vector3(...a),end=new T.Vector3(...b),delta=end.clone().sub(start);const m=new T.Mesh(new T.CylinderGeometry(r,r,delta.length(),6),mat(metal));m.position.copy(start.add(end).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());g.add(m);};
  const tripod=()=>{for(let i=0;i<3;i++){const a=i*Math.PI*2/3;rod([0,h*.68,0],[Math.cos(a)*w*.45,.05,Math.sin(a)*d*.45],.035);}cyl(0,h*.52,0,.045,h*.9);};
  switch(p.type){
+ case 'foosball':
+  box(0,h*.78,0,w,.18,d,c);box(0,h*.87,0,w*.87,.04,d*.84,'#2c6846');
+  for(const x of [-w*.44,w*.44])for(const z of [-d*.4,d*.4])box(x,h*.38,z,.08,h*.76,.08,dark);
+  for(let z=-d*.33;z<=d*.34;z+=d*.22)rod([-w*.7,h*.98,z],[w*.7,h*.98,z],.035);
+  break;
+ case 'vending':
+  box(0,h/2,0,w,h,d,c);box(0,h*.57,d*.51,w*.72,h*.66,.035,dark);
+  for(let row=0;row<3;row++)for(let col=0;col<2;col++)box((col-.5)*w*.32,h*(.37+row*.18),d*.54,w*.2,h*.11,.025,['#6b9eaa','#c16e4c','#bba75d'][row],true);
+  box(w*.27,h*.25,d*.54,w*.2,h*.13,.04,'#22262c');break;
  case 'panel':box(0,0,0,w,h,d,c);break;
  case 'gate':box(0,0,0,w,h,d,c);for(let y=-h/2;y<h/2;y+=.45)box(0,y,d/2+.01,w,.035,.035,metal);for(const x of [-w/2,w/2])box(x,0,.1,.15,h+.3,.2,dark);break;
  case 'vent':box(0,0,0,w,h,d,c);for(let z=-d/2;z<=d/2;z+=.8)box(0,0,z,w*1.08,h*1.08,.06,metal);break;
@@ -53,7 +62,7 @@ export function createProp(p:PropSpec){
 }
 export function addLocationProps(scene:T.Scene,spec:SceneSpec){
  for(const p of spec.objects??[])scene.add(createProp(p));
- for(const d of spec.doors??[]){const g=new T.Group();g.name=d.id;g.add(new T.Mesh(new T.BoxGeometry(d.size.x,d.size.y,d.size.z),mat('#3c6579')));for(const x of [-1,1]){const handle=new T.Mesh(new T.BoxGeometry(.09,.35,.06),mat('#dce2db'));handle.position.set(x*(d.size.x/2+.04),0,-d.size.z*.32);g.add(handle);}scene.add(g);}
+ for(const d of spec.doors??[]){const g=new T.Group();g.name=d.id;g.add(new T.Mesh(new T.BoxGeometry(d.size.x,d.size.y,d.size.z),mat('#3c6579')));for(const x of [-1,1]){const handle=new T.Mesh(new T.BoxGeometry(.09,.35,.06),mat('#dce2db'));handle.position.set(x*(d.size.x/2+.04),0,-d.size.z*.32);g.add(handle);}if(spec.theme==='industrial-loft-bar'){const ring=new T.Mesh(new T.TorusGeometry(.35,.06,8,24),mat('#a8aaa0'));ring.position.set(0,.55,-d.size.z/2-.04);g.add(ring);const glass=new T.Mesh(new T.CircleGeometry(.29,24),mat('#364c57'));glass.position.set(0,.55,-d.size.z/2-.05);g.add(glass);const led=new T.Mesh(new T.SphereGeometry(.06,8,6),mat('#4eff87',true));led.position.set(.65,-.35,-d.size.z/2-.08);g.add(led);}scene.add(g);}
  for(const f of spec.foods??[]){const g=new T.Group();g.name=f.id;g.position.set(f.position.x,f.position.y,f.position.z);const add=(geom:T.BufferGeometry,c:string,y=0)=>{const m=new T.Mesh(geom,mat(c));m.position.y=y;g.add(m);return m;};add(new T.CylinderGeometry(.23,.23,.025,20),'#f2eee2',-.04);
  if(f.type==='apple'){add(new T.SphereGeometry(.14,16,12),'#d14a36',.12);add(new T.CylinderGeometry(.018,.018,.12,6),'#594636',.28);}else if(f.type==='pizza'){const m=add(new T.CylinderGeometry(.22,.22,.055,3),'#edbc61',.03);m.rotation.y=.5;for(let i=0;i<3;i++){const q=add(new T.CylinderGeometry(.038,.038,.012,10),'#b84633',.065);q.position.x=(i-1)*.06;q.position.z=.02;}}else if(f.type==='donut'){const m=add(new T.TorusGeometry(.12,.055,8,20),'#e199aa',.045);m.rotation.x=Math.PI/2;}else{add(new T.BoxGeometry(.3,.08,.23),'#d4a15e',.04);add(new T.BoxGeometry(.31,.025,.24),'#4e9b55',.09);add(new T.BoxGeometry(.3,.08,.23),'#f0c489',.14);}scene.add(g);}
 }

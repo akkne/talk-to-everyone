@@ -30,7 +30,7 @@ export interface VotingState { round: number; stage: number; candidates: [NpcId,
 export interface Snapshot { voting: VotingState | null; teamScore: number; sessionId: string; me: { id: string; role: string }; phase: 'lobby' | 'playing' | 'finished'; round: Round | null; rounds: RoundSpec[]; gameInfo: GameInfo; scene: SceneSpec; players: Player[]; npcs: NpcMeta[]; seats: SeatState[]; board: Board; questions: QuestionState; chat: ChatMessage[]; worldSizeBytes: number; score: Record<string, number>; scoreboard: ScoreEntry[] | null; reveal: RevealData | null; paused?: boolean; pausedRemainingMs?: number; participants?: ParticipantStatus[]; speakingPlayerIds?: string[] }
 type Request = { requestId: string };
 export interface Commands {
-  [C2S.INTERACT]: Request & { id: string };
+  [C2S.INTERACT]: Request & { id: string; action?: string };
   [C2S.AUTH]: { token: string; name?: string };
   [C2S.START_GAME]: undefined;
   [C2S.SELECT_MAP]: string;
@@ -56,8 +56,8 @@ export interface Commands {
 }
 interface Reject { code: string; message: string; requestId?: string | null }
 export interface Events {
-  [S2C.LOCATION_STATE]: { doors: NonNullable<SceneSpec['doors']>; foods: NonNullable<SceneSpec['foods']> };
-  [S2C.INTERACTION_FEEDBACK]: { message: string };
+  [S2C.LOCATION_STATE]: { doors: NonNullable<SceneSpec['doors']>; foods: NonNullable<SceneSpec['foods']>; activeLightingPreset?: string; fanOn?: boolean; musicTrack?: string };
+  [S2C.INTERACTION_FEEDBACK]: { message: string; action?: string };
   [S2C.VOTING_STATE]: VotingState;
   [S2C.NPCS_REMOVED]: { ids: NpcId[]; teamScore: number };
   [S2C.AUTH_OK]: { playerId: string; sessionId: string; role: string };

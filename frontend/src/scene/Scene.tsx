@@ -4,12 +4,13 @@ import { useClient } from '../core/client';
 import { tickDialogue, useGameStore } from '../store/gameStore';
 import { useVoiceSettingsStore } from '../store/voiceSettingsStore';
 import { SpatialVoiceChannel } from '../audio/SpatialVoiceChannel';
-import { setupRoom, disposeScene, createNpcChair } from './setup';
+import { setupRoom, disposeScene, createNpcChair, syncRoomLighting } from './setup';
 import { syncLocationProps } from './props';
 import { CameraController } from './CameraController';
 import { Npc } from './Npc';
 import { NpcLod } from './lod';
 import { npcLabel } from '../shared/npcLabel';
+import { LoftSoundtrack } from './LoftSoundtrack';
 
 /** <summary>One visible canvas; subscription callbacks bridge Zustand to the imperative three.js scene and 3D spatial voice audio.</summary> */
 export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }) {
@@ -40,6 +41,7 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     }
     const scene = new THREE.Scene();
     setupRoom(scene, spec);
+    const soundtrack = spec.theme === 'industrial-loft-bar' ? new LoftSoundtrack() : null;
     const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 100);
     const controller = new CameraController(
       camera,
@@ -51,6 +53,26 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
     );
     const npcs = new Map<string, Npc>();
     const judges = new Map<string, Npc>();
+    const loftCharacters: Npc[] = [];
+    for (const character of [...(spec.functionalNPCs ?? []), ...(spec.ambientNPCs ?? [])]) {
+      const position = character.position ?? character.spawnPosition;
+      if (!position) continue;
+      if (character.type === 'animal-cat') {
+        const cat = new THREE.Group();
+        const fur = new THREE.MeshStandardMaterial({ color: '#be9474', roughness: .9 });
+        const body = new THREE.Mesh(new THREE.SphereGeometry(.28, 12, 8), fur);
+        body.scale.set(1.3, .6, .8); cat.add(body);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(.17, 12, 8), fur);
+        head.position.set(.26,.05,0); cat.add(head);
+        for (const z of [-.11,.11]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(.07,.16,6), fur); ear.position.set(.3,.24,z); cat.add(ear); }
+        cat.position.set(position.x, position.y + .16, position.z); scene.add(cat);
+      } else {
+        const actor = new Npc({ id: character.id, number: 0, name: character.name ?? (character.type === 'human-bouncer' ? 'Охранник' : 'Гость'), color: character.type === 'functional-service-npc' ? '#ad7962' : '#707a80', anchorId: '' });
+        actor.group.position.set(position.x, position.y, position.z);
+        actor.group.rotation.y = character.yaw ?? 0;
+        scene.add(actor.group); loftCharacters.push(actor);
+      }
+    }
     const lod = new NpcLod(camera, npcs, client);
     const voiceChannel = new SpatialVoiceChannel(
       client,
@@ -90,7 +112,14 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
 
     const sync = () => {
       const state = useGameStore.getState();
-      if(state.scene){ controller.syncLocation(state.scene);syncLocationProps(scene,state.scene); }
+      if(state.scene){
+        controller.syncLocation(state.scene);
+        syncLocationProps(scene,state.scene);
+        soundtrack?.setTrack(state.scene.musicTrack ?? 'mute');
+        syncRoomLighting(scene, state.round?.phase === 'interrogation'
+          ? { ...state.scene, activeLightingPreset: 'interrogation-blackout' }
+          : state.scene);
+      }
       controller.setOccupied(
         state.seats.filter(seat => seat.occupiedBy && seat.occupiedBy !== state.playerId).map(seat => seat.id)
       );
@@ -208,6 +237,9 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       tickDialogue(now);
       npcs.forEach(npc => npc.update(now));
       judges.forEach(judge => judge.update(now));
+      loftCharacters.forEach(character => character.update(now));
+      const fan = scene.getObjectByName('loft-ceiling-fan');
+      if (fan && state.scene?.fanOn) fan.rotation.y += .14;
       lod.update(now, state.connection === 'ready');
 
       const me = state.players.find(p => p.id === state.playerId);
@@ -250,6 +282,8 @@ export function Scene({ controlsBlocked = false }: { controlsBlocked?: boolean }
       element.removeEventListener('webglcontextlost', lost);
       controller.dispose();
       lod.dispose();
+      loftCharacters.forEach(character => character.dispose());
+      soundtrack?.dispose();
       disposeScene(scene);
       renderer.dispose();
     };

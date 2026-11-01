@@ -38,3 +38,18 @@ test('spawn points, exits, ramps and food approach remain clear',()=>{
  for(const c of s.objects.filter(o=>o.type==='camera'))assert.ok(c.position.x>11&&c.position.z>2);
  assert.ok(buildSceneObstacles(s).length>50);
 });
+
+test('loft map renders its furniture and exposes all configured actions',()=>{
+ const s=JSON.parse(readFileSync('../backend/Maps/loft_bar_scene.json'));
+ globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
+ const scene=new Scene();setupRoom(scene,s);
+ for(const p of s.objects)assert.ok(scene.getObjectByName(p.id),p.id);
+ assert.ok(scene.getObjectByName('loft-entrance-door'));
+ for(const item of s.interactiveObjects){
+  const near=at(item.interactionTrigger.x,item.interactionTrigger.z);
+  const found=nearestInteraction(s,near);
+  assert.equal(found?.id,item.id,item.id);
+  assert.deepEqual(found.actions,item.actions);
+ }
+ assert.ok(s.playerSeats.every(seat=>Math.abs(seat.yaw)<Math.PI/2));
+});
