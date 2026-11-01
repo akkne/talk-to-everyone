@@ -1,3 +1,7 @@
+{
+	default_sni {$CADDY_DOMAIN:127.0.0.1}
+}
+
 (site) {
 	encode zstd gzip
 
@@ -13,10 +17,15 @@
 	}
 }
 
-{$CADDY_DOMAIN:localhost} {
+localhost {
+	import site
+}
+
+{$CADDY_DOMAIN:127.0.0.1} {
+	tls internal
 	import site
 }
 
 http://:80 {
-	import site
+	redir https://{host}{uri} 308
 }

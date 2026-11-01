@@ -39,6 +39,7 @@ services:
       GAME_ROOM_CODE: ${GAME_ROOM_CODE:-1234}
       GAME_ROUND_SECONDS: ${GAME_ROUND_SECONDS:-120}
       GAME_CHOICE_SECONDS: ${GAME_CHOICE_SECONDS:-45}
+      CADDY_DOMAIN: ${CADDY_DOMAIN:-}
       JWT_SECRET: ${JWT_SECRET:-talk-to-everyone-super-secret-jwt-key-2026-min-32-bytes}
       Ollama__BaseUrl: ${OLLAMA__BASEURL:-http://ollama:11434}
       Ollama__Model: ${OLLAMA__MODEL:-qwen2.5:3b-instruct}
@@ -71,7 +72,7 @@ services:
     depends_on:
       - backend
     environment:
-      CADDY_DOMAIN: ${CADDY_DOMAIN:-localhost}
+      CADDY_DOMAIN: ${CADDY_DOMAIN:-127.0.0.1}
     ports:
       - "80:80"
       - "443:443"

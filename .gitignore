@@ -6,6 +6,7 @@ obj/
 .env
 .env.*
 !.env.example
+/caddy-root.crt
 .DS_Store
 *.tsbuildinfo
 frontend/artifacts/

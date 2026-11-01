@@ -174,7 +174,10 @@ app.MapGet("/api/host-info", async (HttpContext ctx, GameSettings settings, LlmC
     var forwardedHost = ctx.Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? ctx.Request.Host.Host;
     if (forwardedHost is "localhost" or "127.0.0.1" or "::1") isLoopback = true;
 
-    var endpoints = GetLanEndpoints();
+    var publicHost = Environment.GetEnvironmentVariable("CADDY_DOMAIN")?.Trim();
+    var endpoints = !string.IsNullOrWhiteSpace(publicHost) && publicHost is not ("localhost" or "127.0.0.1")
+        ? new object[] { new { ip = publicHost, label = "HTTPS", url = $"https://{publicHost}" } }
+        : GetLanEndpoints();
     var ollama = await llm.GetOllamaStatusAsync(ct);
 
     return Results.Ok(new
